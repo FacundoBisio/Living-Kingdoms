@@ -4,6 +4,7 @@ import com.mojang.brigadier.Command;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import dev.livingkingdoms.config.KingdomConfig;
+import dev.livingkingdoms.quest.persistence.QuestSavedData;
 import dev.livingkingdoms.settlement.SettlementGenerator;
 import dev.livingkingdoms.settlement.domain.Settlement;
 import dev.livingkingdoms.settlement.domain.Territory;
@@ -29,7 +30,24 @@ public final class SettlementCommands {
                                 .executes(SettlementCommands::create))
                         .then(Commands.literal("generate").requires(source -> source.hasPermission(2))
                                 .executes(SettlementCommands::generate))
-                        .then(Commands.literal("info").executes(SettlementCommands::info))));
+                        .then(Commands.literal("info").executes(SettlementCommands::info)))
+                .then(Commands.literal("reputation").executes(SettlementCommands::reputation)));
+    }
+
+    private static int reputation(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        CommandSourceStack source = context.getSource();
+        ServerPlayer player = source.getPlayerOrException();
+        BlockPos pos = player.blockPosition();
+        var found = SettlementSavedData.get(source.getServer()).at(
+                player.serverLevel().dimension().location().toString(), pos.getX(), pos.getZ());
+        if (found.isEmpty()) {
+            source.sendFailure(Component.translatable("commands.livingkingdoms.settlement.not_found"));
+            return 0;
+        }
+        Settlement settlement = found.orElseThrow();
+        int reputation = QuestSavedData.get(source.getServer()).reputation(player.getUUID(), settlement.id());
+        source.sendSuccess(() -> Component.translatable("quest.livingkingdoms.reputation", settlement.name(), reputation), false);
+        return Command.SINGLE_SUCCESS;
     }
 
     private static int generate(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {

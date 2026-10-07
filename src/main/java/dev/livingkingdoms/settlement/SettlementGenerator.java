@@ -2,6 +2,8 @@ package dev.livingkingdoms.settlement;
 
 import com.mojang.logging.LogUtils;
 import dev.livingkingdoms.config.KingdomConfig;
+import dev.livingkingdoms.npc.NpcService;
+import dev.livingkingdoms.quest.persistence.QuestSavedData;
 import dev.livingkingdoms.settlement.domain.Settlement;
 import dev.livingkingdoms.settlement.persistence.SettlementSavedData;
 import dev.livingkingdoms.structure.SettlementSitePlanner;
@@ -36,6 +38,8 @@ public final class SettlementGenerator {
 
     private Result generate(ServerLevel level, BlockPos position, boolean search) {
         SettlementSavedData data = SettlementSavedData.get(level.getServer());
+        // Load the relationship store before changing terrain, including guarded corrupt-save handling.
+        QuestSavedData.get(level.getServer());
         SettlementTemplate template;
         try {
             template = SettlementTemplate.load(level);
@@ -75,6 +79,14 @@ public final class SettlementGenerator {
             }
             Settlement settlement = Settlement.founding(UUID.randomUUID(), plan.territory(), KingdomConfig.INITIAL_POPULATION.get());
             data.add(settlement);
+            // The physical settlement already exists; an NPC failure must not roll back its blocks alone.
+            try {
+                if (NpcService.ensureMayor(level, settlement).isEmpty()) {
+                    LOGGER.warn("Settlement {} generated, but no loaded safe Mayor location was available", settlement.id());
+                }
+            } catch (RuntimeException exception) {
+                LOGGER.error("Settlement {} generated, but Mayor association failed", settlement.id(), exception);
+            }
             return new Result(settlement, null);
         } catch (RuntimeException exception) {
             for (int i = before.size() - 1; i >= 0; i--) {

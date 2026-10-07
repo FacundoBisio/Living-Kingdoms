@@ -6,7 +6,7 @@ license="${mod_license}"
 modId="${mod_id}"
 version="${mod_version}"
 displayName="${mod_name}"
-description='''Server-authoritative RPG and strategy settlements. Small allied settlements and a Quest Board placeholder.'''
+description='''Server-authoritative RPG and strategy settlements. Allied villages, quests, reputation and controlled hostile encounters across multiple factions.'''
 
 [[dependencies.${mod_id}]]
 modId="neoforge"

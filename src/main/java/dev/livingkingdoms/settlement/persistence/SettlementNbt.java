@@ -1,6 +1,6 @@
 package dev.livingkingdoms.settlement.persistence;
 
-import dev.livingkingdoms.settlement.domain.Faction;
+import dev.livingkingdoms.faction.Faction;
 import dev.livingkingdoms.settlement.domain.Settlement;
 import dev.livingkingdoms.settlement.domain.Territory;
 import net.minecraft.nbt.CompoundTag;

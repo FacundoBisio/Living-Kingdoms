@@ -3,7 +3,8 @@ package dev.livingkingdoms.block;
 import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.network.chat.Component;
+import dev.livingkingdoms.quest.QuestService;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.ItemInteractionResult;
@@ -20,7 +21,7 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
-/** A server-handled interaction placeholder; no quests, UI or block entity yet. */
+/** Thin interaction adapter; quest and inventory decisions belong to the server service. */
 public final class QuestBoardBlock extends HorizontalDirectionalBlock {
     public static final MapCodec<QuestBoardBlock> CODEC = simpleCodec(QuestBoardBlock::new);
     private static final VoxelShape NORTH_SOUTH = Block.box(1, 0, 6, 15, 16, 10);
@@ -45,21 +46,21 @@ public final class QuestBoardBlock extends HorizontalDirectionalBlock {
         return state.getValue(FACING).getAxis() == Direction.Axis.Z ? NORTH_SOUTH : EAST_WEST;
     }
 
-    private static void inform(Level level, Player player) {
-        if (!level.isClientSide) {
-            player.displayClientMessage(Component.translatable("block.livingkingdoms.quest_board.empty"), false);
+    private static void interact(Level level, Player player, BlockPos pos) {
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            QuestService.interact(serverPlayer, pos, player.isShiftKeyDown());
         }
     }
 
     @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos,
                                                           Player player, BlockHitResult hit) {
-        inform(level, player);
+        interact(level, player, pos);
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
 
     @Override protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos,
                                                         Player player, InteractionHand hand, BlockHitResult hit) {
-        inform(level, player);
+        if (hand == InteractionHand.MAIN_HAND) interact(level, player, pos);
         return ItemInteractionResult.sidedSuccess(level.isClientSide);
     }
 }

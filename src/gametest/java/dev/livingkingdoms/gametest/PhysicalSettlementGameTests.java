@@ -5,8 +5,14 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import dev.livingkingdoms.block.KingdomBlocks;
 import dev.livingkingdoms.block.QuestBoardBlock;
 import dev.livingkingdoms.config.KingdomConfig;
+import dev.livingkingdoms.npc.NpcIdentity;
+import dev.livingkingdoms.npc.NpcInteractions;
+import dev.livingkingdoms.npc.NpcRole;
+import dev.livingkingdoms.npc.NpcService;
+import dev.livingkingdoms.quest.domain.QuestState;
+import dev.livingkingdoms.quest.persistence.QuestSavedData;
 import dev.livingkingdoms.settlement.SettlementGenerator;
-import dev.livingkingdoms.settlement.domain.Faction;
+import dev.livingkingdoms.faction.Faction;
 import dev.livingkingdoms.settlement.domain.Settlement;
 import dev.livingkingdoms.settlement.persistence.SettlementSavedData;
 import dev.livingkingdoms.structure.SettlementSitePlanner;
@@ -16,6 +22,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.server.level.ServerLevel;
@@ -36,6 +43,7 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.IOUtilities;
 import net.neoforged.neoforge.common.util.FakePlayer;
+import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -86,14 +94,70 @@ public final class PhysicalSettlementGameTests {
         var boardState = level.getBlockState(board);
         helper.assertTrue(boardState.is(KingdomBlocks.QUEST_BOARD)
                 && boardState.getValue(QuestBoardBlock.FACING) == Direction.WEST, "Quest Board block and orientation must exist");
+        player.setPos(board.getX() + 1.5, board.getY(), board.getZ() + 0.5);
         BlockHitResult hit = new BlockHitResult(Vec3.atCenterOf(board), Direction.WEST, board, false);
         helper.assertTrue(boardState.useWithoutItem(level, player, hit) == InteractionResult.CONSUME,
                 "Empty-hand board use is consumed on the server");
-        helper.assertTrue(player.messages.size() == 1 && player.messages.getFirst().getContents() instanceof TranslatableContents
-                && ((TranslatableContents) player.messages.getFirst().getContents()).getKey().equals("block.livingkingdoms.quest_board.empty"),
-                "Quest Board must respond with the placeholder message");
+        QuestSavedData quests = QuestSavedData.get(level.getServer());
+        helper.assertTrue(!player.messages.isEmpty() && hasKey(player.messages.getFirst(), "quest.livingkingdoms.header")
+                && quests.progress(player.getUUID(), created.id()).state() == QuestState.AVAILABLE,
+                "Generated Quest Board must show the available settlement quest without accepting it");
+        long inspections = player.messages.stream().filter(message -> hasKey(message, "quest.livingkingdoms.header")).count();
         helper.assertTrue(boardState.useItemOn(new ItemStack(Items.STICK), level, player, InteractionHand.MAIN_HAND, hit)
-                == ItemInteractionResult.CONSUME && player.messages.size() == 2, "Held-item interaction also responds exactly once");
+                == ItemInteractionResult.CONSUME
+                && player.messages.stream().filter(message -> hasKey(message, "quest.livingkingdoms.header")).count() == inspections + 1,
+                "Held-item interaction also inspects the quest exactly once");
+
+        UUID mayorId = quests.mayor(created.id()).orElseThrow();
+        var mayor = level.getEntity(mayorId);
+        helper.assertTrue(mayor != null && NpcIdentity.read(mayor).orElseThrow().settlementId().equals(created.id())
+                && NpcIdentity.read(mayor).orElseThrow().role() == NpcRole.MAYOR,
+                "Generated settlement must have a Mayor associated by settlement UUID");
+        helper.assertTrue(NpcService.ensureMayor(level, created).orElseThrow() == mayor
+                && quests.mayor(created.id()).orElseThrow().equals(mayorId), "Repeated Mayor association must not spawn another entity");
+        var villagerMayor = (net.minecraft.world.entity.npc.Villager) mayor;
+        helper.assertTrue(villagerMayor.isNoAi() && villagerMayor.isPersistenceRequired() && villagerMayor.isInvulnerable()
+                && villagerMayor.getOffers().isEmpty(), "The initial Mayor must remain a persistent stationary dialogue NPC without trades");
+        CompoundTag mayorTag = mayor.saveWithoutId(new CompoundTag());
+        var reloadedMayor = EntityType.VILLAGER.create(level);
+        reloadedMayor.load(mayorTag);
+        helper.assertTrue(reloadedMayor.getUUID().equals(mayorId)
+                && NpcIdentity.read(reloadedMayor).equals(NpcIdentity.read(mayor)),
+                "Vanilla entity NBT must preserve the Mayor UUID, role and settlement association");
+
+        player.messages.clear();
+        var welcome = new PlayerInteractEvent.EntityInteract(player, InteractionHand.MAIN_HAND, mayor);
+        NpcInteractions.onInteract(welcome);
+        helper.assertTrue(welcome.isCanceled() && player.messages.size() == 1
+                && hasKey(player.messages.getFirst(), "npc.livingkingdoms.mayor.before")
+                && ((TranslatableContents) player.messages.getFirst().getContents()).getArgs()[0].equals(created.name()),
+                "Mayor dialogue must welcome the player before quest completion");
+        player.messages.clear();
+        var offhand = new PlayerInteractEvent.EntityInteract(player, InteractionHand.OFF_HAND, mayor);
+        NpcInteractions.onInteract(offhand);
+        var specific = new PlayerInteractEvent.EntityInteractSpecific(player, InteractionHand.MAIN_HAND, mayor, Vec3.ZERO);
+        NpcInteractions.onInteractSpecific(specific);
+        helper.assertTrue(offhand.isCanceled() && specific.isCanceled() && player.messages.isEmpty(),
+                "Offhand and specific entity callbacks must not duplicate Mayor dialogue or open vanilla trading");
+
+        player.setShiftKeyDown(true);
+        boardState.useWithoutItem(level, player, hit);
+        player.getInventory().items.set(0, new ItemStack(Items.IRON_INGOT, 16));
+        boardState.useItemOn(player.getMainHandItem(), level, player, InteractionHand.MAIN_HAND, hit);
+        helper.assertTrue(quests.progress(player.getUUID(), created.id()).state() == QuestState.COMPLETED
+                && quests.progress(player.getUUID(), created.id()).reputation() == 10,
+                "The generated settlement's own board must complete its quest and grant its reputation");
+        player.setShiftKeyDown(false);
+        player.messages.clear();
+        NpcInteractions.onInteract(new PlayerInteractEvent.EntityInteract(player, InteractionHand.MAIN_HAND, mayor));
+        helper.assertTrue(player.messages.size() == 1 && hasKey(player.messages.getFirst(), "npc.livingkingdoms.mayor.after"),
+                "Mayor dialogue must recognize this player's completed settlement quest");
+        player.messages.clear();
+        RecordingPlayer newcomer = new RecordingPlayer(level);
+        newcomer.setPos(player.getX(), player.getY(), player.getZ());
+        NpcInteractions.onInteract(new PlayerInteractEvent.EntityInteract(newcomer, InteractionHand.MAIN_HAND, mayor));
+        helper.assertTrue(newcomer.messages.size() == 1 && hasKey(newcomer.messages.getFirst(), "npc.livingkingdoms.mayor.before"),
+                "Another player's Mayor dialogue must remain independent of the completed player");
 
         player.setPos(marker.getX() + 1, marker.getY(), marker.getZ());
         source = player.createCommandSourceStack().withSource(feedback).withPermission(2);
@@ -108,6 +172,8 @@ public final class PhysicalSettlementGameTests {
         Settlement other = data.at(level.dimension().location().toString(), second.getX(), second.getZ()).orElseThrow();
         helper.assertTrue(!created.id().equals(other.id()) && data.settlements().size() == initialCount + 2,
                 "Manual generation must assign distinct UUIDs");
+        helper.assertTrue(quests.mayor(other.id()).isPresent() && !quests.mayor(other.id()).orElseThrow().equals(mayorId),
+                "Distinct settlements must receive distinct Mayor UUIDs");
         helper.assertTrue(new HashSet<>(data.settlements().stream().map(Settlement::id).toList()).size() == data.settlements().size(),
                 "Every settlement UUID must remain unique");
         level.getDataStorage().save();
@@ -118,6 +184,12 @@ public final class PhysicalSettlementGameTests {
         IOUtilities.waitUntilIOWorkerComplete();
         helper.assertTrue(reopened != null && reopened.settlements().contains(created) && reopened.settlements().contains(other),
                 "Both physical settlements must reload with the same IDs, centers and territory");
+        var reopenedQuests = fresh.get(new SavedData.Factory<>(QuestSavedData::new, QuestSavedData::load), QuestSavedData.DATA_NAME);
+        IOUtilities.waitUntilIOWorkerComplete();
+        helper.assertTrue(reopenedQuests != null && reopenedQuests.mayor(created.id()).orElseThrow().equals(mayorId)
+                && reopenedQuests.mayor(other.id()).isPresent()
+                && reopenedQuests.progress(player.getUUID(), created.id()).equals(quests.progress(player.getUUID(), created.id())),
+                "Reload must preserve each generated Mayor association and the completed player's settlement quest and reputation");
         helper.succeed();
     }
 
@@ -205,6 +277,11 @@ public final class PhysicalSettlementGameTests {
         final List<Component> messages = new ArrayList<>();
         RecordingPlayer(ServerLevel level) { super(level, new GameProfile(UUID.randomUUID(), "PhysicalTest")); }
         @Override public void displayClientMessage(Component message, boolean overlay) { messages.add(message); }
+        @Override public void sendSystemMessage(Component message) { messages.add(message); }
+    }
+
+    private static boolean hasKey(Component message, String key) {
+        return message.getContents() instanceof TranslatableContents translated && translated.getKey().equals(key);
     }
 
     private static final class RecordingSource implements CommandSource {

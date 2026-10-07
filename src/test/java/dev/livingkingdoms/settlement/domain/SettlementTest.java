@@ -1,5 +1,7 @@
 package dev.livingkingdoms.settlement.domain;
 
+import dev.livingkingdoms.faction.Faction;
+
 import org.junit.jupiter.api.Test;
 
 import java.util.UUID;
