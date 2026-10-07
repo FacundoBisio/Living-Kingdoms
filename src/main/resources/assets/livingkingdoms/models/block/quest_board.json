@@ -1,0 +1,27 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "particle": "minecraft:block/oak_planks",
+    "wood": "minecraft:block/oak_planks",
+    "paper": "minecraft:block/white_wool"
+  },
+  "elements": [
+    { "from": [2, 0, 7], "to": [4, 8, 9], "faces": {
+      "down": {"texture": "#wood"}, "up": {"texture": "#wood"},
+      "north": {"texture": "#wood"}, "south": {"texture": "#wood"},
+      "west": {"texture": "#wood"}, "east": {"texture": "#wood"}
+    } },
+    { "from": [12, 0, 7], "to": [14, 8, 9], "faces": {
+      "down": {"texture": "#wood"}, "up": {"texture": "#wood"},
+      "north": {"texture": "#wood"}, "south": {"texture": "#wood"},
+      "west": {"texture": "#wood"}, "east": {"texture": "#wood"}
+    } },
+    { "from": [1, 7, 6], "to": [15, 16, 10], "faces": {
+      "down": {"texture": "#wood"}, "up": {"texture": "#wood"},
+      "north": {"texture": "#wood"}, "south": {"texture": "#wood"},
+      "west": {"texture": "#wood"}, "east": {"texture": "#wood"}
+    } },
+    { "from": [3, 9, 5.99], "to": [7, 14, 6], "faces": { "north": {"texture": "#paper"} } },
+    { "from": [9, 10, 5.99], "to": [13, 15, 6], "faces": { "north": {"texture": "#paper"} } }
+  ]
+}

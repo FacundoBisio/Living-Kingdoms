@@ -1,4 +1,10 @@
 {
+  "block.livingkingdoms.quest_board": "Tablón de misiones",
+  "block.livingkingdoms.quest_board.empty": "Tablón de misiones — Todavía no hay misiones disponibles.",
+  "commands.livingkingdoms.settlement.generated": "Se generó %s (ID: %s) en %s, %s, %s. Buscá la magnetita central.",
+  "commands.livingkingdoms.settlement.no_safe_site": "No hay un sitio seguro cargado cerca. Buscá terreno abierto, seco y casi plano, lejos de otros asentamientos, e intentá de nuevo.",
+  "commands.livingkingdoms.settlement.template_unavailable": "La plantilla del asentamiento falta o es inválida. Revisá el registro del servidor.",
+  "commands.livingkingdoms.settlement.placement_failed": "Falló la colocación; se restauraron los bloques originales. Revisá el registro del servidor.",
   "commands.livingkingdoms.settlement.created": "Se creó %s (ID: %s).",
   "commands.livingkingdoms.settlement.overlap": "Este territorio se superpone con un asentamiento existente. Alejate un poco más.",
   "commands.livingkingdoms.settlement.not_found": "No hay un asentamiento en tu posición en esta dimensión.",

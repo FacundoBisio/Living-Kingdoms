@@ -1,4 +1,10 @@
 {
+  "block.livingkingdoms.quest_board": "Quest Board",
+  "block.livingkingdoms.quest_board.empty": "Quest Board — No quests available yet.",
+  "commands.livingkingdoms.settlement.generated": "Generated %s (ID: %s) at %s, %s, %s. Look for the central lodestone marker.",
+  "commands.livingkingdoms.settlement.no_safe_site": "No safe loaded site nearby. Find open, dry, nearly flat terrain away from existing settlements and try again.",
+  "commands.livingkingdoms.settlement.template_unavailable": "Settlement template is missing or invalid. See the server log.",
+  "commands.livingkingdoms.settlement.placement_failed": "Settlement placement failed; original blocks restored. See the server log.",
   "commands.livingkingdoms.settlement.created": "Created %s (ID: %s).",
   "commands.livingkingdoms.settlement.overlap": "This territory overlaps an existing settlement. Move farther away.",
   "commands.livingkingdoms.settlement.not_found": "There is no settlement at your position in this dimension.",

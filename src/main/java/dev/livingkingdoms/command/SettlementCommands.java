@@ -4,6 +4,7 @@ import com.mojang.brigadier.Command;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import dev.livingkingdoms.config.KingdomConfig;
+import dev.livingkingdoms.settlement.SettlementGenerator;
 import dev.livingkingdoms.settlement.domain.Settlement;
 import dev.livingkingdoms.settlement.domain.Territory;
 import dev.livingkingdoms.settlement.persistence.SettlementSavedData;
@@ -26,7 +27,28 @@ public final class SettlementCommands {
                 .then(Commands.literal("settlement")
                         .then(Commands.literal("create").requires(source -> source.hasPermission(2))
                                 .executes(SettlementCommands::create))
+                        .then(Commands.literal("generate").requires(source -> source.hasPermission(2))
+                                .executes(SettlementCommands::generate))
                         .then(Commands.literal("info").executes(SettlementCommands::info))));
+    }
+
+    private static int generate(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        CommandSourceStack source = context.getSource();
+        ServerPlayer player = source.getPlayerOrException();
+        SettlementGenerator.Result result = new SettlementGenerator().generateNear(player.serverLevel(), player.blockPosition());
+        if (!result.successful()) {
+            String key = switch (result.failure()) {
+                case TEMPLATE_UNAVAILABLE -> "commands.livingkingdoms.settlement.template_unavailable";
+                case NO_SAFE_SITE -> "commands.livingkingdoms.settlement.no_safe_site";
+                case PLACEMENT_FAILED -> "commands.livingkingdoms.settlement.placement_failed";
+            };
+            source.sendFailure(Component.translatable(key));
+            return 0;
+        }
+        Settlement settlement = result.settlement();
+        source.sendSuccess(() -> Component.translatable("commands.livingkingdoms.settlement.generated",
+                settlement.name(), settlement.id().toString(), settlement.territory().x(), settlement.territory().y(), settlement.territory().z()), true);
+        return Command.SINGLE_SUCCESS;
     }
 
     private static int create(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
