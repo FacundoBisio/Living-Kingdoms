@@ -180,7 +180,7 @@ class EncounterSavedDataTest {
         data.add(party(PartyType.PILLAGER_PATROL, "minecraft:overworld", Set.of(UUID.randomUUID())));
         CompoundTag valid = data.save(new CompoundTag(), null);
         assertMalformed(valid, tag -> tag.remove("schema_version"));
-        assertMalformed(valid, tag -> tag.putInt("schema_version", 2));
+        assertMalformed(valid, tag -> tag.putInt("schema_version", 3));
         assertMalformed(valid, tag -> tag.remove("parties"));
         assertMalformed(valid, tag -> firstParty(tag).remove("id"));
         assertMalformed(valid, tag -> firstParty(tag).putString("associated_settlement", "invalid"));
@@ -232,7 +232,7 @@ class EncounterSavedDataTest {
     @Test
     void dimensionStorageRefusesFutureSchemaWithoutOverwritingIt() throws IOException {
         CompoundTag future = new EncounterSavedData().save(new CompoundTag(), null);
-        future.putInt("schema_version", 2);
+        future.putInt("schema_version", 3);
         writeAndAssertProtected(future);
     }
 

@@ -7,7 +7,9 @@ import dev.livingkingdoms.encounter.domain.OriginRegion;
 import dev.livingkingdoms.encounter.domain.PartyState;
 import dev.livingkingdoms.encounter.domain.PartyType;
 import dev.livingkingdoms.encounter.persistence.EncounterSavedData;
+import dev.livingkingdoms.faction.FactionCombat;
 import dev.livingkingdoms.quest.persistence.QuestSavedData;
+import dev.livingkingdoms.progression.ProgressionService;
 import dev.livingkingdoms.settlement.NearestAlliedSettlementService;
 import dev.livingkingdoms.settlement.domain.Settlement;
 import net.minecraft.core.BlockPos;
@@ -34,7 +36,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
-/** Controlled server spawning. No terrain writes, chunk loading or background spawning. */
+/** Shared controlled server spawning. No terrain writes or chunk loading. */
 public final class EncounterSpawner {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final int[][] MEMBER_OFFSETS = {
@@ -129,21 +131,24 @@ public final class EncounterSpawner {
                 if (!roster.add(mob.getUUID())) throw new IllegalStateException("Duplicate encounter member UUID");
             }
             BlockPos origin = new BlockPos(proposed.getX(), mobs.getFirst().blockPosition().getY(), proposed.getZ());
+            var levels = ProgressionService.initializeParty(level, origin, definition.faction(), mobs);
             UUID settlementId = NearestAlliedSettlementService.findNearest(level, origin, KingdomConfig.ENCOUNTER_REPUTATION_RANGE.get())
                     .map(Settlement::id).orElse(null);
             HostileParty party = new HostileParty(partyId, definition.faction(), definition.type(),
                     new OriginRegion(level.dimension().location().toString(), origin.getX(), origin.getY(), origin.getZ(), 8),
                     settlementId, PartyState.ALIVE, roster, roster, definition.threatRating(), definition.reputationReward(),
-                    debug, rewardEligible);
+                    debug, rewardEligible, levels);
+            // Install metadata before joins so restored/orphaned entity tags can be validated immediately.
+            data.add(party, level.getServer().overworld().getGameTime());
             for (Mob mob : mobs) {
                 if (!level.addFreshEntity(mob)) throw new IllegalStateException("Encounter member spawn was rejected");
                 added.add(mob);
             }
-            // All entity UUIDs and the record are installed in the same server call, before a tick.
-            data.add(party);
+            mobs.forEach(FactionCombat::install);
             return new Result(party, null);
         } catch (RuntimeException failedSpawn) {
             added.forEach(Entity::discard);
+            data.remove(partyId);
             LOGGER.error("Could not spawn Living Kingdoms {} party {}", definition.type().id(), partyId, failedSpawn);
             return Result.failed(Failure.SPAWN_FAILED);
         }

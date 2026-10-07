@@ -20,6 +20,18 @@ public final class KingdomConfig {
     public static final ModConfigSpec.IntValue ENCOUNTER_REPUTATION_CAPTAIN;
     public static final ModConfigSpec.IntValue ENCOUNTER_REPUTATION_RANGE;
     public static final ModConfigSpec.BooleanValue ENCOUNTER_PATROL_CAPTAIN;
+    public static final ModConfigSpec.BooleanValue NATURAL_ENABLED;
+    public static final ModConfigSpec.IntValue NATURAL_CHECK_INTERVAL;
+    public static final ModConfigSpec.IntValue NATURAL_COOLDOWN;
+    public static final ModConfigSpec.IntValue NATURAL_MIN_DISTANCE;
+    public static final ModConfigSpec.IntValue NATURAL_MAX_NEARBY;
+    public static final ModConfigSpec.IntValue NATURAL_REGION_RADIUS;
+    public static final ModConfigSpec.IntValue NATURAL_MIN_PLAYER_DISTANCE;
+    public static final ModConfigSpec.IntValue NATURAL_MAX_PLAYER_DISTANCE;
+    public static final ModConfigSpec.IntValue NATURAL_MAX_TRACKED;
+    public static final ModConfigSpec.IntValue ENCOUNTER_ACTIVE_LIFETIME;
+    public static final ModConfigSpec.IntValue ENCOUNTER_COMPLETED_RETENTION;
+    public static final ModConfigSpec.DoubleValue ENCOUNTER_MIN_CONTRIBUTION;
 
     static {
         ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
@@ -60,7 +72,34 @@ public final class KingdomConfig {
                 .defineInRange("captainReputation", 4, 0, 1000000);
         ENCOUNTER_REPUTATION_RANGE = builder.comment("Maximum horizontal distance from the final defeat to an allied settlement center.")
                 .defineInRange("reputationRange", 256, 0, 4096);
+        ENCOUNTER_MIN_CONTRIBUTION = builder.comment("Accumulated post-reduction damage score required per player, with a hit in the last five minutes. Each hit is capped at the member's maximum health; 4 damage = 2 hearts.")
+                .defineInRange("minimumContributionDamage", 4.0, 1.0, 1000.0);
+        ENCOUNTER_ACTIVE_LIFETIME = builder.comment("Maximum tracked lifetime in server ticks; expiration abandons the party without rewards and retires its members.")
+                .defineInRange("activeLifetimeTicks", 72000, 1200, 1728000);
+        ENCOUNTER_COMPLETED_RETENTION = builder.comment("Keep defeated metadata/receipts this many server ticks for inspection, then remove them. Reputation remains.")
+                .defineInRange("completedRetentionTicks", 1200, 200, 72000);
+        builder.push("natural");
+        NATURAL_ENABLED = builder.comment("Conservative natural encounters in active Overworld wilderness. Does not replace vanilla spawning.")
+                .define("enabled", true);
+        NATURAL_CHECK_INTERVAL = builder.comment("Ticks between at most one player selection and three local candidate checks per dimension.")
+                .defineInRange("checkIntervalTicks", 200, 100, 24000);
+        NATURAL_COOLDOWN = builder.comment("Persistent dimension-wide cooldown after every attempt, successful or not.")
+                .defineInRange("cooldownTicks", 2400, 600, 72000);
+        NATURAL_MIN_DISTANCE = builder.comment("Minimum separation between tracked active encounter origins, in blocks.")
+                .defineInRange("minimumEncounterDistance", 128, 32, 512);
+        NATURAL_MAX_NEARBY = builder.comment("Maximum tracked active groups around the selected player and proposed region.")
+                .defineInRange("maximumNearbyGroups", 2, 1, 8);
+        NATURAL_REGION_RADIUS = builder.comment("Radius for nearby group limits, using persisted origin metadata.")
+                .defineInRange("regionRadius", 192, 64, 1024);
+        NATURAL_MIN_PLAYER_DISTANCE = builder.comment("Minimum group member distance from players. Must not exceed maximumSpawnDistance.")
+                .defineInRange("minimumPlayerDistance", 48, 24, 128);
+        NATURAL_MAX_PLAYER_DISTANCE = builder.comment("Maximum candidate-center distance from the selected player; actual chunks must be entity-ticking.")
+                .defineInRange("maximumSpawnDistance", 80, 32, 160);
+        NATURAL_MAX_TRACKED = builder.comment("Global tracked party cap before natural spawning stops, including debug, unloaded and defeated records awaiting cleanup.")
+                .defineInRange("maximumTrackedParties", 256, 8, 1024);
         builder.pop();
+        builder.pop();
+        ProgressionConfig.define(builder);
         SPEC = builder.build();
     }
 

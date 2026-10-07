@@ -1,6 +1,7 @@
 package dev.livingkingdoms.encounter.domain;
 
 import dev.livingkingdoms.faction.Faction;
+import dev.livingkingdoms.progression.domain.LevelSummary;
 
 import java.util.HashSet;
 import java.util.Objects;
@@ -11,7 +12,14 @@ import java.util.UUID;
 public record HostileParty(UUID id, Faction faction, PartyType type, OriginRegion origin,
                            UUID associatedSettlementId, PartyState state, Set<UUID> memberIds,
                            Set<UUID> remainingMembers, int threatRating, int reputationReward,
-                           boolean debug, boolean rewardEligible) {
+                           boolean debug, boolean rewardEligible, LevelSummary levels) {
+    /** Source/save compatibility: pre-progression parties are vanilla-level snapshots. */
+    public HostileParty(UUID id, Faction faction, PartyType type, OriginRegion origin, UUID associatedSettlementId,
+                        PartyState state, Set<UUID> memberIds, Set<UUID> remainingMembers, int threatRating,
+                        int reputationReward, boolean debug, boolean rewardEligible) {
+        this(id, faction, type, origin, associatedSettlementId, state, memberIds, remainingMembers,
+                threatRating, reputationReward, debug, rewardEligible, LevelSummary.uniform(memberIds.size(), 1));
+    }
     public HostileParty {
         Objects.requireNonNull(id, "id");
         Objects.requireNonNull(faction, "faction");
@@ -20,6 +28,8 @@ public record HostileParty(UUID id, Faction faction, PartyType type, OriginRegio
         Objects.requireNonNull(state, "state");
         memberIds = Set.copyOf(Objects.requireNonNull(memberIds, "memberIds"));
         remainingMembers = Set.copyOf(Objects.requireNonNull(remainingMembers, "remainingMembers"));
+        Objects.requireNonNull(levels, "levels");
+        if (levels.count() != memberIds.size()) throw new IllegalArgumentException("Party levels must describe the full roster");
         if (faction != type.faction()) {
             throw new IllegalArgumentException("Party faction does not match its type");
         }
@@ -48,7 +58,7 @@ public record HostileParty(UUID id, Faction faction, PartyType type, OriginRegio
         remaining.remove(member);
         return new HostileParty(id, faction, type, origin, associatedSettlementId,
                 remaining.isEmpty() ? PartyState.DEFEATED : PartyState.ALIVE,
-                memberIds, remaining, threatRating, reputationReward, debug, rewardEligible);
+                memberIds, remaining, threatRating, reputationReward, debug, rewardEligible, levels);
     }
 
     /** Vanilla transformations replace identity without counting as a defeat. */
@@ -69,6 +79,6 @@ public record HostileParty(UUID id, Faction faction, PartyType type, OriginRegio
         roster.add(replacement);
         remaining.add(replacement);
         return new HostileParty(id, faction, type, origin, associatedSettlementId, state,
-                roster, remaining, threatRating, reputationReward, debug, rewardEligible);
+                roster, remaining, threatRating, reputationReward, debug, rewardEligible, levels);
     }
 }

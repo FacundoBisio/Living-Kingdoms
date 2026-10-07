@@ -49,5 +49,11 @@
   "commands.livingkingdoms.encounter.spawn_failed": "Se rechazó la generación; se retiraron los miembros recién creados. Revisá el registro del servidor.",
   "commands.livingkingdoms.encounter.peaceful": "No se pueden generar encuentros hostiles en dificultad Pacífico.",
   "commands.livingkingdoms.encounter.not_found": "No hay un encuentro con ese UUID.",
-  "commands.livingkingdoms.encounter.info": "ID: %s\nFacción: %s\nTipo: %s\nEstado: %s\nRestantes: %s/%s\nAmenaza: %s\nReputación potencial: %s\nDepuración: %s\nRecompensa habilitada: %s\nAsentamiento asociado: %s"
+  "commands.livingkingdoms.encounter.info": "ID: %s\nFacción: %s\nTipo: %s\nEstado: %s\nRestantes: %s/%s\nAmenaza: %s\nReputación potencial: %s\nDepuración: %s\nRecompensa habilitada: %s\nAsentamiento asociado: %s",
+  "progression.livingkingdoms.level_name": "%s - Nivel %s",
+  "progression.livingkingdoms.elite_name": "Élite %s",
+  "commands.livingkingdoms.progression.region": "Nivel regional %s (distancia +%s, edad del mundo +%s, actividad +%s, categoría hostil +%s).",
+  "commands.livingkingdoms.progression.entity": "Miembro %s: nivel %s, élite=%s; salud extra=%s, daño extra=%s, armadura=%s, velocidad extra=%s.",
+  "commands.livingkingdoms.progression.unmanaged": "Esta entidad no tiene progresión administrada por Living Kingdoms.",
+  "commands.livingkingdoms.encounter.levels": "Niveles al aparecer: mínimo %s, máximo %s, promedio %s."
 }

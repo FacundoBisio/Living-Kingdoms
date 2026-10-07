@@ -1,6 +1,6 @@
 # Living Kingdoms
 
-Minecraft Java **1.21.1**, **Java 21**, **NeoForge 21.1.252**. Version 0.4.0 adds shared faction identities and controlled roaming hostile encounters to the existing settlements, Mayors, Iron Shortage quest and player reputation. All gameplay state is owned by the server. Advanced professions, diplomacy, economy, conquest, armies, custom GUI and external AI services remain outside the current scope.
+Minecraft Java **1.21.1**, **Java 21**, **NeoForge 21.1.252**. Version 0.6.0 adds persistent hostile levels, regional difficulty and capped stat/equipment progression to the existing settlements, Mayors, Iron Shortage quest, natural encounters, faction combat and multiplayer regional reputation. All gameplay state is owned by the server. Advanced professions, diplomacy, economy, conquest, armies, custom GUI and external AI services remain outside the current scope.
 
 Living Kingdoms focuses on exploring, discovering settlements, gaining reputation, fighting and liberating hostile territory. Its settlements are RPG/strategy hubs; the buildings in this milestone do not automate workers or manage colonies.
 
@@ -24,7 +24,7 @@ bash ./gradlew runGameTestServer
 bash ./gradlew runClient
 ```
 
-The client opens the Minecraft development environment. Create a world with cheats enabled for debug generation. The mod JAR is `build/libs/livingkingdoms-0.4.0.jar`; the `-sources.jar` is for developers, not installation. Use the same mod version on clients and dedicated servers. Python and development mods are not required for the ordinary Java build or runtime.
+The client opens the Minecraft development environment. Create a world with cheats enabled for debug generation. The mod JAR is `build/libs/livingkingdoms-0.6.0.jar`; the `-sources.jar` is for developers, not installation. Use the same mod version on clients and dedicated servers. Python and development mods are not required for the ordinary Java build or runtime.
 
 On the development machine used for this milestone, `runClient` crashes in the AMD native OpenGL driver (`atio6axx.dll`, `EXCEPTION_ACCESS_VIOLATION`) while GLFW creates a window. Disabling NeoForge's early splash window reproduces the same crash at vanilla window creation. The graphical client and manual Save and Quit/reopen flow therefore remain unverified on that machine. Crash reports are in the ignored `run/hs_err_pid*.log` files. Headless tests do not require a working graphics driver.
 
@@ -75,7 +75,7 @@ Quest states are `AVAILABLE`, `ACTIVE`, `COMPLETED`, `FAILED`. Failure is suppor
 
 ## World storage and settings
 
-Settlement data remains in `<world>/data/livingkingdoms_settlements.dat`. `<world>/data/livingkingdoms_quests.dat` stores player UUID → settlement UUID → quest ID/state/accepted terms, settlement-specific reputation, Mayor associations and one-time encounter reward receipts. `<world>/data/livingkingdoms_encounters.dat` stores party UUIDs, faction/type/origin, optional settlement association, roster/remaining UUIDs, state, threat and reward eligibility. All three use the Overworld store even for other dimensions. NPC/member identities also travel with vanilla entity NBT; health, equipment, AI and exact entity positions are not copied into party storage. There is no external database or player-object cache.
+Settlement data remains in `<world>/data/livingkingdoms_settlements.dat`. `<world>/data/livingkingdoms_quests.dat` stores player UUID → settlement UUID → quest ID/state/accepted terms, settlement-specific reputation, Mayor associations and one-time encounter reward receipts for a batch of participating player UUIDs. `<world>/data/livingkingdoms_encounters.dat` stores party UUIDs, faction/type/origin, optional settlement association, roster/remaining UUIDs, state, threat, reward eligibility, lifecycle timestamps, damage contribution and per-dimension natural spawn cooldowns. All three use the Overworld store even for other dimensions. NPC/member identities also travel with vanilla entity NBT; health, equipment, AI and exact entity positions are not copied into party storage. There is no external database or player-object cache.
 
 In an integrated dev client the world is under `run/saves/<world>`; on the dev server it is under `run/world`. Server settings live in `<world>/serverconfig/livingkingdoms-server.toml`:
 
@@ -102,24 +102,38 @@ patrolCaptain = true
 normalReputation = 2
 captainReputation = 4
 reputationRange = 256
+minimumContributionDamage = 4.0
+activeLifetimeTicks = 72000
+completedRetentionTicks = 1200
+
+[encounters.natural]
+enabled = true
+checkIntervalTicks = 200
+cooldownTicks = 2400
+minimumEncounterDistance = 128
+maximumNearbyGroups = 2
+regionRadius = 192
+minimumPlayerDistance = 48
+maximumSpawnDistance = 80
+maximumTrackedParties = 256
 ```
 
 Settlement settings apply to new settlements. Existing territories and populations retain their saved values. Quest item quantities accept 1–2304 and reputation rewards 1–1,000,000. Patrol sizes accept 3–5, hordes 4–8 and threat ratings 1–100. Encounter rewards accept 0–1,000,000 (0 disables); size, threat and reward are snapshotted when the party spawns. Reward range is an event-time setting, 0–4096 blocks. Signed player reputation defaults to zero; no tiers or decay exist yet.
 
-Normal Minecraft autosave and shutdown write dirty data; interactions do not force disk I/O on every click. Settlement schema remains 1; legacy `allied` faction IDs read as `ALLIED_KINGDOM` and new writes use `allied_kingdom`. Quest/reputation schema 2 reads schema 1 and preserves its quests, reputation and Mayors; encounter storage starts at schema 1. Older mod versions cannot read all new faction IDs or schema 2. Like ordinary Minecraft storage, independent player/entity/chunk/SavedData files are not a crash-proof transaction; use normal save/shutdown for durability.
+Normal Minecraft autosave and shutdown write dirty data; interactions do not force disk I/O on every click. Settlement schema remains 1; legacy `allied` faction IDs read as `ALLIED_KINGDOM` and new writes use `allied_kingdom`. Quest/reputation schema 3 reads schemas 1 and 2 and preserves quests, reputation, Mayors and old single-player receipts. Encounter schema 2 reads schema 1 and adds lifecycle/contribution/cooldown metadata; legacy unknown lifetimes start conservatively at first maintenance. Older mod versions cannot read the new schemas. Like ordinary Minecraft storage, independent player/entity/chunk/SavedData files are not a crash-proof transaction; use normal save/shutdown for durability.
 
-## Factions and controlled roaming encounters
+## Factions and dynamic roaming encounters
 
 Shared `faction.Faction` supports **ALLIED_KINGDOM**, **PILLAGER**, **BANDIT** and **UNDEAD**. Settlements and parties use that same identity. Bandits need no settlement; their roaming content is not implemented yet. Pillagers retain their organized military direction, Bandits will be opportunistic roaming threats, and Undead will favor chaotic nighttime threats. Adding a faction/type requires content registration, without changing player quests or the reputation relationship model.
 
-`FactionRelation` supports `ALLY`, `NEUTRAL`, `HOSTILE`. The initial pure policy treats a faction as allied with itself, allied kingdoms versus these hostile factions as hostile, and different hostile factions as neutral. This is a foundation for future rules; it does not override vanilla targeting or implement diplomacy.
+`FactionRelation` supports `ALLY`, `NEUTRAL`, `HOSTILE`. A central symmetric table treats a faction as allied with itself. Allied Kingdoms are hostile to Pillagers, Bandits and Undead; Pillagers and Bandits are each hostile to Undead; Pillager/Bandit is neutral. `FactionRelations.getRelation` and `isHostile` are shared by a localized target goal and a target-change guard. Controlled allies/neutral entities cannot become native retaliation targets. Unrelated vanilla mobs retain their targeting and are never inferred to be encounter members.
 
 | Playable type | Vanilla members | Default threat | Eligible regional reward |
 | --- | --- | --- | --- |
 | `pillager_patrol` | 4 Pillagers, including one configured Captain | 2 | +4 with Captain, +2 without |
 | `undead_horde` | 6 alternating adult Zombies and Skeletons | 3 | +2 |
 
-Threat is configurable metadata shared across factions, not an entity-class damage multiplier. Members retain vanilla equipment, AI, drops and behavior. Undead burn during the day; test their intended combat at night. No custom models, new combat AI or automatic roaming population is added. No physical Pillager camp exists in the inspected branch; future camps can be hostile Settlements under the shared faction model.
+Threat is configurable metadata shared across factions. Levels use the separate progression policy below; native AI, attacks and existing equipment remain, with small spawn-time gear additions. Undead burn during the day; test their intended combat at night. Controlled Pillagers and Undead can acquire and fight each other with vanilla crossbow/melee attacks. An allied NPC tagged `GUARD` can participate through the same resolver; guards are not spawned as gameplay content yet. Mayors keep their existing protected stationary behavior. No custom models or advanced battle AI is added. No physical Pillager camp exists in the inspected branch; future camps can be hostile Settlements under the shared faction model.
 
 Operator controls:
 
@@ -133,13 +147,48 @@ Operator controls:
 
 Default spawned parties are explicitly **debug** and give **no reputation**. `reward_test` is an explicit operator-only reward test; it creates an eligible debug party and reports that mode. Normal players cannot spawn either variant. Spawning searches nearby loaded positions 16–32 blocks away, plans the entire small group on dry solid ground, checks local collisions/borders/heights, and changes no terrain. Peaceful difficulty refuses hostile spawns. Partial additions are removed if spawning fails.
 
-To test regional credit, first generate an allied village, then move to an open clearing within 256 blocks of its center. Use a `reward_test` command and defeat **all** members. Only the player who causes the final member's death receives credit in this first version; player-owned projectiles count, while environmental final deaths do not. Other contributors receive no credit yet. This policy is isolated in `EncounterEvents` so damage participation or group credit can be added later.
+Natural roaming is enabled conservatively in **active Overworld wilderness**. Survival/adventure players trigger proposals; creative/spectator players do not. `doMobSpawning=false`, Peaceful and the natural enable setting suppress them. Daytime selects Pillager Patrols. At night, 75% of proposals select small Undead Hordes; their complete footprint must have block light at most 7. Failed nighttime Undead proposals do not fall back to a different type. No biome, roads or hostile-territory rules are implemented.
 
-Credit goes to the party's associated allied settlement if it is still in the defeat dimension and within the configured center-distance range; otherwise the nearest eligible allied settlement at the final death position is used. Without a relevant nearby ally, no reputation is awarded. Height and territory radius do not affect nearest lookup. Killing each member, repeated death notifications, another player claiming the same party, reconnect and ordinary reload cannot duplicate the group reward. Captain reputation is the **total** group reward, not another per-member bonus. Check `/kingdom reputation` inside the rewarded village.
+Default spawning checks every **200 ticks** (10 seconds), chooses one eligible player in rotation and tries at most **three** sites. Every attempt spends a persisted **2400-tick** (2-minute) dimension cooldown even when all sites fail. Candidate centers are 54–80 blocks from the selected player, including a six-block group safety margin; every online player must be at least 54 blocks from the center. This ensures members remain beyond the configured 48-block minimum. The whole footprint must already be loaded and entity-ticking; proposals never request chunk tickets or chunk generation. Terrain safety uses the existing spawner. Allied territory plus a 22-block buffer excludes candidates, including larger saved radii. Vanilla patrol/monster mechanics are not replaced.
 
-Nearest-allied queries use a derived per-world/per-dimension 256-block metadata index, inclusive horizontal center distance and stable UUID tie-breaking. They read no chunks and run only when spawning/resolving events. Entity deaths resolve through a UUID roster index. No encounter tick loop or global entity scan is used. Vanilla conversion events replace member UUIDs without counting a defeat. Unloading or discarding a mob is not treated as death, so manually removed members can leave an unresolved party; no forced chunk recovery or cleanup policy exists yet.
+Tracked active origins must be separated by **128 blocks**, with fewer than **two** active groups within **192 blocks** of both the selected player and candidate. Debug groups count toward these limits. A **256-record global cap** stops natural proposals from adding metadata when too many parties remain, including unloaded parties and defeated records awaiting cleanup. These limits use approximate persisted origins, rather than exact live positions; players do not reset limits or cooldowns by reconnecting. Invalid distance settings (minimum plus margin exceeding maximum) safely produce no encounters.
 
-`EncounterSpawner.spawnAt` is the server-thread entrypoint for future controlled rules. Biome/road/night/hostile-territory selection can propose loaded candidates without being coupled to death tracking or reputation. Natural spawning remains disabled.
+To test regional credit, generate an allied village and fight an encounter in open terrain within 256 blocks of its center. Default debug commands give no reputation; `reward_test` and natural encounters are eligible. Player attacks and player-owned projectiles record post-reduction damage on authoritative living roster members. A player needs a configured **4-damage score** (two hearts), summed over that party's recent engagement, with a hit in the last **6000 ticks** (five server minutes). Each hit is capped to the member's maximum health; lethal overkill is a capped damage score rather than exact remaining HP loss. Inactivity beyond five minutes resets the participant's score on their next hit. At most 64 participant UUIDs are stored. Spectators, passive observers, pets and unrelated vanilla mobs receive no inferred participation.
+
+On the first full-party defeat, **all eligible participants** receive the party's full configured reputation (+2 normal, +4 Captain total), even if another faction or the environment kills the last member. Only the relevant allied settlement gets credit: prefer its saved association if still eligible and in range, otherwise resolve the nearest allied center at the final death position. No nearby allied center means no reward. Faction-only fighting gives players no reputation. Participants can disconnect and still receive their persisted UUID reputation if their last damage is recent; online recipients get a chat message. One batch receipt is saved with all recipients and reputation in the same quest store; later duplicate deaths or late claims cannot append recipients or repeat credit.
+
+Active origin lookup and allied territory lookup use derived 256-block metadata buckets. Deaths/damage/conversions resolve by UUID index. Controlled mob AI searches at most 16 blocks every 40 mob ticks with staggered starts; its vanilla target priorities and attacks remain. Minecraft runs these goals only for active entities. There is no global entity scan, forced chunk loading, unloaded combat simulation or settlement scan per tick.
+
+Every **1200 ticks**, metadata maintenance removes defeated records/receipts after the configured 1200-tick retention and abandons still-active groups after **72000 ticks** (one server hour). Abandonment grants no defeat reward. It discards only already-loaded roster members through direct UUID lookups; unloaded retired members are refused when their chunks next load. Reputation and quest completion remain. Ordinary unloading alone is not death. Manual deletion can leave an active record until its lifetime expires. Legacy encounters receive a fresh lifetime when first maintained. Debug groups have the same lifetime. Server/offline time does not advance these durations.
+
+`EncounterSpawner.spawnAt` remains the shared entity path. `NaturalEncounterSpawner.attemptAt` accepts a future controlled regional proposal under the same cooldown/safety rules. `EncounterQueries.activeNear` and `find` return UUID, faction, type, region, threat, level summary and optional hostile settlement source without touching entity chunks. Today's allied reward association is not exposed as a hostile source. No regional combat quest is implemented yet. Independent Minecraft save files remain non-atomic across crashes: party, entity and reward files can be interrupted at different points, including during cleanup; normal autosave/reload persistence is covered by tests.
+
+## Progression core
+
+Only Living Kingdoms encounter members receive hostile progression. Natural and debug Pillager Patrols and Undead Hordes use the same `ProgressionService`; unrelated vanilla mobs, players and allied NPCs receive no automatic levels. `LevelValue` is a shared 1–100 identity for future profession-specific policies, while the default maximum for new hostile members is **30**.
+
+`RegionalDifficultyService.at` calculates difficulty on demand from horizontal distance to a configured origin (default X=0, Z=0), elapsed Overworld game ticks and indexed nearby active encounters. Player gear is not an input. Defaults are base 1, **+1 per 1024-block band** capped at +24, **+1 per 10 elapsed game days** capped at +3, and **+1 per four nearby threat points** capped at +2 within 192 blocks. Debug parties do not contribute activity. Sleeping and `/time set` do not advance world age. A caller-supplied hostile settlement tier is supported by the pure calculation (+2 per tier, capped at +10); current runtime supplies zero because camps are future content.
+
+In a young region without activity, 0–1023 blocks gives regional level 1; 4096 gives 5; 9216 gives 10; 19456 gives 20; and 24576 or farther gives 25. Total regional difficulty is capped at 30. Each new member rolls within **regional level ±2**, clamped to 1–30; groups have varied levels when the configured window permits it. `HostileParty.levels()` stores original roster count, minimum, maximum and average, retained after deaths/conversions rather than recomputed from surviving entities.
+
+Bonuses use `level - 1`: health +2.5% per level (cap +75%), melee/native arrow damage +2% (cap +50%), armor +0.15 points (cap +4), movement +0.2% (cap +8%). Level 1 has zero stat bonuses. Level 5 gives +10% health/+8% damage; level 10 gives +22.5%/+18%. Stable permanent modifier IDs prevent stacking on reload and preserve other mods' modifiers. Ranged accuracy and vanilla AI are unchanged. Caps constrain this system's additions, not unrelated mods or native equipment.
+
+Empty chest/head slots gain leather at level 5, chainmail at 10 and iron at 20. Undead Zombies with an empty weapon slot gain an iron sword from level 10. Existing gear, bows, crossbows and Captain banners remain. At level 15+, an 8% spawn-time chance adds Protection I to an unenchanted chest piece. Added gear has base drop chance zero, though native Looting can still affect drops. At level 20+, a 5% elite chance adds up to +10% health/damage and +1 armor inside the same caps. No abilities or custom gear are added.
+
+All defaults are configurable in the existing per-world `livingkingdoms-server.toml`, under `progression`, `progression.stats`, `progression.equipment` and `progression.elite`. Full keys/defaults and validation evidence are in [the progression report](docs/progression-core-validation.md). Levels, elite status, stat bonuses and native equipment are saved at spawn; configuration changes affect new members. Old managed mobs and parties without progression default to level 1 with vanilla bonuses, preserving wounds and earlier quest/reputation state. Encounter schema stays 2 with an optional validated summary; settlement/quest schemas are unchanged by this milestone.
+
+Read-only operator feedback:
+
+```text
+/kingdom progression info
+/kingdom progression info <entity-uuid>
+/kingdom progression info @e[type=minecraft:pillager,sort=nearest,limit=1]
+/kingdom encounter info <party-uuid>
+```
+
+The first command reports regional level and contributions; an entity argument reports its persistent profile; encounter info includes roster min/max/average. `progression.showLevelNames=false` keeps normal gameplay names uncluttered; enabling it labels new members and gives elites a gold prefix. There is no level-setting/reroll command. Runtime calculation occurs once per spawn group or explicit query, restoration on entity join, and ranged scaling on projectile join. No progression tick loop, global entity search, settlement scan or chunk loading is added.
+
+Future quests can read target `EntityProgression.Profile`, `EncounterQueries.Reference.levels()` and `RegionalDifficulty` contributions. Future allied NPCs can reuse `LevelValue` with their own role policy; hostile modifiers require encounter identity and are not applied to civilian professions. Settlement progression, player levels, bosses and raids remain future work.
 
 ## Architecture
 
@@ -148,7 +197,7 @@ Nearest-allied queries use a derived per-world/per-dimension 256-block metadata 
 | `dev.livingkingdoms` | Common NeoForge bootstrap and registration |
 | `config` | Per-world NeoForge server settings |
 | `settlement.domain` | Immutable, Minecraft-independent `Settlement` and `Territory` |
-| `faction` | Shared stable faction identities and future relationship policy |
+| `faction` | Shared stable faction identities, centralized relationships and local controlled-mob targeting |
 | `settlement.persistence` | NBT conversion and Overworld `SavedData` ownership |
 | `settlement.SettlementGenerator` | Server service that places validated structures and then persists the settlement |
 | `structure` | Native template loading, bounded validation and read-only site planning |
@@ -159,12 +208,14 @@ Nearest-allied queries use a derived per-world/per-dimension 256-block metadata 
 | `quest` | Board interaction routing and server inventory delivery service |
 | `npc` | Vanilla Villager role/UUID identity, safe Mayor association and contextual dialogue |
 | `encounter.domain` | Immutable faction/type/origin/roster/state/threat metadata |
-| `encounter.persistence` | Guarded party storage and derived member UUID index |
-| `encounter` | Controlled vanilla spawning and localized death/conversion events |
+| `encounter.persistence` | Guarded party storage, UUID/spatial indexes, contributions, lifecycle and cooldowns |
+| `encounter` | Natural/debug vanilla spawning, damage/death/conversion events, bounded cleanup and regional query API |
+| `progression.domain` | Shared levels, party snapshots, pure regional/stat/equipment rules and bounded distribution |
+| `progression` | On-demand regional inputs, spawn progression, persistent modifiers, equipment and projectile join hooks |
 
-There are no client imports in common code and no global settlement cache. Each world owns its data through Minecraft's `DimensionDataStorage`. Commands and gameplay services run on the server thread; storage entrypoints check thread ownership. Immutable records and snapshots prevent changes without dirty-marked storage mutations. UUID lookup is map-backed, nearest allied centers are spatially indexed, and existing territory/overlap queries scan metadata only on requests/interactions. There is no mod tick loop, external database, or gameplay chunk loading.
+There are no client imports in common code and no global settlement cache. Each world owns its data through Minecraft's `DimensionDataStorage`. Commands and gameplay services run on the server thread; storage entrypoints check thread ownership. Immutable records and snapshots prevent changes without dirty-marked storage mutations. UUID lookup is map-backed, nearest allied centers are spatially indexed, and existing territory/overlap queries scan metadata only on requests/interactions. Natural proposals have a cheap tick guard; low-frequency maintenance scans tracked metadata only. There is no global entity polling, external database or gameplay chunk loading.
 
-Persistence validates required fields, stable IDs, bounds, UUID uniqueness, non-overlapping territories, roster consistency and receipt uniqueness. Unsupported or malformed data is rejected. If Minecraft catches a loading error, guarded factories refuse to create fresh data over existing files. Quest schema 1-to-2 migration is explicit and tested.
+Persistence validates required fields, stable IDs, bounds, UUID uniqueness, non-overlapping territories, roster consistency and receipt uniqueness. Unsupported or malformed data is rejected. If Minecraft catches a loading error, guarded factories refuse to create fresh data over existing files. Quest schemas 1/2-to-3 and encounter schema 1-to-2 migrations are explicit and tested.
 
 Future settlement resources and buildings can extend the existing aggregate using typed values and versioned migrations. Put progression rules in focused domain/application services and store replacements through dirty-marked persistence methods. Quest IDs/types and per-relationship quest entries allow later quests to share settlement reputation without sharing individual completion. Delivery terms are specialized to Iron Shortage for now; add new typed objectives/handlers when another quest type actually needs them. NPC identities keep roles independent of vanilla professions. Conquest should use an explicit lifecycle alongside faction (hostile, defeated, liberating, allied outpost, village), with validated transitions.
 
@@ -176,13 +227,13 @@ Natural placement is **not enabled** yet. `SettlementGenerator.generateAt(Server
 
 See [the template layout and WorldEdit export workflow](docs/structure-layout.md). WorldEdit can be used to build/paste in a disposable design world, then vanilla structure blocks export the final `.nbt`. Native `.schem` files require conversion, not renaming. WorldEdit, JourneyMap and JEI are optional development tools; Living Kingdoms has no dependencies on them.
 
-Future difficulty remains a configurable, pure calculation of distance, settlement tier, world age and conquests, independent of entity code. Advanced NPC progression and conquest transitions are outside this milestone.
+Regional difficulty now has a configurable pure calculation of distance, world age, activity and caller-supplied hostile settlement tier, independent of entity AI. Conquest inputs, advanced NPC progression and conquest transitions are future extensions.
 
 ## Tests and community workflow
 
-`test` uses JUnit 5 with ModDevGradle's NeoForge test environment. The 59 tests retain settlement/quest coverage and add shared faction serialization, legacy IDs, relationship policy, spatial lookup boundaries/ties/dimensions, party invariants/UUID uniqueness/death/conversion state, receipt deduplication and schema migration. Real `DimensionDataStorage` save/reopen tests verify persistence and that corrupt/future-schema files remain unchanged after rejected loads.
+`test` uses JUnit 5 with ModDevGradle's NeoForge test environment. The 109 tests retain settlement/quest/faction/encounter coverage and add level bounds, distance bands, age/activity/tier caps, configurable scaling, shared distributions, party snapshots, equipment/elite thresholds and additive save compatibility. Existing cases cover spatial lookup, UUID/state invariants, reward deduplication, atomic multiplayer batches, contribution expiry, lifecycle cleanup and natural gates. Real `DimensionDataStorage` save/reopen tests verify persistence and that corrupt/future-schema files remain unchanged after rejected loads.
 
-`runGameTestServer` starts a headless Minecraft world and loads a separate test mod from `src/gametest`. Seventeen GameTests retain physical/command/quest/Mayor coverage and add both encounter commands, operator gating, vanilla entity UUID/tag persistence, real final-member combat deaths, one-time regional credit, multiplayer safety, unrelated/debug/environmental deaths, vanilla Zombie conversion, absence of nearby allies and loaded-only safe spawning. All test-only terrain preparation, explicit chunk loading, classes and test-mod resources are excluded from the production JAR and normal client/server runs. Its world lives in `runs/gametest`, separate from normal dev worlds. GitHub Actions runs `test build runGameTestServer` on Java 21 and uploads the JARs. The graphical Save and Quit/reopen check remains manual.
+`runGameTestServer` starts a headless Minecraft world and loads a separate test mod from `src/gametest`. Thirty-four GameTests retain physical/command/quest/Mayor/encounter/natural/faction combat and multiplayer credit coverage. Seven new cases verify real scaled attributes, no stacking/healing on reload, legacy/vanilla exclusion, both faction spawn paths and party summaries, native equipment/Captain preservation, actual scaled arrow damage, vanilla conversion, read-only debug commands and server-thread authority. All test-only terrain preparation, explicit chunk loading, classes and test-mod resources are excluded from the production JAR and normal client/server runs. Its world lives in `runs/gametest`, separate from normal dev worlds. GitHub Actions runs `test build runGameTestServer` on Java 21 and uploads the JARs. The graphical Save and Quit/reopen check remains manual.
 
 Open an issue with Minecraft/NeoForge/mod versions, reproduction steps, and a relevant log excerpt. Keep contributions scoped and run `test build runGameTestServer` before submitting a pull request. The GitHub workflow is configured for pushes and pull requests. The mod currently reserves all rights; a community distribution license must be selected by the project owner before public release.
 
@@ -192,8 +243,8 @@ Open an issue with Minecraft/NeoForge/mod versions, reproduction steps, and a re
 - [SavedData in NeoForge 1.21.1](https://docs.neoforged.net/docs/1.21.1/datastorage/saveddata/)
 - [ModDevGradle runs and JUnit support](https://github.com/neoforged/ModDevGradle)
 
-Local results and known runtime limits: [Milestone 0](docs/validation.md), [Milestone 1](docs/milestone-1-validation.md), [Milestone 2](docs/milestone-2-validation.md), [hostile factions and encounters](docs/hostile-encounters-validation.md).
+Local results and known runtime limits: [Milestone 0](docs/validation.md), [Milestone 1](docs/milestone-1-validation.md), [Milestone 2](docs/milestone-2-validation.md), [hostile factions and encounters](docs/hostile-encounters-validation.md), [dynamic world encounters](docs/dynamic-encounters-validation.md), [progression core](docs/progression-core-validation.md).
 
 ## Next milestone
 
-Next gameplay milestone: one Quest Board mission to defeat a regional hostile party, using the existing UUID-linked encounter and reputation foundation. Keep worldwide natural spawning, advanced combat, diplomacy, armies and conquest for later. This combat quest has not been started.
+Next gameplay milestone: one Quest Board mission to defeat a regional hostile party, using the existing UUID-linked encounter/reputation foundation, party levels and regional difficulty for target selection. Handle victory, retirement and missing targets through the existing participation boundary. Keep advanced combat, diplomacy, armies and conquest for later. This combat quest has not been started.

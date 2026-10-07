@@ -31,6 +31,7 @@ public final class SettlementSavedData extends SavedData {
     private final Map<UUID, Settlement> settlements = new LinkedHashMap<>();
     // Derived from authoritative records, never serialized or shared between worlds.
     private final Map<String, Map<Bucket, List<UUID>>> alliedCenters = new HashMap<>();
+    private final Map<String, List<UUID>> oversizedAlliedTerritories = new HashMap<>();
 
     public static SettlementSavedData get(MinecraftServer server) {
         if (!server.isSameThread()) {
@@ -103,6 +104,33 @@ public final class SettlementSavedData extends SavedData {
                 .filter(settlement -> settlement.territory().contains(dimension, x, z)).findFirst();
     }
 
+    /** Natural encounter exclusion includes every allied territory radius and a group-sized margin. */
+    public boolean nearAlliedTerritory(String dimension, int x, int z, int buffer) {
+        if (buffer < 0 || buffer > 256) throw new IllegalArgumentException("Invalid territory buffer");
+        Map<Bucket, List<UUID>> index = alliedCenters.get(Objects.requireNonNull(dimension));
+        if (index == null) return false;
+        int searchRange = 1024 + buffer; // Configured territory maximum; larger imported records are checked separately.
+        for (int bx = bucketCoordinate((long) x - searchRange); bx <= bucketCoordinate((long) x + searchRange); bx++) {
+            for (int bz = bucketCoordinate((long) z - searchRange); bz <= bucketCoordinate((long) z + searchRange); bz++) {
+                List<UUID> ids = index.get(new Bucket(bx, bz));
+                if (ids == null) continue;
+                for (UUID id : ids) {
+                    Territory territory = settlements.get(id).territory();
+                    long radius = (long) territory.radius() + buffer;
+                    long dx = (long) x - territory.x(), dz = (long) z - territory.z();
+                    if (Math.abs(dx) <= radius && Math.abs(dz) <= radius && dx * dx + dz * dz <= radius * radius) return true;
+                }
+            }
+        }
+        for (UUID id : oversizedAlliedTerritories.getOrDefault(dimension, List.of())) {
+            Territory territory = settlements.get(id).territory();
+            double dx = (double) x - territory.x(), dz = (double) z - territory.z();
+            double radius = (double) territory.radius() + buffer;
+            if (dx * dx + dz * dz <= radius * radius) return true;
+        }
+        return false;
+    }
+
     public boolean overlaps(Territory territory) {
         return settlements.values().stream().anyMatch(settlement -> settlement.territory().overlaps(territory));
     }
@@ -123,6 +151,7 @@ public final class SettlementSavedData extends SavedData {
     private void indexAlliedCenter(Settlement settlement) {
         if (!settlement.faction().isAllied()) return;
         Territory territory = settlement.territory();
+        if (territory.radius() > 1024) oversizedAlliedTerritories.computeIfAbsent(territory.dimension(), ignored -> new ArrayList<>()).add(settlement.id());
         Bucket bucket = new Bucket(bucketCoordinate(territory.x()), bucketCoordinate(territory.z()));
         alliedCenters.computeIfAbsent(territory.dimension(), ignored -> new HashMap<>())
                 .computeIfAbsent(bucket, ignored -> new ArrayList<>()).add(settlement.id());

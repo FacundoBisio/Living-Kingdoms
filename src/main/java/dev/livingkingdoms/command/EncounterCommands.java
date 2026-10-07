@@ -63,6 +63,8 @@ public final class EncounterCommands {
                 Component.translatable("encounter.livingkingdoms.type." + party.type().id()), party.state().name(),
                 party.remainingMembers().size(), party.memberIds().size(), party.threatRating(), party.reputationReward(),
                 party.debug(), party.rewardEligible(), party.associatedSettlementId() == null ? "—" : party.associatedSettlementId().toString()), false);
+        source.sendSuccess(() -> Component.translatable("commands.livingkingdoms.encounter.levels", party.levels().minimum(),
+                party.levels().maximum(), party.levels().average()), false);
         return Command.SINGLE_SUCCESS;
     }
 }

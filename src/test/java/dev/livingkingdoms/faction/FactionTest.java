@@ -31,11 +31,33 @@ class FactionTest {
         for (Faction first : Faction.values()) {
             for (Faction second : Faction.values()) {
                 FactionRelation expected = first == second ? FactionRelation.ALLY
-                        : first.isAllied() || second.isAllied() ? FactionRelation.HOSTILE : FactionRelation.NEUTRAL;
+                        : first.isAllied() || second.isAllied() || first == Faction.UNDEAD || second == Faction.UNDEAD
+                        ? FactionRelation.HOSTILE : FactionRelation.NEUTRAL;
                 assertEquals(expected, FactionRelations.between(first, second));
                 assertEquals(FactionRelations.between(first, second), FactionRelations.between(second, first));
             }
         }
         assertThrows(NullPointerException.class, () -> FactionRelations.between(null, Faction.UNDEAD));
+    }
+
+    @Test
+    void pillagersAndBanditsAreHostileToUndeadButNeutralToEachOther() {
+        assertTrue(FactionRelations.isHostile(Faction.PILLAGER, Faction.UNDEAD));
+        assertTrue(FactionRelations.isHostile(Faction.UNDEAD, Faction.PILLAGER));
+        assertTrue(FactionRelations.isHostile(Faction.BANDIT, Faction.UNDEAD));
+        assertFalse(FactionRelations.isHostile(Faction.PILLAGER, Faction.BANDIT));
+        assertEquals(FactionRelation.NEUTRAL, FactionRelations.getRelation(Faction.BANDIT, Faction.PILLAGER));
+    }
+
+    @Test
+    void noFactionCanBeHostileToItselfAndCompatibilityApiDelegatesToPolicy() {
+        for (Faction first : Faction.values()) {
+            assertFalse(FactionRelations.isHostile(first, first));
+            assertEquals(FactionRelation.ALLY, FactionRelations.getRelation(first, first));
+            for (Faction second : Faction.values()) {
+                assertEquals(FactionRelations.between(first, second), FactionRelations.getRelation(first, second));
+            }
+        }
+        assertThrows(NullPointerException.class, () -> FactionRelations.isHostile(Faction.UNDEAD, null));
     }
 }

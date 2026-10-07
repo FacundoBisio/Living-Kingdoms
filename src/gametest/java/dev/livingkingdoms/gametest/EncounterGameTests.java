@@ -128,7 +128,7 @@ public final class EncounterGameTests {
     }
 
     @GameTest(template = "empty", timeoutTicks = 500)
-    public static void actualMemberDeathsRewardOnlyFinalKillerAndNearestAlliedOnce(GameTestHelper helper) {
+    public static void actualMemberDeathsRewardParticipantsAndNearestAlliedOnce(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         BlockPos center = helper.absolutePos(new BlockPos(12800, 0, 12800));
         preparePlot(level, center);
@@ -152,13 +152,14 @@ public final class EncounterGameTests {
         helper.assertTrue(encounters.get(party.id()).orElseThrow().state() == PartyState.DEFEATED
                 && encounters.get(party.id()).orElseThrow().remainingMembers().isEmpty(), "Final real death must defeat the party");
         helper.assertTrue(reputation.reputation(killer.getUUID(), near.id()) == party.reputationReward()
-                && reputation.reputation(contributor.getUUID(), near.id()) == 0
-                && reputation.reputation(killer.getUUID(), farther.id()) == 0,
-                "Initial credit policy rewards only the final killer and one relevant allied settlement");
+                && reputation.reputation(contributor.getUUID(), near.id()) == party.reputationReward()
+                && reputation.reputation(killer.getUUID(), farther.id()) == 0
+                && reputation.reputation(contributor.getUUID(), farther.id()) == 0,
+                "Both meaningful damage participants receive one relevant allied settlement reward");
         EncounterEvents.onDeath(new LivingDeathEvent(last, source));
         EncounterEvents.onDeath(new LivingDeathEvent(last, level.damageSources().playerAttack(contributor)));
         helper.assertTrue(reputation.reputation(killer.getUUID(), near.id()) == party.reputationReward()
-                && reputation.reputation(contributor.getUUID(), near.id()) == 0 && reputation.hasEncounterReward(party.id()),
+                && reputation.reputation(contributor.getUUID(), near.id()) == party.reputationReward() && reputation.hasEncounterReward(party.id()),
                 "Repeated death notifications and another player cannot obtain another reward");
         level.getDataStorage().save();
         IOUtilities.waitUntilIOWorkerComplete();
@@ -177,7 +178,7 @@ public final class EncounterGameTests {
     }
 
     @GameTest(template = "empty", timeoutTicks = 500)
-    public static void debugUnrelatedAndEnvironmentalDeathsDoNotReward(GameTestHelper helper) {
+    public static void debugAndUnrelatedDeathsNeverRewardButEnvironmentalFinishKeepsParticipation(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         BlockPos center = helper.absolutePos(new BlockPos(13312, 0, 13312));
         preparePlot(level, center);
@@ -202,8 +203,8 @@ public final class EncounterGameTests {
         for (int i = 0; i < members.size() - 1; i++) kill(helper, members.get(i), level.damageSources().playerAttack(player));
         kill(helper, members.getLast(), level.damageSources().generic());
         helper.assertTrue(EncounterSavedData.get(level.getServer()).get(environmental.id()).orElseThrow().state() == PartyState.DEFEATED
-                && reputation.reputation(player.getUUID(), settlement.id()) == 0 && !reputation.hasEncounterReward(environmental.id()),
-                "Environmental final kill defeats the group without assigning final-killer credit");
+                && reputation.reputation(player.getUUID(), settlement.id()) == environmental.reputationReward() && reputation.hasEncounterReward(environmental.id()),
+                "Environmental final kill preserves meaningful earlier player contribution");
         helper.succeed();
     }
 

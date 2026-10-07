@@ -49,5 +49,11 @@
   "commands.livingkingdoms.encounter.spawn_failed": "Encounter spawning was refused; newly spawned members were removed. See the server log.",
   "commands.livingkingdoms.encounter.peaceful": "Hostile encounters cannot be spawned on Peaceful difficulty.",
   "commands.livingkingdoms.encounter.not_found": "No encounter has that UUID.",
-  "commands.livingkingdoms.encounter.info": "ID: %s\nFaction: %s\nType: %s\nState: %s\nRemaining: %s/%s\nThreat rating: %s\nPotential reputation: %s\nDebug: %s\nReward eligible: %s\nAssociated settlement: %s"
+  "commands.livingkingdoms.encounter.info": "ID: %s\nFaction: %s\nType: %s\nState: %s\nRemaining: %s/%s\nThreat rating: %s\nPotential reputation: %s\nDebug: %s\nReward eligible: %s\nAssociated settlement: %s",
+  "progression.livingkingdoms.level_name": "%s - Level %s",
+  "progression.livingkingdoms.elite_name": "Elite %s",
+  "commands.livingkingdoms.progression.region": "Regional level %s (distance +%s, world age +%s, activity +%s, hostile tier +%s).",
+  "commands.livingkingdoms.progression.entity": "Member %s: level %s, elite=%s; health bonus=%s, damage bonus=%s, armor=%s, movement bonus=%s.",
+  "commands.livingkingdoms.progression.unmanaged": "This entity has no managed Living Kingdoms progression.",
+  "commands.livingkingdoms.encounter.levels": "Spawn levels: minimum %s, maximum %s, average %s."
 }

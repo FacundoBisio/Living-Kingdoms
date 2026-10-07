@@ -20,11 +20,13 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.Set;
+import java.util.HashSet;
 
 /** Global Overworld storage for UUID relationships; production access is on the server thread. */
 public final class QuestSavedData extends SavedData {
     public static final String DATA_NAME = "livingkingdoms_quests";
-    private static final int SCHEMA_VERSION = 2;
+    private static final int SCHEMA_VERSION = 3;
     private final Map<RelationshipKey, Relationship> relationships = new LinkedHashMap<>();
     private final Map<UUID, UUID> mayors = new LinkedHashMap<>();
     private final Map<UUID, EncounterRewardReceipt> encounterRewards = new LinkedHashMap<>();
@@ -69,22 +71,35 @@ public final class QuestSavedData extends SavedData {
         return relationship == null ? 0 : relationship.reputation;
     }
 
-    /** One receipt per party, in the same file as its reputation effect; the first credit wins. */
+    /** Compatibility entrypoint: a single player claims the entire party receipt. */
     public boolean awardEncounterReputationOnce(UUID party, UUID player, UUID settlement, int amount) {
+        return awardEncounterReputationOnce(party, Set.of(player), settlement, amount);
+    }
+
+    /** All qualifying players are credited together; a later batch cannot append another reward. */
+    public boolean awardEncounterReputationOnce(UUID party, Set<UUID> players, UUID settlement, int amount) {
         Objects.requireNonNull(party, "party");
-        RelationshipKey key = new RelationshipKey(player, settlement);
+        Objects.requireNonNull(settlement, "settlement");
+        Set<UUID> recipients = Set.copyOf(players);
+        if (recipients.isEmpty() || recipients.size() > 64) throw new IllegalArgumentException("Invalid encounter recipients");
         if (amount < 1 || amount > 1_000_000) throw new IllegalArgumentException("Invalid encounter reputation reward");
         if (encounterRewards.containsKey(party)) return false;
-        Relationship relationship = relationships.get(key);
-        int updated = Math.addExact(relationship == null ? 0 : relationship.reputation, amount);
-        if (relationship == null) {
-            relationship = new Relationship();
-            relationships.put(key, relationship);
+        // Preflight every addition before changing any player or receipt.
+        Map<RelationshipKey, Integer> updates = new LinkedHashMap<>();
+        for (UUID player : recipients) {
+            RelationshipKey key = new RelationshipKey(player, settlement);
+            Relationship relationship = relationships.get(key);
+            updates.put(key, Math.addExact(relationship == null ? 0 : relationship.reputation, amount));
         }
-        encounterRewards.put(party, new EncounterRewardReceipt(player, settlement, amount));
-        relationship.reputation = updated;
+        updates.forEach((key, value) -> relationships.computeIfAbsent(key, ignored -> new Relationship()).reputation = value);
+        encounterRewards.put(party, new EncounterRewardReceipt(recipients, settlement, amount));
         setDirty();
         return true;
+    }
+
+    /** Retired parties cannot resolve deaths again; retain reputation, discard only obsolete receipts. */
+    public void retainEncounterReceipts(Set<UUID> trackedParties) {
+        if (encounterRewards.keySet().removeIf(id -> !trackedParties.contains(id))) setDirty();
     }
 
     public boolean hasEncounterReward(UUID party) {
@@ -165,7 +180,7 @@ public final class QuestSavedData extends SavedData {
     public static QuestSavedData load(CompoundTag tag, HolderLookup.Provider registries) {
         require(tag, "schema_version", Tag.TAG_INT);
         int version = tag.getInt("schema_version");
-        if (version != 1 && version != SCHEMA_VERSION) {
+        if (version < 1 || version > SCHEMA_VERSION) {
             throw new IllegalArgumentException("Unsupported Living Kingdoms quest schema: "
                     + tag.getInt("schema_version"));
         }
@@ -222,15 +237,24 @@ public final class QuestSavedData extends SavedData {
             for (int i = 0; i < receipts.size(); i++) {
                 CompoundTag receipt = receipts.getCompound(i);
                 UUID party = uuid(receipt, "party");
-                UUID player = uuid(receipt, "player");
+                Set<UUID> players = new HashSet<>();
+                if (version == 2) {
+                    players.add(uuid(receipt, "player"));
+                } else {
+                    ListTag recipients = compoundList(receipt, "players");
+                    if (recipients.isEmpty() || recipients.size() > 64) throw new IllegalArgumentException("Invalid encounter recipients");
+                    for (int p = 0; p < recipients.size(); p++) {
+                        if (!players.add(uuid(recipients.getCompound(p), "player"))) throw new IllegalArgumentException("Duplicate encounter recipient");
+                    }
+                }
                 UUID settlement = uuid(receipt, "settlement");
                 require(receipt, "amount", Tag.TAG_INT);
                 int amount = receipt.getInt("amount");
                 if (amount < 1 || amount > 1_000_000
-                        || !data.relationships.containsKey(new RelationshipKey(player, settlement))) {
+                        || players.stream().anyMatch(player -> !data.relationships.containsKey(new RelationshipKey(player, settlement)))) {
                     throw new IllegalArgumentException("Invalid encounter reward receipt");
                 }
-                if (data.encounterRewards.putIfAbsent(party, new EncounterRewardReceipt(player, settlement, amount)) != null) {
+                if (data.encounterRewards.putIfAbsent(party, new EncounterRewardReceipt(Set.copyOf(players), settlement, amount)) != null) {
                     throw new IllegalArgumentException("Duplicate encounter reward receipt");
                 }
             }
@@ -278,7 +302,13 @@ public final class QuestSavedData extends SavedData {
         encounterRewards.forEach((party, receipt) -> {
             CompoundTag entry = new CompoundTag();
             entry.putUUID("party", party);
-            entry.putUUID("player", receipt.player);
+            ListTag recipients = new ListTag();
+            receipt.players.stream().sorted().forEach(player -> {
+                CompoundTag recipient = new CompoundTag();
+                recipient.putUUID("player", player);
+                recipients.add(recipient);
+            });
+            entry.put("players", recipients);
             entry.putUUID("settlement", receipt.settlement);
             entry.putInt("amount", receipt.amount);
             receipts.add(entry);
@@ -318,5 +348,5 @@ public final class QuestSavedData extends SavedData {
     }
 
     private record AcceptedQuest(QuestState state, QuestTerms terms) {}
-    private record EncounterRewardReceipt(UUID player, UUID settlement, int amount) {}
+    private record EncounterRewardReceipt(Set<UUID> players, UUID settlement, int amount) {}
 }

@@ -5,6 +5,7 @@ import dev.livingkingdoms.encounter.domain.OriginRegion;
 import dev.livingkingdoms.encounter.domain.PartyState;
 import dev.livingkingdoms.encounter.domain.PartyType;
 import dev.livingkingdoms.faction.Faction;
+import dev.livingkingdoms.progression.domain.LevelSummary;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtUtils;
@@ -40,6 +41,10 @@ final class EncounterNbt {
         tag.putInt("reputation_reward", party.reputationReward());
         tag.putBoolean("debug", party.debug());
         tag.putBoolean("reward_eligible", party.rewardEligible());
+        CompoundTag levels = new CompoundTag();
+        levels.putInt("count", party.levels().count()); levels.putInt("sum", party.levels().sum());
+        levels.putInt("minimum", party.levels().minimum()); levels.putInt("maximum", party.levels().maximum());
+        tag.put("levels", levels);
         return tag;
     }
 
@@ -60,11 +65,19 @@ final class EncounterNbt {
         for (String field : new String[]{"x", "y", "z", "radius"}) require(location, field, Tag.TAG_INT);
         OriginRegion origin = new OriginRegion(location.getString("dimension"), location.getInt("x"),
                 location.getInt("y"), location.getInt("z"), location.getInt("radius"));
+        Set<UUID> roster = readUuidList(tag, "members");
+        LevelSummary levels = LevelSummary.uniform(roster.size(), 1);
+        if (tag.contains("levels")) {
+            require(tag, "levels", Tag.TAG_COMPOUND);
+            CompoundTag levelTag = tag.getCompound("levels");
+            for (String field : new String[]{"count", "sum", "minimum", "maximum"}) require(levelTag, field, Tag.TAG_INT);
+            levels = new LevelSummary(levelTag.getInt("count"), levelTag.getInt("sum"), levelTag.getInt("minimum"), levelTag.getInt("maximum"));
+        }
         return new HostileParty(id, Faction.fromId(tag.getString("faction")),
                 PartyType.fromId(tag.getString("type")), origin, settlement,
-                PartyState.valueOf(tag.getString("state")), readUuidList(tag, "members"),
+                PartyState.valueOf(tag.getString("state")), roster,
                 readUuidList(tag, "remaining_members"), tag.getInt("threat_rating"),
-                tag.getInt("reputation_reward"), tag.getBoolean("debug"), tag.getBoolean("reward_eligible"));
+                tag.getInt("reputation_reward"), tag.getBoolean("debug"), tag.getBoolean("reward_eligible"), levels);
     }
 
     private static ListTag uuidList(Set<UUID> members) {

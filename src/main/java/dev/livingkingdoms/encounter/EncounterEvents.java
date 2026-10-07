@@ -5,6 +5,8 @@ import dev.livingkingdoms.config.KingdomConfig;
 import dev.livingkingdoms.encounter.domain.HostileParty;
 import dev.livingkingdoms.encounter.persistence.EncounterSavedData;
 import dev.livingkingdoms.quest.persistence.QuestSavedData;
+import dev.livingkingdoms.faction.FactionCombat;
+import dev.livingkingdoms.progression.EntityProgression;
 import dev.livingkingdoms.settlement.NearestAlliedSettlementService;
 import dev.livingkingdoms.settlement.domain.Settlement;
 import net.minecraft.core.BlockPos;
@@ -14,14 +16,33 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Mob;
 import net.neoforged.neoforge.event.entity.living.LivingConversionEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
+import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
 import org.slf4j.Logger;
 
 import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 
-/** Local death/conversion events; there is no entity polling or encounter tick loop. */
+/** Actual damage, death and conversion events resolve through the authoritative member index. */
 public final class EncounterEvents {
     private static final Logger LOGGER = LogUtils.getLogger();
     private EncounterEvents() {}
+
+    public static void onDamage(LivingDamageEvent.Post event) {
+        if (!(event.getEntity().level() instanceof ServerLevel level)
+                || !(event.getSource().getEntity() instanceof ServerPlayer player)
+                || player.isSpectator() || player.serverLevel() != level
+                || !Float.isFinite(event.getNewDamage()) || event.getNewDamage() <= 0) return;
+        var identity = EncounterMember.read(event.getEntity());
+        if (identity.isEmpty()) return;
+        EncounterSavedData data = EncounterSavedData.get(level.getServer());
+        var party = data.forMember(event.getEntity().getUUID());
+        if (party.isEmpty() || !party.get().rewardEligible() || !party.get().id().equals(identity.get().partyId())
+                || party.get().faction() != identity.get().faction()) return;
+        // Post precedes LivingDeathEvent, including the lethal hit. Overkill is capped to one health bar.
+        data.recordContribution(event.getEntity().getUUID(), player.getUUID(),
+                Math.min(event.getNewDamage(), event.getEntity().getMaxHealth()), level.getServer().overworld().getGameTime());
+    }
 
     public static void onDeath(LivingDeathEvent event) {
         if (event.isCanceled() || !(event.getEntity().level() instanceof ServerLevel level)
@@ -32,13 +53,15 @@ public final class EncounterEvents {
         var tracked = parties.forMember(event.getEntity().getUUID());
         if (tracked.isEmpty() || !tracked.get().id().equals(identity.get().partyId())
                 || tracked.get().faction() != identity.get().faction()) return;
-        var defeated = parties.recordDeath(event.getEntity().getUUID());
+        long now = level.getServer().overworld().getGameTime();
+        var defeated = parties.recordDeath(event.getEntity().getUUID(), now);
         if (defeated.isEmpty()) return;
         HostileParty party = defeated.orElseThrow();
         // Default debug parties are combat fixtures, not repeatable reputation generators.
-        if (!party.rewardEligible() || party.reputationReward() == 0
-                || !(event.getSource().getEntity() instanceof ServerPlayer killer)
-                || killer.isSpectator() || killer.serverLevel() != level) return;
+        if (!party.rewardEligible() || party.reputationReward() == 0) return;
+        Set<UUID> participants = parties.eligibleParticipants(party.id(), now,
+                KingdomConfig.ENCOUNTER_MIN_CONTRIBUTION.get(), EncounterSavedData.PARTICIPATION_EXPIRY_TICKS);
+        if (participants.isEmpty()) return;
         BlockPos position = event.getEntity().blockPosition();
         int range = KingdomConfig.ENCOUNTER_REPUTATION_RANGE.get();
         Optional<Settlement> settlement = relevantSettlement(level, party, position, range);
@@ -46,10 +69,15 @@ public final class EncounterEvents {
         try {
             QuestSavedData reputation = QuestSavedData.get(level.getServer());
             Settlement allied = settlement.orElseThrow();
-            if (reputation.awardEncounterReputationOnce(party.id(), killer.getUUID(), allied.id(), party.reputationReward())) {
-                killer.displayClientMessage(Component.translatable("encounter.livingkingdoms.reputation_awarded",
-                        Component.translatable("encounter.livingkingdoms.type." + party.type().id()),
-                        party.reputationReward(), allied.name()), false);
+            if (reputation.awardEncounterReputationOnce(party.id(), participants, allied.id(), party.reputationReward())) {
+                for (UUID participant : participants) {
+                    ServerPlayer player = level.getServer().getPlayerList().getPlayer(participant);
+                    if (player == null && event.getSource().getEntity() instanceof ServerPlayer killer
+                            && killer.getUUID().equals(participant)) player = killer;
+                    if (player != null) player.displayClientMessage(Component.translatable("encounter.livingkingdoms.reputation_awarded",
+                            Component.translatable("encounter.livingkingdoms.type." + party.type().id()),
+                            party.reputationReward(), allied.name()), false);
+                }
             }
         } catch (RuntimeException failure) {
             LOGGER.error("Could not award reputation for defeated party {}; no reward replay is attempted", party.id(), failure);
@@ -80,6 +108,8 @@ public final class EncounterEvents {
         if (parties.replaceMember(event.getEntity().getUUID(), event.getOutcome().getUUID())) {
             EncounterMember.attach(event.getOutcome(), identity.get().partyId(), identity.get().faction());
             if (event.getOutcome() instanceof Mob mob) mob.setPersistenceRequired();
+            if (event.getEntity() instanceof Mob before && event.getOutcome() instanceof Mob after) EntityProgression.copyConversion(before, after);
+            if (event.getOutcome() instanceof Mob mob) FactionCombat.install(mob);
         }
     }
 }
