@@ -37,7 +37,7 @@ public final class EncounterEvents {
         if (identity.isEmpty()) return;
         EncounterSavedData data = EncounterSavedData.get(level.getServer());
         var party = data.forMember(event.getEntity().getUUID());
-        if (party.isEmpty() || !party.get().rewardEligible() || !party.get().id().equals(identity.get().partyId())
+        if (party.isEmpty() || (party.get().debug() && !party.get().rewardEligible()) || !party.get().id().equals(identity.get().partyId())
                 || party.get().faction() != identity.get().faction()) return;
         // Post precedes LivingDeathEvent, including the lethal hit. Overkill is capped to one health bar.
         data.recordContribution(event.getEntity().getUUID(), player.getUUID(),
@@ -57,10 +57,12 @@ public final class EncounterEvents {
         var defeated = parties.recordDeath(event.getEntity().getUUID(), now);
         if (defeated.isEmpty()) return;
         HostileParty party = defeated.orElseThrow();
-        // Default debug parties are combat fixtures, not repeatable reputation generators.
-        if (!party.rewardEligible() || party.reputationReward() == 0) return;
         Set<UUID> participants = parties.eligibleParticipants(party.id(), now,
                 KingdomConfig.ENCOUNTER_MIN_CONTRIBUTION.get(), EncounterSavedData.PARTICIPATION_EXPIRY_TICKS);
+        // Quest victory is an actual defeat + participation event, independent of roaming reputation.
+        if (!party.debug()) QuestSavedData.get(level.getServer()).resolveParty(party.id(), participants);
+        // Default debug parties are combat fixtures, not repeatable reputation generators.
+        if (!party.rewardEligible() || party.reputationReward() == 0) return;
         if (participants.isEmpty()) return;
         BlockPos position = event.getEntity().blockPosition();
         int range = KingdomConfig.ENCOUNTER_REPUTATION_RANGE.get();

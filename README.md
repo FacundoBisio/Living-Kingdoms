@@ -1,6 +1,6 @@
 # Living Kingdoms
 
-Minecraft Java **1.21.1**, **Java 21**, **NeoForge 21.1.252**. Version 0.6.0 adds persistent hostile levels, regional difficulty and capped stat/equipment progression to the existing settlements, Mayors, Iron Shortage quest, natural encounters, faction combat and multiplayer regional reputation. All gameplay state is owned by the server. Advanced professions, diplomacy, economy, conquest, armies, custom GUI and external AI services remain outside the current scope.
+Minecraft Java **1.21.1**, **Java 21**, **NeoForge 21.1.252**. Version 0.7.0 adds a persistent main chapter, rotating resource/combat quests and progression-aware rewards to the existing settlements, Mayors, factions, natural encounters, combat, regional reputation and levels. All gameplay state is owned by the server. Housing, advanced professions, diplomacy, economy, conquest, armies, custom GUI and external AI services remain outside the current scope.
 
 Living Kingdoms focuses on exploring, discovering settlements, gaining reputation, fighting and liberating hostile territory. Its settlements are RPG/strategy hubs; the buildings in this milestone do not automate workers or manage colonies.
 
@@ -24,7 +24,7 @@ bash ./gradlew runGameTestServer
 bash ./gradlew runClient
 ```
 
-The client opens the Minecraft development environment. Create a world with cheats enabled for debug generation. The mod JAR is `build/libs/livingkingdoms-0.6.0.jar`; the `-sources.jar` is for developers, not installation. Use the same mod version on clients and dedicated servers. Python and development mods are not required for the ordinary Java build or runtime.
+The client opens the Minecraft development environment. Create a world with cheats enabled for debug generation. The mod JAR is `build/libs/livingkingdoms-0.7.0.jar`; the `-sources.jar` is for developers, not installation. Use the same mod version on clients and dedicated servers. Python and development mods are not required for the ordinary Java build or runtime.
 
 On the development machine used for this milestone, `runClient` crashes in the AMD native OpenGL driver (`atio6axx.dll`, `EXCEPTION_ACCESS_VIOLATION`) while GLFW creates a window. Disabling NeoForge's early splash window reproduces the same crash at vanilla window creation. The graphical client and manual Save and Quit/reopen flow therefore remain unverified on that machine. Crash reports are in the ignored `run/hs_err_pid*.log` files. Headless tests do not require a working graphics driver.
 
@@ -71,11 +71,44 @@ Existing Milestone 1 physical settlements gain a Mayor on first board use if the
 
 The Mayor is a vanilla Villager with a persisted Living Kingdoms role and settlement UUID, a visible name and no trades. It is stationary (`NoAI`), persistent and protected from ordinary combat for this prototype; creative players can still remove it and physical pushes can move it. `MAYOR`, `BLACKSMITH` and `GUARD` are identity concepts; only the Mayor is spawned in this milestone. Missing or unloaded recorded Mayors are not automatically replaced, which avoids duplicate NPCs. There are no schedules, professions, recruitment or autonomous worker behavior.
 
-Quest states are `AVAILABLE`, `ACTIVE`, `COMPLETED`, `FAILED`. Failure is supported by the storage lifecycle, but Iron Shortage currently has no timer/failure trigger, abandonment or repeatable reset. Inventory progress is checked on interaction, not each tick. An accepted quest snapshots its terms: changing server settings affects new acceptances only.
+Quest states are `AVAILABLE`, `ACTIVE`, `COMPLETED`, `FAILED`, `EXPIRED`. Original Iron Shortage still has no timer, abandonment or repeatable reset. Inventory progress is checked on interaction, not each tick. An accepted Iron quest snapshots its terms: changing settings affects new acceptances only.
+
+## Main quests and regional requests
+
+Right-click the board to see **MAIN QUESTS — Chapter 1: First Steps** and **AVAILABLE REQUESTS / ACTIVE QUESTS**, beneath the compatible Iron Shortage section. Entries show source role, state, level/difficulty, objective, progress and reward. Click **Accept quest** or **Deliver / Claim reward** in chat; no operator permission or typed commands are needed. Remain within eight blocks of the actual board and inside its allied territory. UUID ownership, reach and lifecycle are checked again on every action.
+
+One main chapter persists globally per player, anchored to their first Mayor-backed settlement:
+
+1. **Meet the Mayor:** a real main-hand interaction completes the first step.
+2. **Iron Shortage:** finish the existing delivery, default 16 iron for eight emeralds/+10 reputation. The chapter observes this same completion, including old saved completion; it does not pay again.
+3. **Secure the Roads:** accept a quest bound to an actual nearby non-debug Pillager Patrol. Contribute meaningfully to defeating that specific group, then confirm victory at the board. Approximate origin coordinates guide travel. A missing/retired target fails; the main step can bind a replacement later.
+4. **Return Home:** accept and claim at the chapter settlement's board for six emeralds/+5 reputation by default. The chapter never expires or repeats at another settlement.
+
+Abstract records without a Mayor do not lock a player's main chapter. Their boards can still offer delivery requests. Only the existing Mayor is spawned; other quest source roles are metadata for future NPCs, brokered by the board.
+
+| Dynamic request | Default objective | Source role |
+| --- | --- | --- |
+| Iron Supplies | 16 iron ingots | Blacksmith |
+| Food Shortage | 32 wheat | Farmer |
+| Building Materials | 32 logs **and** 32 stone | Citizen |
+| Raiders on the Road | Actual nearby Pillager Patrol UUID | Guard Captain |
+| The Restless Dead | Actual nearby Undead Horde UUID | Guard Captain |
+
+Logs use the Minecraft `logs` item tag; stone means ordinary stone, not cobblestone. Multi-resource delivery preflights all requirements and full reward capacity on copies, ignoring armor. Refusal consumes nothing, and repeated claims/reconnects cannot repeat a payout.
+
+Default batches contain **three dynamic slots per player/settlement**, rotated on demand after a persisted **48000-tick** (two elapsed game days) cooldown. Unaccepted offers expire after 48000 ticks; accepted requests remain active and occupy slots in later rotations. Opening another board or reconnecting cannot reroll the batch. Count is configurable 2–4; only three resource templates are available without hostiles. Combat generation uses actual indexed parties within 256 blocks of the settlement center, excluding debug and already actively targeted dynamic UUIDs. It never spawns an enemy or loads chunks.
+
+Resource fallback weight is 3; each real party contributes a combat candidate weighted 8–12 by level. A stable player/settlement/generation seed selects without replacement. Future shortage weights are supported, but there is no simulated stockpile/resource deficit yet. Current resource requests are fallback needs; hostile activity comes from persisted world context.
+
+Resource recommended level uses the existing regional service; combat uses rounded-up original party average. Difficulty bands are VERY_EASY 1–3, EASY 4–7, NORMAL 8–12, HARD 13–20, VERY_HARD 21–100. Dynamic rewards start at four emeralds/+5 reputation for resources or four/+3 for combat, adding +1/+1 per difficulty step, capped at 32/50. Generated terms/rewards persist. Full configurable defaults are in [the quest expansion report](docs/quest-system-expansion-validation.md).
+
+Combat objectives become ready only on the recorded party's final defeat event, using the existing participation threshold. Every player must accept their own instance; passive/nonparticipating players cannot inherit victory. Offline participants keep ready state, which survives party cleanup. Claim at the source settlement's board pays once. Pure faction victories, unrelated mob deaths, debug groups and retirement cannot complete a quest. Quest reputation is additional to the separately deduplicated regional roaming reward.
+
+Sources hold settlement UUID, optional NPC UUID and MAYOR/BLACKSMITH/FARMER/GUARD_CAPTAIN/CITIZEN role. Typed objectives and templates allow future quest handlers without dependence on placeholder building coordinates. No housing, NPC professions, rescue/escort AI, bosses, custom GUI or structure redesign is added.
 
 ## World storage and settings
 
-Settlement data remains in `<world>/data/livingkingdoms_settlements.dat`. `<world>/data/livingkingdoms_quests.dat` stores player UUID → settlement UUID → quest ID/state/accepted terms, settlement-specific reputation, Mayor associations and one-time encounter reward receipts for a batch of participating player UUIDs. `<world>/data/livingkingdoms_encounters.dat` stores party UUIDs, faction/type/origin, optional settlement association, roster/remaining UUIDs, state, threat, reward eligibility, lifecycle timestamps, damage contribution and per-dimension natural spawn cooldowns. All three use the Overworld store even for other dimensions. NPC/member identities also travel with vanilla entity NBT; health, equipment, AI and exact entity positions are not copied into party storage. There is no external database or player-object cache.
+Settlement data remains in `<world>/data/livingkingdoms_settlements.dat`. `<world>/data/livingkingdoms_quests.dat` stores player UUID → settlement UUID → quest ID/state/accepted terms, expanded quest UUIDs/objectives/sources/levels/rewards, main chapter anchors, board rotation clocks, settlement-specific reputation, Mayor associations and one-time encounter reward receipts for a batch of participating player UUIDs. `<world>/data/livingkingdoms_encounters.dat` stores party UUIDs, faction/type/origin, optional settlement association, roster/remaining UUIDs, state, threat, reward eligibility, lifecycle timestamps, damage contribution and per-dimension natural spawn cooldowns. All three use the Overworld store even for other dimensions. NPC/member identities also travel with vanilla entity NBT; health, equipment, AI and exact entity positions are not copied into party storage. There is no external database or player-object cache.
 
 In an integrated dev client the world is under `run/saves/<world>`; on the dev server it is under `run/world`. Server settings live in `<world>/serverconfig/livingkingdoms-server.toml`:
 
@@ -120,7 +153,7 @@ maximumTrackedParties = 256
 
 Settlement settings apply to new settlements. Existing territories and populations retain their saved values. Quest item quantities accept 1–2304 and reputation rewards 1–1,000,000. Patrol sizes accept 3–5, hordes 4–8 and threat ratings 1–100. Encounter rewards accept 0–1,000,000 (0 disables); size, threat and reward are snapshotted when the party spawns. Reward range is an event-time setting, 0–4096 blocks. Signed player reputation defaults to zero; no tiers or decay exist yet.
 
-Normal Minecraft autosave and shutdown write dirty data; interactions do not force disk I/O on every click. Settlement schema remains 1; legacy `allied` faction IDs read as `ALLIED_KINGDOM` and new writes use `allied_kingdom`. Quest/reputation schema 3 reads schemas 1 and 2 and preserves quests, reputation, Mayors and old single-player receipts. Encounter schema 2 reads schema 1 and adds lifecycle/contribution/cooldown metadata; legacy unknown lifetimes start conservatively at first maintenance. Older mod versions cannot read the new schemas. Like ordinary Minecraft storage, independent player/entity/chunk/SavedData files are not a crash-proof transaction; use normal save/shutdown for durability.
+Normal Minecraft autosave and shutdown write dirty data; interactions do not force disk I/O on every click. Settlement schema remains 1; legacy `allied` faction IDs read as `ALLIED_KINGDOM` and new writes use `allied_kingdom`. Quest/reputation schema 4 reads schemas 1, 2 and 3, preserving legacy Iron, reputation, Mayors and encounter receipts while adding expanded quests and board clocks. Encounter schema 2 reads schema 1 and adds lifecycle/contribution/cooldown metadata; legacy unknown lifetimes start conservatively at first maintenance. Older mod versions cannot read the new schemas. Like ordinary Minecraft storage, independent player/entity/chunk/SavedData files are not a crash-proof transaction; use normal save/shutdown for durability.
 
 ## Factions and dynamic roaming encounters
 
@@ -161,7 +194,7 @@ Active origin lookup and allied territory lookup use derived 256-block metadata 
 
 Every **1200 ticks**, metadata maintenance removes defeated records/receipts after the configured 1200-tick retention and abandons still-active groups after **72000 ticks** (one server hour). Abandonment grants no defeat reward. It discards only already-loaded roster members through direct UUID lookups; unloaded retired members are refused when their chunks next load. Reputation and quest completion remain. Ordinary unloading alone is not death. Manual deletion can leave an active record until its lifetime expires. Legacy encounters receive a fresh lifetime when first maintained. Debug groups have the same lifetime. Server/offline time does not advance these durations.
 
-`EncounterSpawner.spawnAt` remains the shared entity path. `NaturalEncounterSpawner.attemptAt` accepts a future controlled regional proposal under the same cooldown/safety rules. `EncounterQueries.activeNear` and `find` return UUID, faction, type, region, threat, level summary and optional hostile settlement source without touching entity chunks. Today's allied reward association is not exposed as a hostile source. No regional combat quest is implemented yet. Independent Minecraft save files remain non-atomic across crashes: party, entity and reward files can be interrupted at different points, including during cleanup; normal autosave/reload persistence is covered by tests.
+`EncounterSpawner.spawnAt` remains the shared entity path. `NaturalEncounterSpawner.attemptAt` accepts a future controlled regional proposal under the same cooldown/safety rules. `EncounterQueries.activeNear` and `find` return UUID, faction, type, region, threat, level summary and optional hostile settlement source without touching entity chunks. Today's allied reward association is not exposed as a hostile source. Regional combat requests now consume these party identifiers and levels through the shared quest service. Independent Minecraft save files remain non-atomic across crashes: party, entity and reward files can be interrupted at different points, including during cleanup; normal autosave/reload persistence is covered by tests.
 
 ## Progression core
 
@@ -175,7 +208,7 @@ Bonuses use `level - 1`: health +2.5% per level (cap +75%), melee/native arrow d
 
 Empty chest/head slots gain leather at level 5, chainmail at 10 and iron at 20. Undead Zombies with an empty weapon slot gain an iron sword from level 10. Existing gear, bows, crossbows and Captain banners remain. At level 15+, an 8% spawn-time chance adds Protection I to an unenchanted chest piece. Added gear has base drop chance zero, though native Looting can still affect drops. At level 20+, a 5% elite chance adds up to +10% health/damage and +1 armor inside the same caps. No abilities or custom gear are added.
 
-All defaults are configurable in the existing per-world `livingkingdoms-server.toml`, under `progression`, `progression.stats`, `progression.equipment` and `progression.elite`. Full keys/defaults and validation evidence are in [the progression report](docs/progression-core-validation.md). Levels, elite status, stat bonuses and native equipment are saved at spawn; configuration changes affect new members. Old managed mobs and parties without progression default to level 1 with vanilla bonuses, preserving wounds and earlier quest/reputation state. Encounter schema stays 2 with an optional validated summary; settlement/quest schemas are unchanged by this milestone.
+All defaults are configurable in the existing per-world `livingkingdoms-server.toml`, under `progression`, `progression.stats`, `progression.equipment` and `progression.elite`. Full keys/defaults and validation evidence are in [the progression report](docs/progression-core-validation.md). Levels, elite status, stat bonuses and native equipment are saved at spawn; configuration changes affect new members. Old managed mobs and parties without progression default to level 1 with vanilla bonuses, preserving wounds and earlier quest/reputation state. Encounter schema stays 2 with an optional validated summary. Progression did not change settlement/quest schemas; quest expansion now advances quest storage to schema 4.
 
 Read-only operator feedback:
 
@@ -188,7 +221,7 @@ Read-only operator feedback:
 
 The first command reports regional level and contributions; an entity argument reports its persistent profile; encounter info includes roster min/max/average. `progression.showLevelNames=false` keeps normal gameplay names uncluttered; enabling it labels new members and gives elites a gold prefix. There is no level-setting/reroll command. Runtime calculation occurs once per spawn group or explicit query, restoration on entity join, and ranged scaling on projectile join. No progression tick loop, global entity search, settlement scan or chunk loading is added.
 
-Future quests can read target `EntityProgression.Profile`, `EncounterQueries.Reference.levels()` and `RegionalDifficulty` contributions. Future allied NPCs can reuse `LevelValue` with their own role policy; hostile modifiers require encounter identity and are not applied to civilian professions. Settlement progression, player levels, bosses and raids remain future work.
+Quest policies reuse party levels and the existing `RegionalDifficulty` service; future objectives can also read target `EntityProgression.Profile`. Future allied NPCs can reuse `LevelValue` with their own role policy; hostile modifiers require encounter identity and are not applied to civilian professions. Settlement progression, player levels, bosses and raids remain future work.
 
 ## Architecture
 
@@ -206,6 +239,9 @@ Future quests can read target `EntityProgression.Profile`, `EncounterQueries.Ref
 | `quest.domain` | Immutable quest terms/progress, stable quest IDs, lifecycle and type |
 | `quest.persistence` | Guarded player/settlement quests, reputation, Mayor associations and encounter reward receipts |
 | `quest` | Board interaction routing and server inventory delivery service |
+| `quest.expansion.domain` | Typed templates/sources/objectives, chapter order, weighted candidates and capped reward policies |
+| `quest.expansion.persistence` | Strict expanded objective/source/clock serialization inside the existing quest store |
+| `quest.expansion` | On-demand board generation, main/legacy bridge, normal player actions and claim orchestration |
 | `npc` | Vanilla Villager role/UUID identity, safe Mayor association and contextual dialogue |
 | `encounter.domain` | Immutable faction/type/origin/roster/state/threat metadata |
 | `encounter.persistence` | Guarded party storage, UUID/spatial indexes, contributions, lifecycle and cooldowns |
@@ -215,9 +251,9 @@ Future quests can read target `EntityProgression.Profile`, `EncounterQueries.Ref
 
 There are no client imports in common code and no global settlement cache. Each world owns its data through Minecraft's `DimensionDataStorage`. Commands and gameplay services run on the server thread; storage entrypoints check thread ownership. Immutable records and snapshots prevent changes without dirty-marked storage mutations. UUID lookup is map-backed, nearest allied centers are spatially indexed, and existing territory/overlap queries scan metadata only on requests/interactions. Natural proposals have a cheap tick guard; low-frequency maintenance scans tracked metadata only. There is no global entity polling, external database or gameplay chunk loading.
 
-Persistence validates required fields, stable IDs, bounds, UUID uniqueness, non-overlapping territories, roster consistency and receipt uniqueness. Unsupported or malformed data is rejected. If Minecraft catches a loading error, guarded factories refuse to create fresh data over existing files. Quest schemas 1/2-to-3 and encounter schema 1-to-2 migrations are explicit and tested.
+Persistence validates required fields, stable IDs, bounds, UUID uniqueness, non-overlapping territories, roster consistency and receipt uniqueness. Unsupported or malformed data is rejected. If Minecraft catches a loading error, guarded factories refuse to create fresh data over existing files. Quest schemas 1/2/3-to-4 and encounter schema 1-to-2 migrations are explicit and tested.
 
-Future settlement resources and buildings can extend the existing aggregate using typed values and versioned migrations. Put progression rules in focused domain/application services and store replacements through dirty-marked persistence methods. Quest IDs/types and per-relationship quest entries allow later quests to share settlement reputation without sharing individual completion. Delivery terms are specialized to Iron Shortage for now; add new typed objectives/handlers when another quest type actually needs them. NPC identities keep roles independent of vanilla professions. Conquest should use an explicit lifecycle alongside faction (hostile, defeated, liberating, allied outpost, village), with validated transitions.
+Future settlement resources and buildings can extend the existing aggregate using typed values and versioned migrations. Put progression rules in focused domain/application services and store replacements through dirty-marked persistence methods. Quest IDs/types and per-relationship quest entries allow later quests to share settlement reputation without sharing individual completion. Expanded typed resource/party/meeting/return objectives share handlers; the original Iron API remains as a compatibility bridge. Add future objective handlers only with their actual gameplay. NPC identities keep roles independent of vanilla professions. Conquest should use an explicit lifecycle alongside faction (hostile, defeated, liberating, allied outpost, village), with validated transitions.
 
 ## Structures and future natural generation
 
@@ -231,9 +267,9 @@ Regional difficulty now has a configurable pure calculation of distance, world a
 
 ## Tests and community workflow
 
-`test` uses JUnit 5 with ModDevGradle's NeoForge test environment. The 109 tests retain settlement/quest/faction/encounter coverage and add level bounds, distance bands, age/activity/tier caps, configurable scaling, shared distributions, party snapshots, equipment/elite thresholds and additive save compatibility. Existing cases cover spatial lookup, UUID/state invariants, reward deduplication, atomic multiplayer batches, contribution expiry, lifecycle cleanup and natural gates. Real `DimensionDataStorage` save/reopen tests verify persistence and that corrupt/future-schema files remain unchanged after rejected loads.
+`test` uses JUnit 5 with ModDevGradle's NeoForge test environment. The 153 tests retain all previous settlement/quest/faction/encounter/progression coverage and add main ordering/prerequisites, dynamic weighting, resource variants, difficulty/rewards, lifecycle/rotation, UUID participation, multiplayer ownership, exchange preflight and schema-4 migration. Existing cases cover spatial lookup, UUID/state invariants, reward deduplication, atomic multiplayer batches, contribution expiry, lifecycle cleanup and natural gates. Real `DimensionDataStorage` save/reopen tests verify persistence and that corrupt/future-schema files remain unchanged after rejected loads.
 
-`runGameTestServer` starts a headless Minecraft world and loads a separate test mod from `src/gametest`. Thirty-four GameTests retain physical/command/quest/Mayor/encounter/natural/faction combat and multiplayer credit coverage. Seven new cases verify real scaled attributes, no stacking/healing on reload, legacy/vanilla exclusion, both faction spawn paths and party summaries, native equipment/Captain preservation, actual scaled arrow damage, vanilla conversion, read-only debug commands and server-thread authority. All test-only terrain preparation, explicit chunk loading, classes and test-mod resources are excluded from the production JAR and normal client/server runs. Its world lives in `runs/gametest`, separate from normal dev worlds. GitHub Actions runs `test build runGameTestServer` on Java 21 and uploads the JARs. The graphical Save and Quit/reopen check remains manual.
+`runGameTestServer` starts a headless Minecraft world and loads a separate test mod from `src/gametest`. Forty-one GameTests retain all previous physical/quest/Mayor/encounter/natural/faction/progression coverage. Seven new cases verify generic multi-resource exchanges/live log tags, real board actions for nonoperators, source/reach/ownership gates, disk reload/rotation, all four main steps, actual participant-based Pillager/Undead victory and failure of missing/debug/retired targets. All test-only terrain preparation, explicit chunk loading, classes and test-mod resources are excluded from the production JAR and normal client/server runs. Its world lives in `runs/gametest`, separate from normal dev worlds. GitHub Actions runs `test build runGameTestServer` on Java 21 and uploads the JARs. The graphical Save and Quit/reopen check remains manual.
 
 Open an issue with Minecraft/NeoForge/mod versions, reproduction steps, and a relevant log excerpt. Keep contributions scoped and run `test build runGameTestServer` before submitting a pull request. The GitHub workflow is configured for pushes and pull requests. The mod currently reserves all rights; a community distribution license must be selected by the project owner before public release.
 
@@ -243,8 +279,8 @@ Open an issue with Minecraft/NeoForge/mod versions, reproduction steps, and a re
 - [SavedData in NeoForge 1.21.1](https://docs.neoforged.net/docs/1.21.1/datastorage/saveddata/)
 - [ModDevGradle runs and JUnit support](https://github.com/neoforged/ModDevGradle)
 
-Local results and known runtime limits: [Milestone 0](docs/validation.md), [Milestone 1](docs/milestone-1-validation.md), [Milestone 2](docs/milestone-2-validation.md), [hostile factions and encounters](docs/hostile-encounters-validation.md), [dynamic world encounters](docs/dynamic-encounters-validation.md), [progression core](docs/progression-core-validation.md).
+Local results and known runtime limits: [Milestone 0](docs/validation.md), [Milestone 1](docs/milestone-1-validation.md), [Milestone 2](docs/milestone-2-validation.md), [hostile factions and encounters](docs/hostile-encounters-validation.md), [dynamic world encounters](docs/dynamic-encounters-validation.md), [progression core](docs/progression-core-validation.md), [quest system expansion](docs/quest-system-expansion-validation.md).
 
 ## Next milestone
 
-Next gameplay milestone: one Quest Board mission to defeat a regional hostile party, using the existing UUID-linked encounter/reputation foundation, party levels and regional difficulty for target selection. Handle victory, retirement and missing targets through the existing participation boundary. Keep advanced combat, diplomacy, armies and conquest for later. This combat quest has not been started.
+Recommended next gameplay milestone: one Tier 1 Pillager camp with a regional quest, reusing shared factions, settlement metadata, progression and quest objectives. Keep raids, conquest, housing and advanced NPC professions for later. The next milestone has not been started.

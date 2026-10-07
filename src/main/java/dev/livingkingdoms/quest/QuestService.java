@@ -60,6 +60,7 @@ public final class QuestService {
         var progress = data.progress(player.getUUID(), settlement.id());
         if (!sneaking) {
             inspect(player, settlement, progress.state(), progress.terms(), progress.reputation());
+            dev.livingkingdoms.quest.expansion.ExpandedQuestService.inspectBoard(player, settlement, board);
             return;
         }
         switch (progress.state()) {
@@ -92,8 +93,9 @@ public final class QuestService {
                 message(player, "quest.livingkingdoms.reputation", settlement.name(), data.progress(player.getUUID(), settlement.id()).reputation());
             }
             case COMPLETED -> message(player, "quest.livingkingdoms.already_completed", title());
-            case FAILED -> message(player, "quest.livingkingdoms.failed", title());
+            case FAILED, EXPIRED -> message(player, "quest.livingkingdoms.failed", title());
         }
+        dev.livingkingdoms.quest.expansion.ExpandedQuestService.inspectBoard(player, settlement, board);
     }
 
     private static void inspect(ServerPlayer player, Settlement settlement, QuestState state, QuestTerms savedTerms, int reputation) {

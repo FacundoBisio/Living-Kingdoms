@@ -180,7 +180,7 @@ class QuestSavedDataTest {
     @Test
     void rejectsMalformedRelationshipAndQuestFields() {
         CompoundTag valid = activeData().save(new CompoundTag(), null);
-        assertMalformed(valid, tag -> tag.putInt("schema_version", 4));
+        assertMalformed(valid, tag -> tag.putInt("schema_version", 5));
         assertMalformed(valid, tag -> tag.remove("schema_version"));
         assertMalformed(valid, tag -> tag.remove("mayors"));
         assertMalformed(valid, tag -> firstRelationship(tag).remove("player"));
@@ -227,7 +227,7 @@ class QuestSavedDataTest {
     @Test
     void dimensionStorageRefusesUnknownSchemaWithoutOverwritingFile() throws IOException {
         CompoundTag unknown = activeData().save(new CompoundTag(), null);
-        unknown.putInt("schema_version", 4);
+        unknown.putInt("schema_version", 5);
         writeAndAssertProtected(unknown);
     }
 

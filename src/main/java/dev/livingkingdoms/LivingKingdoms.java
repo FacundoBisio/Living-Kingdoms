@@ -8,6 +8,7 @@ import dev.livingkingdoms.encounter.NaturalEncounterSpawner;
 import dev.livingkingdoms.faction.FactionCombat;
 import dev.livingkingdoms.progression.ProgressionEvents;
 import dev.livingkingdoms.command.ProgressionCommands;
+import dev.livingkingdoms.command.QuestCommands;
 import dev.livingkingdoms.block.KingdomBlocks;
 import dev.livingkingdoms.config.KingdomConfig;
 import dev.livingkingdoms.quest.QuestInteractions;
@@ -30,6 +31,7 @@ public final class LivingKingdoms {
         NeoForge.EVENT_BUS.addListener(SettlementCommands::register);
         NeoForge.EVENT_BUS.addListener(EncounterCommands::register);
         NeoForge.EVENT_BUS.addListener(ProgressionCommands::register);
+        NeoForge.EVENT_BUS.addListener(QuestCommands::register);
         NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, false, EncounterEvents::onDeath);
         NeoForge.EVENT_BUS.addListener(EncounterEvents::onConversion);
         NeoForge.EVENT_BUS.addListener(EncounterEvents::onDamage);

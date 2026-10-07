@@ -38,6 +38,9 @@ public final class NpcInteractions {
         String key = quests.progress(event.getEntity().getUUID(), identity.settlementId()).state() == QuestState.COMPLETED
                 ? "npc.livingkingdoms.mayor.after" : "npc.livingkingdoms.mayor.before";
         event.getEntity().displayClientMessage(Component.translatable(key, settlement.get().name()), false);
+        if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer player) {
+            dev.livingkingdoms.quest.expansion.ExpandedQuestService.meetMayor(player, settlement.get(), event.getTarget());
+        }
     }
 
     private static boolean isLivingKingdomsNpc(Entity entity) {
