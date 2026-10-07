@@ -1,0 +1,81 @@
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev' version '2.0.148'
+}
+
+version = mod_version
+group = mod_group_id
+base { archivesName = mod_id }
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(21)
+    withSourcesJar()
+}
+repositories { mavenCentral() }
+
+sourceSets {
+    gameTest {
+        java.srcDirs = ['src/gametest/java']
+        resources.srcDirs = ['src/gametest/resources']
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+    }
+}
+
+neoForge {
+    version = project.neo_version
+    addModdingDependenciesTo sourceSets.gameTest
+    mods {
+        livingkingdoms { sourceSet sourceSets.main }
+        livingkingdoms_tests { sourceSet sourceSets.gameTest }
+    }
+    runs {
+        configureEach {
+            logLevel = org.slf4j.event.Level.INFO
+            loadedMods = [mods.livingkingdoms]
+        }
+        client { client() }
+        server {
+            server()
+            programArgument '--nogui'
+        }
+        gameTestServer {
+            type = 'gameTestServer'
+            sourceSet = sourceSets.gameTest
+            loadedMods = [mods.livingkingdoms, mods.livingkingdoms_tests]
+            systemProperty 'neoforge.enabledGameTestNamespaces', 'livingkingdoms_tests'
+            gameDirectory = project.file('runs/gametest')
+        }
+    }
+    unitTest {
+        enable()
+        testedMod = mods.livingkingdoms
+        loadedMods = [mods.livingkingdoms]
+    }
+}
+
+dependencies {
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+tasks.named('test', Test) {
+    useJUnitPlatform()
+    testLogging { events 'failed', 'skipped' }
+}
+
+def generateModMetadata = tasks.register('generateModMetadata', ProcessResources) {
+    def properties = [mod_id: mod_id, mod_name: mod_name, mod_version: mod_version,
+                      mod_license: mod_license, neo_version: neo_version]
+    inputs.properties properties
+    expand properties
+    from 'src/main/templates'
+    into 'build/generated/sources/modMetadata'
+}
+sourceSets.main.resources.srcDir generateModMetadata
+neoForge.ideSyncTask generateModMetadata
+
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
+tasks.withType(AbstractArchiveTask).configureEach {
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+}

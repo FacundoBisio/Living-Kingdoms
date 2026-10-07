@@ -1,0 +1,8 @@
+{
+  "commands.livingkingdoms.settlement.created": "Se creó %s (ID: %s).",
+  "commands.livingkingdoms.settlement.overlap": "Este territorio se superpone con un asentamiento existente. Alejate un poco más.",
+  "commands.livingkingdoms.settlement.not_found": "No hay un asentamiento en tu posición en esta dimensión.",
+  "commands.livingkingdoms.settlement.info": "Nombre: %s\nID: %s\nFacción: %s\nNivel: %s\nPoblación: %s",
+  "faction.livingkingdoms.allied": "Aliados",
+  "faction.livingkingdoms.pillager": "Pillagers"
+}

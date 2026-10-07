@@ -1,0 +1,8 @@
+{
+  "commands.livingkingdoms.settlement.created": "Created %s (ID: %s).",
+  "commands.livingkingdoms.settlement.overlap": "This territory overlaps an existing settlement. Move farther away.",
+  "commands.livingkingdoms.settlement.not_found": "There is no settlement at your position in this dimension.",
+  "commands.livingkingdoms.settlement.info": "Name: %s\nID: %s\nFaction: %s\nLevel: %s\nPopulation: %s",
+  "faction.livingkingdoms.allied": "Allied",
+  "faction.livingkingdoms.pillager": "Pillager"
+}

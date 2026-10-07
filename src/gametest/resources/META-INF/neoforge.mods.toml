@@ -1,0 +1,23 @@
+modLoader="javafml"
+loaderVersion="[4,)"
+license="All Rights Reserved"
+
+[[mods]]
+modId="livingkingdoms_tests"
+version="0.1.0"
+displayName="Living Kingdoms Game Tests"
+description='''Development-only server command and persistence smoke tests.'''
+
+[[dependencies.livingkingdoms_tests]]
+modId="livingkingdoms"
+type="required"
+versionRange="[0.1.0,)"
+ordering="AFTER"
+side="BOTH"
+
+[[dependencies.livingkingdoms_tests]]
+modId="neoforge"
+type="required"
+versionRange="[21.1,21.2)"
+ordering="NONE"
+side="BOTH"
