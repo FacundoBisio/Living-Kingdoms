@@ -63,6 +63,7 @@ public final class QuestGameTests {
         BlockHitResult hit = hit(fixture.board());
         InteractionResult acceptance = player.gameMode.useItemOn(player, level, player.getMainHandItem(), InteractionHand.MAIN_HAND, hit);
         helper.assertTrue(acceptance.consumesAction(), "Crouching with held iron must reach the board through the real use-item pipeline");
+        dev.livingkingdoms.quest.QuestService.interact(player, fixture.board(), true);
         var active = data.progress(playerId, fixture.settlement().id());
         helper.assertTrue(active.state() == QuestState.ACTIVE && active.terms() != null,
                 "Crouching accepts one quest with frozen delivery terms");
@@ -78,6 +79,7 @@ public final class QuestGameTests {
         player.getInventory().items.set(9, new ItemStack(Items.DIAMOND, 3));
         InteractionResult delivery = player.gameMode.useItemOn(player, level, player.getMainHandItem(), InteractionHand.MAIN_HAND, hit);
         helper.assertTrue(delivery.consumesAction(), "Crouching held-item delivery must be consumed by the board");
+        dev.livingkingdoms.quest.QuestService.interact(player, fixture.board(), true);
         var completed = data.progress(playerId, fixture.settlement().id());
         helper.assertTrue(completed.state() == QuestState.COMPLETED && completed.reputation() == 10,
                 "Successful delivery completes the quest and adds settlement reputation once");
@@ -320,6 +322,8 @@ public final class QuestGameTests {
             helper.assertTrue(state.useWithoutItem(level, player, hit(board)) == InteractionResult.CONSUME,
                     "Empty-hand board use must consume the action on the server");
         }
+        // Regression coverage for the preserved delivery backend. Packet-driven UI is covered separately.
+        dev.livingkingdoms.quest.QuestService.interact(player, board, sneaking);
     }
 
     private static int count(RecordingPlayer player, Item item) {

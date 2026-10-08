@@ -35,17 +35,14 @@ public final class NpcInteractions {
         if (settlement.isEmpty()) return;
         QuestSavedData quests = QuestSavedData.get(level.getServer());
         if (quests.mayor(identity.settlementId()).filter(event.getTarget().getUUID()::equals).isEmpty()) return;
-        String key = quests.progress(event.getEntity().getUUID(), identity.settlementId()).state() == QuestState.COMPLETED
-                ? "npc.livingkingdoms.mayor.after" : "npc.livingkingdoms.mayor.before";
-        event.getEntity().displayClientMessage(Component.translatable(key, settlement.get().name()), false);
         if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer player) {
-            dev.livingkingdoms.quest.expansion.ExpandedQuestService.meetMayor(player, settlement.get(), event.getTarget());
+            dev.livingkingdoms.ui.VillageUiService.openDialogue(player, (Villager) event.getTarget());
         }
     }
 
     private static boolean isLivingKingdomsNpc(Entity entity) {
         if (!(entity instanceof Villager villager)) return false;
-        if (!entity.level().isClientSide) return NpcIdentity.read(entity).isPresent();
+        if (!entity.level().isClientSide) return NpcIdentity.read(entity).filter(id -> id.role() == NpcRole.MAYOR).isPresent();
         // UUID/role tags are deliberately not client gameplay state. This synchronized name only
         // suppresses vanilla interaction prediction; the server still validates the real identity.
         Component name = villager.getCustomName();

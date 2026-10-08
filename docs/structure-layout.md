@@ -1,5 +1,10 @@
 # Small allied settlement template
 
+This document describes the legacy 31 Ã— 31 export. New settlements use the
+[adaptive 13 Ã— 13 core and independent native modules](adaptive-settlement-generation.md),
+with the [0.8.0 medieval redesign and updated module sizes](village-identity-ui-polish.md). Existing legacy worlds
+and this historical asset remain valid.
+
 The Milestone 1 settlement is a technical placeholder. It contains a Town Hall,
 three houses, a Blacksmith, a Barracks, a central marker, and the Quest Board.
 The village is an exploration and RPG hub; these buildings do not manage workers
@@ -13,7 +18,7 @@ This is a gzip-compressed **vanilla Minecraft structure template**, with one
 
 ## Footprint and local coordinates
 
-The template size is exactly **31 × 7 × 31 blocks**. Its origin `(0, 0, 0)` is
+The template size is exactly **31 Ã— 7 Ã— 31 blocks**. Its origin `(0, 0, 0)` is
 the northwest corner of its foundation. Positive X is east; positive Z is south.
 All coordinates below are local, before translation into world coordinates.
 For a world origin `(ox, oy, oz)`, the marker is `(ox + 15, oy + 1, oz + 15)`.
@@ -23,12 +28,12 @@ excavation of the original ground.
 
 | Feature | X range | Z range | Entrance / identifying block |
 | --- | --- | --- | --- |
-| Town Hall | 11–19 | 2–8 | South door at `(15, 1, 8)` |
-| House 1 | 2–6 | 2–6 | South door at `(4, 1, 6)` |
-| House 2 | 24–28 | 2–6 | South door at `(26, 1, 6)` |
-| House 3 | 2–6 | 10–14 | East door at `(6, 1, 12)` |
-| Blacksmith | 22–28 | 10–16 | West door at `(22, 1, 13)` |
-| Barracks | 11–19 | 22–28 | North door at `(15, 1, 22)` |
+| Town Hall | 11â€“19 | 2â€“8 | South door at `(15, 1, 8)` |
+| House 1 | 2â€“6 | 2â€“6 | South door at `(4, 1, 6)` |
+| House 2 | 24â€“28 | 2â€“6 | South door at `(26, 1, 6)` |
+| House 3 | 2â€“6 | 10â€“14 | East door at `(6, 1, 12)` |
+| Blacksmith | 22â€“28 | 10â€“16 | West door at `(22, 1, 13)` |
+| Barracks | 11â€“19 | 22â€“28 | North door at `(15, 1, 22)` |
 | Central marker | 15 | 15 | Exactly one lodestone at `(15, 1, 15)` |
 | Quest Board | 18 | 15 | Exactly one `livingkingdoms:quest_board` at `(18, 1, 15)`, facing west |
 

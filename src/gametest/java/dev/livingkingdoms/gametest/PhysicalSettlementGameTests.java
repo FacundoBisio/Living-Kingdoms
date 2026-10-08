@@ -17,6 +17,9 @@ import dev.livingkingdoms.settlement.domain.Settlement;
 import dev.livingkingdoms.settlement.persistence.SettlementSavedData;
 import dev.livingkingdoms.structure.SettlementSitePlanner;
 import dev.livingkingdoms.structure.SettlementTemplate;
+import dev.livingkingdoms.structure.BuildingCatalog;
+import dev.livingkingdoms.structure.BuildingKind;
+import dev.livingkingdoms.structure.ArchitectureStyle;
 import net.minecraft.commands.CommandSource;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -77,6 +80,8 @@ public final class PhysicalSettlementGameTests {
         catch (CommandSyntaxException expected) { denied = true; }
         helper.assertTrue(denied && data.settlements().size() == initialCount, "Non-operators cannot generate settlements");
         helper.assertTrue(dispatcher.execute("kingdom settlement generate", source) == 1, "Generate command must succeed");
+        helper.assertTrue(feedback.messages.stream().noneMatch(message -> hasKey(message,
+                "commands.livingkingdoms.settlement.debug.candidates")), "Normal generation feedback stays concise");
         Settlement created = data.at(level.dimension().location().toString(), first.getX(), first.getZ()).orElseThrow();
         helper.assertTrue(created.faction() == Faction.ALLIED && created.level() == 1
                 && created.population() == KingdomConfig.INITIAL_POPULATION.get(), "Generated settlement starts allied at level 1");
@@ -85,12 +90,16 @@ public final class PhysicalSettlementGameTests {
         BlockPos marker = new BlockPos(created.territory().x(), created.territory().y(), created.territory().z());
         helper.assertTrue(level.getBlockState(marker).is(Blocks.LODESTONE), "Central marker must exist");
         helper.assertTrue(level.getBlockState(first.below()).is(Blocks.GRASS_BLOCK), "Flat-site generation must preserve original ground");
-        BlockPos origin = marker.offset(-15, -1, -15);
-        helper.assertTrue(level.getBlockState(origin.offset(27, 1, 12)).is(Blocks.FURNACE), "Blacksmith furnace must exist");
-        SignBlockEntity sign = (SignBlockEntity) level.getBlockEntity(origin.offset(13, 2, 9));
+        BlockPos origin = marker.offset(-6, -1, -9);
+        var smith = data.layout(created.id()).orElseThrow().buildings().stream()
+                .filter(building -> building.kind() == BuildingKind.BLACKSMITH).findFirst().orElseThrow();
+        var smithModule = BuildingCatalog.load(level, ArchitectureStyle.PLAINS).get(BuildingKind.BLACKSMITH);
+        helper.assertTrue(level.getBlockState(smithModule.worldPosition(new BlockPos(5, 1, 1), smith.origin(), smith.rotation()))
+                .is(Blocks.FURNACE), "Blacksmith furnace must exist");
+        SignBlockEntity sign = (SignBlockEntity) level.getBlockEntity(origin.offset(4, 2, 7));
         helper.assertTrue(sign != null && sign.getFrontText().getMessage(1, false).getString().equals("Town Hall"),
                 "Town Hall must have a visible, serialized sign");
-        BlockPos board = origin.offset(18, 1, 15);
+        BlockPos board = origin.offset(9, 1, 9);
         var boardState = level.getBlockState(board);
         helper.assertTrue(boardState.is(KingdomBlocks.QUEST_BOARD)
                 && boardState.getValue(QuestBoardBlock.FACING) == Direction.WEST, "Quest Board block and orientation must exist");
@@ -99,14 +108,13 @@ public final class PhysicalSettlementGameTests {
         helper.assertTrue(boardState.useWithoutItem(level, player, hit) == InteractionResult.CONSUME,
                 "Empty-hand board use is consumed on the server");
         QuestSavedData quests = QuestSavedData.get(level.getServer());
-        helper.assertTrue(!player.messages.isEmpty() && hasKey(player.messages.getFirst(), "quest.livingkingdoms.header")
+        helper.assertTrue(player.snapshots.getLast().getString("screen").equals("board")
                 && quests.progress(player.getUUID(), created.id()).state() == QuestState.AVAILABLE,
-                "Generated Quest Board must show the available settlement quest without accepting it");
-        long inspections = player.messages.stream().filter(message -> hasKey(message, "quest.livingkingdoms.header")).count();
+                "Generated board opens a server snapshot without accepting a quest");
+        int inspections = player.snapshots.size();
         helper.assertTrue(boardState.useItemOn(new ItemStack(Items.STICK), level, player, InteractionHand.MAIN_HAND, hit)
-                == ItemInteractionResult.CONSUME
-                && player.messages.stream().filter(message -> hasKey(message, "quest.livingkingdoms.header")).count() == inspections + 1,
-                "Held-item interaction also inspects the quest exactly once");
+                == ItemInteractionResult.CONSUME && player.snapshots.size() == inspections + 1,
+                "Held-item interaction opens exactly one screen");
 
         UUID mayorId = quests.mayor(created.id()).orElseThrow();
         var mayor = level.getEntity(mayorId);
@@ -128,10 +136,8 @@ public final class PhysicalSettlementGameTests {
         player.messages.clear();
         var welcome = new PlayerInteractEvent.EntityInteract(player, InteractionHand.MAIN_HAND, mayor);
         NpcInteractions.onInteract(welcome);
-        helper.assertTrue(welcome.isCanceled() && player.messages.size() == 1
-                && hasKey(player.messages.getFirst(), "npc.livingkingdoms.mayor.before")
-                && ((TranslatableContents) player.messages.getFirst().getContents()).getArgs()[0].equals(created.name()),
-                "Mayor dialogue must welcome the player before quest completion");
+        helper.assertTrue(welcome.isCanceled() && player.snapshots.getLast().getString("dialogue").equals("npc.livingkingdoms.mayor.before"),
+                "Mayor opens contextual dialogue before quest completion");
         player.messages.clear();
         var offhand = new PlayerInteractEvent.EntityInteract(player, InteractionHand.OFF_HAND, mayor);
         NpcInteractions.onInteract(offhand);
@@ -142,21 +148,28 @@ public final class PhysicalSettlementGameTests {
 
         player.setShiftKeyDown(true);
         boardState.useWithoutItem(level, player, hit);
+        var snapshot = player.snapshots.getLast();
+        UUID session = snapshot.getUUID("session");
+        var ironQuest = quests.quests(player.getUUID(), created.id()).stream()
+                .filter(q -> q.template() == dev.livingkingdoms.quest.expansion.domain.QuestTemplate.MAIN_IRON).findFirst().orElseThrow();
+        helper.assertTrue(dev.livingkingdoms.ui.VillageUiService.handle(player, new dev.livingkingdoms.ui.UiPayloads.Request(session, ironQuest.id(), dev.livingkingdoms.ui.UiPayloads.Action.ACCEPT)), "GUI accepts the main delivery");
+        helper.assertTrue(!dev.livingkingdoms.ui.VillageUiService.handle(player, new dev.livingkingdoms.ui.UiPayloads.Request(session, ironQuest.id(), dev.livingkingdoms.ui.UiPayloads.Action.CLAIM))
+                && player.snapshots.getLast().contains("notice"), "Insufficient main-quest inventory returns a visible GUI refusal");
         player.getInventory().items.set(0, new ItemStack(Items.IRON_INGOT, 16));
-        boardState.useItemOn(player.getMainHandItem(), level, player, InteractionHand.MAIN_HAND, hit);
+        helper.assertTrue(dev.livingkingdoms.ui.VillageUiService.handle(player, new dev.livingkingdoms.ui.UiPayloads.Request(session, ironQuest.id(), dev.livingkingdoms.ui.UiPayloads.Action.CLAIM)), "GUI claims the main delivery");
         helper.assertTrue(quests.progress(player.getUUID(), created.id()).state() == QuestState.COMPLETED
                 && quests.progress(player.getUUID(), created.id()).reputation() == 10,
-                "The generated settlement's own board must complete its quest and grant its reputation");
+                "The generated board completes its quest and grants reputation");
         player.setShiftKeyDown(false);
         player.messages.clear();
         NpcInteractions.onInteract(new PlayerInteractEvent.EntityInteract(player, InteractionHand.MAIN_HAND, mayor));
-        helper.assertTrue(player.messages.size() == 1 && hasKey(player.messages.getFirst(), "npc.livingkingdoms.mayor.after"),
+        helper.assertTrue(player.snapshots.getLast().getString("dialogue").equals("npc.livingkingdoms.mayor.after"),
                 "Mayor dialogue must recognize this player's completed settlement quest");
         player.messages.clear();
         RecordingPlayer newcomer = new RecordingPlayer(level);
         newcomer.setPos(player.getX(), player.getY(), player.getZ());
         NpcInteractions.onInteract(new PlayerInteractEvent.EntityInteract(newcomer, InteractionHand.MAIN_HAND, mayor));
-        helper.assertTrue(newcomer.messages.size() == 1 && hasKey(newcomer.messages.getFirst(), "npc.livingkingdoms.mayor.before"),
+        helper.assertTrue(newcomer.snapshots.getLast().getString("dialogue").equals("npc.livingkingdoms.mayor.before"),
                 "Another player's Mayor dialogue must remain independent of the completed player");
 
         player.setPos(marker.getX() + 1, marker.getY(), marker.getZ());
@@ -166,8 +179,11 @@ public final class PhysicalSettlementGameTests {
         helper.assertTrue(dispatcher.execute("kingdom settlement generate", source) == 0,
                 "An occupied territory must not generate a second settlement on top of itself");
         helper.assertTrue(data.settlements().size() == initialCount + 1, "Failed generation must not add data");
+        helper.assertTrue(dispatcher.execute("kingdom settlement generate here debug", source) == 0
+                && feedback.messages.stream().anyMatch(message -> hasKey(message, "commands.livingkingdoms.settlement.debug.candidates")),
+                "Here/debug must report classified failure without bypassing territory safety");
         player.setPos(second.getX() - 32, second.getY(), second.getZ());
-        helper.assertTrue(dispatcher.execute("kingdom settlement generate",
+        helper.assertTrue(dispatcher.execute("kingdom settlement generate debug",
                 player.createCommandSourceStack().withSource(feedback).withPermission(2)) == 1, "Second distant generation must succeed");
         Settlement other = data.at(level.dimension().location().toString(), second.getX(), second.getZ()).orElseThrow();
         helper.assertTrue(!created.id().equals(other.id()) && data.settlements().size() == initialCount + 2,
@@ -184,6 +200,8 @@ public final class PhysicalSettlementGameTests {
         IOUtilities.waitUntilIOWorkerComplete();
         helper.assertTrue(reopened != null && reopened.settlements().contains(created) && reopened.settlements().contains(other),
                 "Both physical settlements must reload with the same IDs, centers and territory");
+        helper.assertTrue(reopened.layout(created.id()).equals(data.layout(created.id()))
+                && reopened.layout(other.id()).equals(data.layout(other.id())), "Physical layout metadata must also reload");
         var reopenedQuests = fresh.get(new SavedData.Factory<>(QuestSavedData::new, QuestSavedData::load), QuestSavedData.DATA_NAME);
         IOUtilities.waitUntilIOWorkerComplete();
         helper.assertTrue(reopenedQuests != null && reopenedQuests.mayor(created.id()).orElseThrow().equals(mayorId)
@@ -201,7 +219,7 @@ public final class PhysicalSettlementGameTests {
         BlockPos center = helper.absolutePos(new BlockPos(768, 0, 768));
         preparePlot(level, center);
         SettlementGenerator generator = new SettlementGenerator();
-        BlockPos protectedPos = center.offset(4, 1, 4);
+        BlockPos protectedPos = center.offset(4, 1, 0);
         level.setBlock(protectedPos, Blocks.CHEST.defaultBlockState(), FLAGS);
         ChestBlockEntity chest = (ChestBlockEntity) level.getBlockEntity(protectedPos);
         chest.setItem(0, new ItemStack(Items.DIAMOND, 7));
@@ -236,8 +254,8 @@ public final class PhysicalSettlementGameTests {
         BlockPos center = helper.absolutePos(new BlockPos(1024, 0, 1024));
         preparePlot(level, center);
         // Raise half the plot by one block, leaving the other half at its original height.
-        for (int x = 0; x <= 15; x++) {
-            for (int z = -15; z <= 15; z++) level.setBlock(center.offset(x, 0, z), Blocks.GRASS_BLOCK.defaultBlockState(), FLAGS);
+        for (int x = 0; x <= 36; x++) {
+            for (int z = -36; z <= 36; z++) level.setBlock(center.offset(x, 0, z), Blocks.GRASS_BLOCK.defaultBlockState(), FLAGS);
         }
         var result = new SettlementGenerator().generateAt(level, center);
         helper.assertTrue(result.successful(), "A gentle dry slope must be supported without excavation");
@@ -261,21 +279,47 @@ public final class PhysicalSettlementGameTests {
         helper.succeed();
     }
 
+    @GameTest(template = "empty", timeoutTicks = 600)
+    public static void hereCommandGeneratesAroundPlayerWithOperatorGate(GameTestHelper helper) throws CommandSyntaxException {
+        ServerLevel level = helper.getLevel();
+        BlockPos center = helper.absolutePos(new BlockPos(-10240, 0, -10240));
+        preparePlot(level, center);
+        RecordingPlayer player = new RecordingPlayer(level);
+        BlockPos feet = center.south(4);
+        player.setPos(feet.getX() + 0.5, feet.getY(), feet.getZ() + 0.5);
+        RecordingSource feedback = new RecordingSource();
+        var source = player.createCommandSourceStack().withSource(feedback).withPermission(2);
+        var dispatcher = level.getServer().getCommands().getDispatcher();
+        boolean denied = false;
+        try { dispatcher.execute("kingdom settlement generate here debug", source.withPermission(0)); }
+        catch (CommandSyntaxException expected) { denied = true; }
+        helper.assertTrue(denied, "Here/debug has the same operator gate");
+        helper.assertTrue(dispatcher.execute("kingdom settlement generate here debug", source) == 1, "Here mode succeeds on sane terrain");
+        var data = SettlementSavedData.get(level.getServer());
+        var settlement = data.at(level.dimension().location().toString(), center.getX(), center.getZ()).orElseThrow();
+        var core = data.layout(settlement.id()).orElseThrow().buildings().getFirst();
+        helper.assertTrue(settlement.territory().x() == center.getX() && settlement.territory().z() == center.getZ()
+                && !core.bounds().contains(feet.getX(), feet.getZ()), "Caller remains outside the raised core footprint");
+        helper.assertTrue(feedback.messages.stream().anyMatch(message -> hasKey(message,
+                "commands.livingkingdoms.settlement.debug.candidates")), "Debug provides concise candidate counts");
+        helper.succeed();
+    }
+
     private static void preparePlot(ServerLevel level, BlockPos center) {
-        for (int x = (center.getX() - 16) >> 4; x <= (center.getX() + 16) >> 4; x++) {
-            for (int z = (center.getZ() - 16) >> 4; z <= (center.getZ() + 16) >> 4; z++) level.getChunk(x, z);
+        for (int x = (center.getX() - 36) >> 4; x <= (center.getX() + 36) >> 4; x++) {
+            for (int z = (center.getZ() - 36) >> 4; z <= (center.getZ() + 36) >> 4; z++) level.getChunk(x, z);
         }
-        for (int x = -15; x <= 15; x++) {
-            for (int z = -15; z <= 15; z++) {
+        for (int x = -36; x <= 36; x++) {
+            for (int z = -36; z <= 36; z++) {
                 level.setBlock(center.offset(x, -1, z), Blocks.GRASS_BLOCK.defaultBlockState(), FLAGS);
                 for (int y = 0; y < 12; y++) level.setBlock(center.offset(x, y, z), Blocks.AIR.defaultBlockState(), FLAGS);
             }
         }
     }
 
-    private static final class RecordingPlayer extends FakePlayer {
+    private static final class RecordingPlayer extends UiTestPlayer {
         final List<Component> messages = new ArrayList<>();
-        RecordingPlayer(ServerLevel level) { super(level, new GameProfile(UUID.randomUUID(), "PhysicalTest")); }
+        RecordingPlayer(ServerLevel level) { super(level); }
         @Override public void displayClientMessage(Component message, boolean overlay) { messages.add(message); }
         @Override public void sendSystemMessage(Component message) { messages.add(message); }
     }

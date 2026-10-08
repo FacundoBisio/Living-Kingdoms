@@ -58,6 +58,10 @@ public final class ExpandedQuestService {
 
     /** Click commands carry a board position; changing UUID/coordinates cannot bypass ownership, reach or territory. */
     public static boolean act(ServerPlayer player, BlockPos board, UUID questId, String action) {
+        return act(player, board, questId, action, true);
+    }
+
+    public static boolean act(ServerPlayer player, BlockPos board, UUID questId, String action, boolean chat) {
         var found = boardSettlement(player, board);
         if (found.isEmpty()) { message(player, "quest.livingkingdoms.no_settlement"); return false; }
         Settlement settlement = found.orElseThrow();
@@ -75,9 +79,10 @@ public final class ExpandedQuestService {
             if (!((action.equals("accept") && quest.state() == QuestState.AVAILABLE)
                     || (action.equals("claim") && quest.state() == QuestState.ACTIVE))) return false;
             if (quest.state() == QuestState.AVAILABLE && !data.acceptExpanded(player.getUUID(), quest.id())) return false;
-            QuestService.interact(player, board, true);
+            QuestService.interact(player, board, true, chat);
             ensureMain(player, settlement);
-            return true;
+            QuestState resulting = data.progress(player.getUUID(), settlement.id()).state();
+            return action.equals("accept") ? resulting == QuestState.ACTIVE : resulting == QuestState.COMPLETED;
         }
         boolean success;
         if (action.equals("accept")) {
@@ -88,7 +93,7 @@ public final class ExpandedQuestService {
             success = claim(player, data, quest);
         } else return false;
         prepare(player, settlement);
-        showBoard(player, settlement, board);
+        if (chat) showBoard(player, settlement, board);
         return success;
     }
 
@@ -116,7 +121,7 @@ public final class ExpandedQuestService {
         return true;
     }
 
-    private static void prepare(ServerPlayer player, Settlement settlement) {
+    public static void prepare(ServerPlayer player, Settlement settlement) {
         var data = QuestSavedData.get(player.server);
         long now = now(player);
         data.expireOffers(player.getUUID(), settlement.id(), now);
@@ -289,7 +294,7 @@ public final class ExpandedQuestService {
                         .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, command))), false);
     }
 
-    private static Optional<Settlement> boardSettlement(ServerPlayer player, BlockPos board) {
+    public static Optional<Settlement> boardSettlement(ServerPlayer player, BlockPos board) {
         authority(player);
         var level = player.serverLevel();
         if (player.isSpectator() || !player.isAlive() || player.distanceToSqr(Vec3.atCenterOf(board)) > 64

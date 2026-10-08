@@ -57,7 +57,7 @@ public final class NpcService {
         // Protect this stationary dialogue NPC from ordinary combat; creative removal still works.
         mayor.setInvulnerable(true);
         mayor.setCanPickUpLoot(false);
-        mayor.setCustomName(Component.translatable("npc.livingkingdoms.mayor.name", settlement.name()));
+        MayorPresentation.apply(mayor);
         mayor.setCustomNameVisible(true);
         mayor.setOffers(new MerchantOffers());
 
@@ -67,6 +67,7 @@ public final class NpcService {
             mayor.moveTo(feet.getX() + 0.5, feet.getY(), feet.getZ() + 0.5, 0, 0);
             if (!safePosition(level, mayor, feet)) continue;
             mayor.setVillagerData(new VillagerData(VillagerType.byBiome(level.getBiome(feet)), VillagerProfession.NONE, 1));
+            MayorPresentation.apply(mayor);
             NpcIdentity.attach(mayor, settlement.id(), NpcRole.MAYOR);
             if (!level.addFreshEntity(mayor)) return Optional.empty();
             try {
@@ -79,6 +80,30 @@ public final class NpcService {
             return Optional.empty();
         }
         return Optional.empty();
+    }
+
+    /** Called only at founding. Receipts live with the persistent Mayor, never respawn missing/unloaded residents. */
+    public static void spawnInitialResidents(ServerLevel level, Settlement settlement, Villager mayor) {
+        var saved = mayor.getPersistentData();
+        java.util.List<BlockPos> placed = new java.util.ArrayList<>();
+        for (int index = 0; index < 2; index++) {
+            String receipt = "livingkingdoms:founding_resident_" + index;
+            if (saved.hasUUID(receipt)) continue;
+            Villager resident = EntityType.VILLAGER.create(level);
+            if (resident == null) continue;
+            resident.setPersistenceRequired();
+            resident.setCanPickUpLoot(true);
+            var territory = settlement.territory();
+            for (int[] offset : PLAZA_OFFSETS) {
+                BlockPos feet = new BlockPos(territory.x()+offset[0], territory.y(), territory.z()+offset[1]);
+                resident.moveTo(feet.getX()+0.5, feet.getY(), feet.getZ()+0.5, 0, 0);
+                if (mayor.distanceToSqr(resident) < 1 || placed.contains(feet) || !safePosition(level, resident, feet)) continue;
+                resident.setVillagerData(new VillagerData(VillagerType.byBiome(level.getBiome(feet)), VillagerProfession.NONE, 1));
+                NpcIdentity.attach(resident, settlement.id(), NpcRole.RESIDENT);
+                if (level.addFreshEntity(resident)) { saved.putUUID(receipt, resident.getUUID()); placed.add(feet); }
+                break;
+            }
+        }
     }
 
     private static boolean isMayorOf(Villager villager, UUID settlementId) {

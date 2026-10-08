@@ -8,7 +8,8 @@ import java.util.Locale;
 public enum NpcRole {
     MAYOR,
     BLACKSMITH,
-    GUARD;
+    GUARD,
+    RESIDENT;
 
     public Component displayName() {
         return Component.translatable("role.livingkingdoms." + name().toLowerCase(Locale.ROOT));

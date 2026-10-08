@@ -159,6 +159,10 @@ public final class QuestExpansionGameTests {
     @GameTest(template = "empty", timeoutTicks = 400)
     public static void mayorIronCombatAndReturnCompleteOrderedMainChain(GameTestHelper helper) throws CommandSyntaxException {
         Fixture fixture = fixture(helper, 80000);
+        afterEntityChunksReady(helper, fixture, 1, () -> mainChain(helper, fixture));
+    }
+
+    private static void mainChain(GameTestHelper helper, Fixture fixture) throws CommandSyntaxException {
         RecordingPlayer player = player(helper.getLevel(), fixture.board(), UUID.randomUUID());
         QuestSavedData data = data(helper);
         inspect(helper, player, fixture.board());
@@ -215,6 +219,10 @@ public final class QuestExpansionGameTests {
     @GameTest(template = "empty", timeoutTicks = 400)
     public static void undeadVictoryRequiresTheBoundPartyAndActualParticipation(GameTestHelper helper) throws CommandSyntaxException {
         Fixture fixture = fixture(helper, 82000);
+        afterEntityChunksReady(helper, fixture, 2, () -> undeadVictory(helper, fixture));
+    }
+
+    private static void undeadVictory(GameTestHelper helper, Fixture fixture) throws CommandSyntaxException {
         RecordingPlayer player = player(helper.getLevel(), fixture.board(), UUID.randomUUID());
         HostileParty unrelated = spawn(helper, fixture.board().offset(48, 0, 0), PartyType.UNDEAD_HORDE, false);
         HostileParty target = spawn(helper, fixture.board().offset(96, 0, 0), PartyType.UNDEAD_HORDE, false);
@@ -246,6 +254,10 @@ public final class QuestExpansionGameTests {
     @GameTest(template = "empty", timeoutTicks = 400)
     public static void debugMissingAndRetiredTargetsCannotProduceVictory(GameTestHelper helper) throws CommandSyntaxException {
         Fixture fixture = fixture(helper, 84000);
+        afterEntityChunksReady(helper, fixture, 2, () -> debugTargets(helper, fixture));
+    }
+
+    private static void debugTargets(GameTestHelper helper, Fixture fixture) throws CommandSyntaxException {
         RecordingPlayer player = player(helper.getLevel(), fixture.board(), UUID.randomUUID());
         QuestSavedData data = data(helper);
         HostileParty debug = spawn(helper, fixture.board().offset(48, 0, 0), PartyType.PILLAGER_PATROL, true);
@@ -278,6 +290,36 @@ public final class QuestExpansionGameTests {
         helper.succeed();
     }
 
+    /** Remote fixture chunks finish their FULL/entity visibility promotion on subsequent server ticks. */
+    private static void afterEntityChunksReady(GameTestHelper helper, Fixture fixture, int parties, CheckedFlow flow) {
+        ServerLevel level = helper.getLevel();
+        var chunks = new java.util.HashSet<net.minecraft.world.level.ChunkPos>();
+        for (int i = 0; i <= parties; i++) {
+            BlockPos center = fixture.board().offset(i * 48, 0, 0);
+            if (i > 0) prepare(level, center, 12);
+            for (int x = (center.getX() - 12) >> 4; x <= (center.getX() + 12) >> 4; x++) {
+                for (int z = (center.getZ() - 12) >> 4; z <= (center.getZ() + 12) >> 4; z++) {
+                    var chunk = new net.minecraft.world.level.ChunkPos(x, z);
+                    if (chunks.add(chunk)) level.setChunkForced(x, z, true);
+                }
+            }
+        }
+        helper.startSequence().thenWaitUntil(() -> {
+            for (var chunk : chunks) {
+                var holder = level.getChunkSource().chunkMap.getVisibleChunkIfPresent(chunk.toLong());
+                helper.assertTrue(holder != null && holder.getEntityTickingChunkFuture()
+                        .getNow(net.minecraft.server.level.ChunkHolder.UNLOADED_LEVEL_CHUNK).isSuccess()
+                        && level.areEntitiesLoaded(chunk.toLong()), "Fixture must finish loading and tracking entities before UUID assertions");
+            }
+        }).thenExecute(() -> {
+            try { flow.run(); }
+            catch (CommandSyntaxException failure) { throw new IllegalStateException(failure); }
+            finally { chunks.forEach(chunk -> level.setChunkForced(chunk.x, chunk.z, false)); }
+        });
+    }
+
+    @FunctionalInterface private interface CheckedFlow { void run() throws CommandSyntaxException; }
+
     private static Fixture fixture(GameTestHelper helper, int offset) {
         ServerLevel level = helper.getLevel();
         BlockPos marker = helper.absolutePos(new BlockPos(offset, 1, offset));
@@ -297,6 +339,9 @@ public final class QuestExpansionGameTests {
         BlockHitResult hit = new BlockHitResult(Vec3.atCenterOf(board), Direction.WEST, board, false);
         helper.assertTrue(helper.getLevel().getBlockState(board).useWithoutItem(helper.getLevel(), player, hit) == InteractionResult.CONSUME,
                 "The fixture must traverse the actual empty-hand Quest Board interaction");
+        // Preserve command/chat adapter regression tests alongside the new packet UI suite.
+        var settlement = SettlementSavedData.get(helper.getLevel().getServer()).at(helper.getLevel().dimension().location().toString(), board.getX(), board.getZ()).orElseThrow();
+        dev.livingkingdoms.quest.expansion.ExpandedQuestService.inspectBoard(player, settlement, board);
     }
 
     private static int action(RecordingPlayer player, BlockPos board, UUID quest, String action) throws CommandSyntaxException {

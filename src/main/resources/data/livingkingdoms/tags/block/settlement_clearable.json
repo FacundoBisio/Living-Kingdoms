@@ -1,4 +1,4 @@
 {
   "replace": false,
-  "values": ["minecraft:short_grass", "minecraft:tall_grass", "minecraft:fern", "minecraft:large_fern", "minecraft:dead_bush", "minecraft:snow", "#minecraft:flowers"]
+  "values": ["minecraft:short_grass", "minecraft:tall_grass", "minecraft:fern", "minecraft:large_fern", "minecraft:dead_bush", "minecraft:snow", "#minecraft:flowers", "#minecraft:leaves"]
 }

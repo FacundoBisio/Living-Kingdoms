@@ -6,107 +6,103 @@ import dev.livingkingdoms.npc.NpcService;
 import dev.livingkingdoms.quest.persistence.QuestSavedData;
 import dev.livingkingdoms.settlement.domain.Settlement;
 import dev.livingkingdoms.settlement.persistence.SettlementSavedData;
-import dev.livingkingdoms.structure.SettlementSitePlanner;
-import dev.livingkingdoms.structure.SettlementTemplate;
+import dev.livingkingdoms.structure.ArchitectureStyle;
+import dev.livingkingdoms.structure.BuildingCatalog;
+import dev.livingkingdoms.structure.BuildingKind;
+import dev.livingkingdoms.structure.GenerationDiagnostics;
+import dev.livingkingdoms.structure.SettlementLayout;
+import dev.livingkingdoms.structure.SettlementLayoutMetadata;
+import dev.livingkingdoms.structure.SettlementLayoutPlanner;
+import dev.livingkingdoms.structure.SettlementPlacement;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import org.slf4j.Logger;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-/** Server service shared by debug generation and future natural-generation callers. */
+/** Shared explicit generation service. No tick hook, natural spawning, or chunk tickets. */
 public final class SettlementGenerator {
     private static final Logger LOGGER = LogUtils.getLogger();
-    private static final int FLAGS = Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE;
-    private final SettlementSitePlanner planner = new SettlementSitePlanner();
+    private final SettlementLayoutPlanner planner = new SettlementLayoutPlanner();
 
-    public Result generateNear(ServerLevel level, BlockPos playerPosition) {
-        return generate(level, playerPosition, true);
-    }
+    public Result generateNear(ServerLevel level, BlockPos playerPosition) { return generate(level, playerPosition, true, false); }
+    public Result generateAt(ServerLevel level, BlockPos center) { return generate(level, center, false, false); }
 
-    /** Target a candidate center; future worldgen must schedule this on the server thread. */
-    public Result generateAt(ServerLevel level, BlockPos candidateCenter) {
-        return generate(level, candidateCenter, false);
-    }
+    /** Plaza is four blocks north of the player, keeping the caller outside the raised core footprint. */
+    public Result generateHere(ServerLevel level, BlockPos playerPosition) { return generate(level, playerPosition, false, true); }
 
-    private Result generate(ServerLevel level, BlockPos position, boolean search) {
+    private Result generate(ServerLevel level, BlockPos position, boolean search, boolean relaxed) {
         SettlementSavedData data = SettlementSavedData.get(level.getServer());
-        // Load the relationship store before changing terrain, including guarded corrupt-save handling.
         QuestSavedData.get(level.getServer());
-        SettlementTemplate template;
-        try {
-            template = SettlementTemplate.load(level);
+        GenerationDiagnostics diagnostics = new GenerationDiagnostics();
+        BuildingCatalog catalog;
+        try { catalog = BuildingCatalog.load(level, ArchitectureStyle.PLAINS); }
+        catch (RuntimeException exception) {
+            LOGGER.error("Could not load settlement modules", exception);
+            return Result.failed(Failure.TEMPLATE_UNAVAILABLE, diagnostics);
+        }
+        Optional<SettlementLayout> found = relaxed ? planner.findHere(level, data, catalog, position, KingdomConfig.SETTLEMENT_RADIUS.get(), diagnostics) : search
+                ? planner.findNear(level, data, catalog, position, KingdomConfig.GENERATION_SEARCH_RANGE.get(),
+                        KingdomConfig.SETTLEMENT_RADIUS.get(), diagnostics)
+                : planner.at(level, data, catalog, position, KingdomConfig.SETTLEMENT_RADIUS.get(), relaxed, diagnostics);
+        if (found.isEmpty()) return Result.failed(Failure.NO_SAFE_SITE, diagnostics);
+        SettlementLayout plan = found.orElseThrow();
+        Settlement settlement = Settlement.founding(UUID.randomUUID(), plan.territory(), KingdomConfig.INITIAL_POPULATION.get());
+        SettlementLayoutMetadata metadata = SettlementLayoutMetadata.from(plan);
+        try (SettlementPlacement transaction = SettlementPlacement.apply(level, plan)) {
+            data.add(settlement, metadata);
+            transaction.commit();
         } catch (RuntimeException exception) {
-            LOGGER.error("Could not load allied settlement template", exception);
-            return Result.failed(Failure.TEMPLATE_UNAVAILABLE);
-        }
-        int slope = KingdomConfig.GENERATION_MAX_SLOPE.get();
-        int radius = KingdomConfig.SETTLEMENT_RADIUS.get();
-        Optional<SettlementSitePlanner.Plan> found = search
-                ? planner.findNear(level, data, template, position, KingdomConfig.GENERATION_SEARCH_RANGE.get(), slope, radius)
-                : planner.at(level, data, template, position, slope, radius);
-        if (found.isEmpty()) return Result.failed(Failure.NO_SAFE_SITE);
-        var plan = found.orElseThrow();
-        List<Snapshot> before = new ArrayList<>();
-        for (BlockPos pos : plan.supports()) before.add(new Snapshot(pos, level.getBlockState(pos)));
-        for (BlockPos pos : BlockPos.betweenClosed(plan.origin(), plan.high())) {
-            before.add(new Snapshot(pos.immutable(), level.getBlockState(pos)));
+            LOGGER.error("Settlement placement failed at {}; transaction rolled back", position, exception);
+            return Result.failed(Failure.PLACEMENT_FAILED, diagnostics);
         }
         try {
-            // Raise the foundation above gentle slopes instead of excavating existing ground.
-            for (BlockPos pos : plan.supports()) {
-                if (!level.getBlockState(pos).equals(Blocks.COBBLESTONE.defaultBlockState())
-                        && !level.setBlock(pos, Blocks.COBBLESTONE.defaultBlockState(), FLAGS)) {
-                    throw new IllegalStateException("Foundation placement refused at " + pos);
-                }
-            }
-            var settings = SettlementTemplate.settings().setBoundingBox(BoundingBox.fromCorners(plan.origin(), plan.high()));
-            if (!template.template().placeInWorld(level, plan.origin(), plan.origin(), settings, level.random, FLAGS)) {
-                throw new IllegalStateException("Template placement refused");
-            }
-            // Vanilla can return true even if individual writes fail. Confirm every exported state.
-            for (var block : template.blocks()) {
-                if (!level.getBlockState(plan.origin().offset(block.pos())).equals(block.state())) {
-                    throw new IllegalStateException("Incomplete template placement at " + block.pos());
-                }
-            }
-            Settlement settlement = Settlement.founding(UUID.randomUUID(), plan.territory(), KingdomConfig.INITIAL_POPULATION.get());
-            data.add(settlement);
-            // The physical settlement already exists; an NPC failure must not roll back its blocks alone.
-            try {
-                if (NpcService.ensureMayor(level, settlement).isEmpty()) {
-                    LOGGER.warn("Settlement {} generated, but no loaded safe Mayor location was available", settlement.id());
-                }
-            } catch (RuntimeException exception) {
-                LOGGER.error("Settlement {} generated, but Mayor association failed", settlement.id(), exception);
-            }
-            return new Result(settlement, null);
-        } catch (RuntimeException exception) {
-            for (int i = before.size() - 1; i >= 0; i--) {
-                Snapshot snapshot = before.get(i);
-                level.setBlock(snapshot.position(), snapshot.state(), FLAGS);
-            }
-            LOGGER.error("Settlement placement failed at {}; original blocks restored", plan.origin(), exception);
-            return Result.failed(Failure.PLACEMENT_FAILED);
-        }
+            var mayor = NpcService.ensureMayor(level, settlement);
+            if (mayor.isEmpty()) LOGGER.warn("No safe loaded Mayor location for {}", settlement.id());
+            else NpcService.spawnInitialResidents(level, settlement, mayor.orElseThrow());
+        } catch (RuntimeException exception) { LOGGER.error("Mayor association failed for {}", settlement.id(), exception); }
+        return new Result(settlement, null, diagnostics.summary());
     }
 
-    private record Snapshot(BlockPos position, BlockState state) {}
+    /** Future growth API; no housing capacity or citizen behavior is attached to this operation. */
+    public Optional<SettlementLayout> planBuildingAddition(ServerLevel level, UUID settlementId, BuildingKind kind,
+                                                         GenerationDiagnostics diagnostics) {
+        SettlementSavedData data = SettlementSavedData.get(level.getServer());
+        Settlement settlement = data.get(settlementId).orElseThrow(() -> new IllegalArgumentException("Unknown settlement"));
+        var metadata = data.layout(settlementId).orElseThrow(() -> new IllegalArgumentException("Legacy settlement has no reserved layout; survey it first"));
+        if (!settlement.faction().isAllied() || !settlement.territory().dimension().equals(level.dimension().location().toString()))
+            throw new IllegalArgumentException("Building additions require an allied settlement in this dimension");
+        Map<BlockPos, BlockState> paths = new LinkedHashMap<>();
+        metadata.paths().forEach(pos -> paths.put(pos, Blocks.DIRT_PATH.defaultBlockState()));
+        return planner.planAddition(level, settlement.territory(), BuildingCatalog.load(level, metadata.style()), kind,
+                metadata.buildings().stream().map(SettlementLayoutMetadata.Building::bounds).toList(), metadata.ports(), paths, diagnostics);
+    }
+
+    public void applyBuildingAddition(ServerLevel level, UUID settlementId, SettlementLayout addition) {
+        SettlementSavedData data = SettlementSavedData.get(level.getServer());
+        Settlement settlement = data.get(settlementId).orElseThrow();
+        if (!settlement.faction().isAllied() || !addition.territory().equals(settlement.territory()) || addition.buildings().size() != 1
+                || addition.buildings().getFirst().module().kind() == BuildingKind.CORE)
+            throw new IllegalArgumentException("Invalid addition plan");
+        var updated = data.layout(settlementId).orElseThrow().append(addition);
+        updated.validate(settlement.territory());
+        try (SettlementPlacement transaction = SettlementPlacement.apply(level, addition)) {
+            data.updateLayout(settlementId, updated);
+            transaction.commit();
+        }
+    }
 
     public enum Failure { TEMPLATE_UNAVAILABLE, NO_SAFE_SITE, PLACEMENT_FAILED }
-
-    public record Result(Settlement settlement, Failure failure) {
+    public record Result(Settlement settlement, Failure failure, GenerationDiagnostics.Summary diagnostics) {
         public Result {
             if ((settlement == null) == (failure == null)) throw new IllegalArgumentException("Result requires success or failure");
         }
-        static Result failed(Failure failure) { return new Result(null, failure); }
+        static Result failed(Failure failure, GenerationDiagnostics diagnostics) { return new Result(null, failure, diagnostics.summary()); }
         public boolean successful() { return settlement != null; }
     }
 }

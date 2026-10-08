@@ -1,4 +1,4 @@
 {
   "replace": false,
-  "values": ["minecraft:grass_block", "minecraft:dirt", "minecraft:coarse_dirt", "minecraft:podzol", "minecraft:rooted_dirt", "minecraft:stone", "minecraft:gravel", "minecraft:sand", "minecraft:red_sand"]
+  "values": ["minecraft:grass_block", "minecraft:dirt", "minecraft:coarse_dirt", "minecraft:podzol", "minecraft:rooted_dirt", "minecraft:stone", "minecraft:gravel", "minecraft:sand", "minecraft:red_sand", "minecraft:dirt_path", "minecraft:snow_block"]
 }

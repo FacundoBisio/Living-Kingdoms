@@ -9,6 +9,7 @@ import dev.livingkingdoms.settlement.SettlementGenerator;
 import dev.livingkingdoms.settlement.domain.Settlement;
 import dev.livingkingdoms.settlement.domain.Territory;
 import dev.livingkingdoms.settlement.persistence.SettlementSavedData;
+import dev.livingkingdoms.structure.GenerationDiagnostics;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.core.BlockPos;
@@ -29,7 +30,10 @@ public final class SettlementCommands {
                         .then(Commands.literal("create").requires(source -> source.hasPermission(2))
                                 .executes(SettlementCommands::create))
                         .then(Commands.literal("generate").requires(source -> source.hasPermission(2))
-                                .executes(SettlementCommands::generate))
+                                .executes(SettlementCommands::generate)
+                                .then(Commands.literal("debug").executes(context -> generate(context, false, true)))
+                                .then(Commands.literal("here").executes(context -> generate(context, true, false))
+                                        .then(Commands.literal("debug").executes(context -> generate(context, true, true)))))
                         .then(Commands.literal("info").executes(SettlementCommands::info)))
                 .then(Commands.literal("reputation").executes(SettlementCommands::reputation)));
     }
@@ -51,13 +55,27 @@ public final class SettlementCommands {
     }
 
     private static int generate(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        return generate(context, false, false);
+    }
+
+    private static int generate(CommandContext<CommandSourceStack> context, boolean here, boolean debug) throws CommandSyntaxException {
         CommandSourceStack source = context.getSource();
         ServerPlayer player = source.getPlayerOrException();
-        SettlementGenerator.Result result = new SettlementGenerator().generateNear(player.serverLevel(), player.blockPosition());
+        SettlementGenerator generator = new SettlementGenerator();
+        SettlementGenerator.Result result = here ? generator.generateHere(player.serverLevel(), player.blockPosition())
+                : generator.generateNear(player.serverLevel(), player.blockPosition());
+        if (debug) {
+            var summary = result.diagnostics();
+            source.sendSuccess(() -> Component.translatable("commands.livingkingdoms.settlement.debug.candidates",
+                    summary.centersChecked(), summary.plotsChecked()), false);
+            sendRejections(source, "commands.livingkingdoms.settlement.debug.centers", summary.centerFailures());
+            sendRejections(source, "commands.livingkingdoms.settlement.debug.plots", summary.plotFailures());
+            source.sendSuccess(() -> Component.translatable("commands.livingkingdoms.settlement.debug.valid_plots", summary.bestValidPlots(), 4), false);
+        }
         if (!result.successful()) {
             String key = switch (result.failure()) {
                 case TEMPLATE_UNAVAILABLE -> "commands.livingkingdoms.settlement.template_unavailable";
-                case NO_SAFE_SITE -> "commands.livingkingdoms.settlement.no_safe_site";
+                case NO_SAFE_SITE -> result.diagnostics().feedbackKey();
                 case PLACEMENT_FAILED -> "commands.livingkingdoms.settlement.placement_failed";
             };
             source.sendFailure(Component.translatable(key));
@@ -67,6 +85,21 @@ public final class SettlementCommands {
         source.sendSuccess(() -> Component.translatable("commands.livingkingdoms.settlement.generated",
                 settlement.name(), settlement.id().toString(), settlement.territory().x(), settlement.territory().y(), settlement.territory().z()), true);
         return Command.SINGLE_SUCCESS;
+    }
+
+    private static void sendRejections(CommandSourceStack source, String label,
+                                       java.util.Map<GenerationDiagnostics.Rejection, Integer> failures) {
+        if (failures.isEmpty()) return;
+        Component message = Component.translatable(label);
+        for (var reason : GenerationDiagnostics.Rejection.values()) {
+            Integer count = failures.get(reason);
+            if (count == null) continue;
+            message = message.copy().append(Component.literal(" ")).append(Component.translatable(
+                    "commands.livingkingdoms.settlement.debug." + reason.name().toLowerCase(java.util.Locale.ROOT)))
+                    .append(Component.literal(": " + count + ";"));
+        }
+        Component output = message;
+        source.sendSuccess(() -> output, false);
     }
 
     private static int create(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {

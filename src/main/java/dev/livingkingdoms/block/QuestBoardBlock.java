@@ -48,7 +48,7 @@ public final class QuestBoardBlock extends HorizontalDirectionalBlock {
 
     private static void interact(Level level, Player player, BlockPos pos) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
-            QuestService.interact(serverPlayer, pos, player.isShiftKeyDown());
+            dev.livingkingdoms.ui.VillageUiService.openBoard(serverPlayer, pos);
         }
     }
 

@@ -44,8 +44,9 @@ public final class KingdomConfig {
         builder.push("generation");
         GENERATION_SEARCH_RANGE = builder.comment("Maximum horizontal search distance for manual generation; loaded chunks only.")
                 .defineInRange("searchRange", 64, 32, 128);
-        GENERATION_MAX_SLOPE = builder.comment("Maximum surface height difference allowed under a settlement; no excavation.")
-                .defineInRange("maxTerrainVariation", 2, 0, 3);
+        GENERATION_MAX_SLOPE = builder.comment("Maximum height variance under the compact settlement core; buildings have separate tolerances.")
+                .defineInRange("maxTerrainVariation", 2, 0, 4);
+        SettlementGenerationConfig.define(builder);
         builder.pop();
         builder.push("quests");
         QUEST_REQUIRED_IRON = builder.comment("Iron ingots required for newly accepted Iron Shortage quests.")

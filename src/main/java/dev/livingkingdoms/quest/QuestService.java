@@ -29,6 +29,10 @@ public final class QuestService {
     }
 
     public static void interact(ServerPlayer player, BlockPos board, boolean sneaking) {
+        interact(player, board, sneaking, true);
+    }
+
+    public static void interact(ServerPlayer player, BlockPos board, boolean sneaking, boolean chat) {
         var level = player.serverLevel();
         if (!level.getServer().isSameThread()) throw new IllegalStateException("Quest interaction requires the server thread");
         if (player.isSpectator() || !player.isAlive() || player.distanceToSqr(Vec3.atCenterOf(board)) > 64
@@ -70,7 +74,7 @@ public final class QuestService {
                     message(player, "quest.livingkingdoms.accepted", title());
                 }
                 var active = data.progress(player.getUUID(), settlement.id());
-                inspect(player, settlement, active.state(), active.terms(), active.reputation());
+                if (chat) inspect(player, settlement, active.state(), active.terms(), active.reputation());
             }
             case ACTIVE -> {
                 QuestTerms terms = progress.terms();
@@ -95,7 +99,7 @@ public final class QuestService {
             case COMPLETED -> message(player, "quest.livingkingdoms.already_completed", title());
             case FAILED, EXPIRED -> message(player, "quest.livingkingdoms.failed", title());
         }
-        dev.livingkingdoms.quest.expansion.ExpandedQuestService.inspectBoard(player, settlement, board);
+        if (chat) dev.livingkingdoms.quest.expansion.ExpandedQuestService.inspectBoard(player, settlement, board);
     }
 
     private static void inspect(ServerPlayer player, Settlement settlement, QuestState state, QuestTerms savedTerms, int reputation) {

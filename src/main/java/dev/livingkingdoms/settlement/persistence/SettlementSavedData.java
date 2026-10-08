@@ -2,6 +2,7 @@ package dev.livingkingdoms.settlement.persistence;
 
 import dev.livingkingdoms.settlement.domain.Settlement;
 import dev.livingkingdoms.settlement.domain.Territory;
+import dev.livingkingdoms.structure.SettlementLayoutMetadata;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -29,6 +30,7 @@ public final class SettlementSavedData extends SavedData {
     private static final int SCHEMA_VERSION = 1;
     private static final int INDEX_BUCKET_SIZE = 256;
     private final Map<UUID, Settlement> settlements = new LinkedHashMap<>();
+    private final Map<UUID, SettlementLayoutMetadata> layouts = new HashMap<>();
     // Derived from authoritative records, never serialized or shared between worlds.
     private final Map<String, Map<Bucket, List<UUID>>> alliedCenters = new HashMap<>();
     private final Map<String, List<UUID>> oversizedAlliedTerritories = new HashMap<>();
@@ -59,6 +61,22 @@ public final class SettlementSavedData extends SavedData {
 
     public Optional<Settlement> get(UUID id) {
         return Optional.ofNullable(settlements.get(Objects.requireNonNull(id, "id")));
+    }
+
+    public Optional<SettlementLayoutMetadata> layout(UUID id) { return Optional.ofNullable(layouts.get(id)); }
+
+    public void add(Settlement settlement, SettlementLayoutMetadata layout) {
+        layout.validate(settlement.territory());
+        add(settlement);
+        layouts.put(settlement.id(), layout);
+    }
+
+    /** Called only after planning and reversible placement; does not change population or quest identity. */
+    public void updateLayout(UUID id, SettlementLayoutMetadata layout) {
+        Settlement settlement = get(id).orElseThrow(() -> new IllegalArgumentException("Unknown settlement"));
+        layout.validate(settlement.territory());
+        layouts.put(id, layout);
+        setDirty();
     }
 
     /** Event-driven horizontal center lookup. Uses metadata only, without chunk or entity access. */
@@ -176,7 +194,12 @@ public final class SettlementSavedData extends SavedData {
         }
         SettlementSavedData data = new SettlementSavedData();
         for (int i = 0; i < entries.size(); i++) {
-            data.add(SettlementNbt.read(entries.getCompound(i)));
+            CompoundTag entry = entries.getCompound(i);
+            Settlement settlement = SettlementNbt.read(entry);
+            if (entry.contains("layout")) {
+                SettlementNbt.require(entry, "layout", Tag.TAG_COMPOUND);
+                data.add(settlement, SettlementLayoutNbt.read(entry.getCompound("layout")));
+            } else data.add(settlement);
         }
         data.setDirty(false);
         return data;
@@ -186,7 +209,12 @@ public final class SettlementSavedData extends SavedData {
     public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
         tag.putInt("schema_version", SCHEMA_VERSION);
         ListTag entries = new ListTag();
-        settlements.values().forEach(settlement -> entries.add(SettlementNbt.write(settlement)));
+        settlements.values().forEach(settlement -> {
+            CompoundTag entry = SettlementNbt.write(settlement);
+            SettlementLayoutMetadata layout = layouts.get(settlement.id());
+            if (layout != null) entry.put("layout", SettlementLayoutNbt.write(layout));
+            entries.add(entry);
+        });
         tag.put("settlements", entries);
         return tag;
     }

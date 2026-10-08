@@ -21,7 +21,7 @@ public record Settlement(UUID id, String name, Faction faction, int level, int p
     }
 
     public static Settlement founding(UUID id, Territory territory, int population) {
-        return new Settlement(id, "Haven " + id.toString().substring(0, 8), Faction.ALLIED_KINGDOM, 1,
+        return new Settlement(id, dev.livingkingdoms.ui.VillageNames.generated(id), Faction.ALLIED_KINGDOM, 1,
                 population, territory);
     }
 }

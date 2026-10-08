@@ -1,6 +1,6 @@
 # Living Kingdoms
 
-Minecraft Java **1.21.1**, **Java 21**, **NeoForge 21.1.252**. Version 0.7.0 adds a persistent main chapter, rotating resource/combat quests and progression-aware rewards to the existing settlements, Mayors, factions, natural encounters, combat, regional reputation and levels. All gameplay state is owned by the server. Housing, advanced professions, diplomacy, economy, conquest, armies, custom GUI and external AI services remain outside the current scope.
+Minecraft Java **1.21.1**, **Java 21**, **NeoForge 21.1.252**. Version 0.8.0 adds redesigned medieval buildings, three house variants, a named Mayor with a circlet, two founding residents, a Quest Board GUI and NPC dialogue to the existing adaptive settlements and quest systems. All gameplay state is owned by the server. Housing, advanced professions, diplomacy, economy, conquest, armies and external AI services remain outside the current scope.
 
 Living Kingdoms focuses on exploring, discovering settlements, gaining reputation, fighting and liberating hostile territory. Its settlements are RPG/strategy hubs; the buildings in this milestone do not automate workers or manage colonies.
 
@@ -24,9 +24,9 @@ bash ./gradlew runGameTestServer
 bash ./gradlew runClient
 ```
 
-The client opens the Minecraft development environment. Create a world with cheats enabled for debug generation. The mod JAR is `build/libs/livingkingdoms-0.7.0.jar`; the `-sources.jar` is for developers, not installation. Use the same mod version on clients and dedicated servers. Python and development mods are not required for the ordinary Java build or runtime.
+The client opens the Minecraft development environment. Create a world with cheats enabled for debug generation. The mod JAR is `build/libs/livingkingdoms-0.8.0.jar`; the `-sources.jar` is for developers, not installation. Use the same mod version on clients and dedicated servers. Python and development mods are not required for the ordinary Java build or runtime.
 
-On the development machine used for this milestone, `runClient` crashes in the AMD native OpenGL driver (`atio6axx.dll`, `EXCEPTION_ACCESS_VIOLATION`) while GLFW creates a window. Disabling NeoForge's early splash window reproduces the same crash at vanilla window creation. The graphical client and manual Save and Quit/reopen flow therefore remain unverified on that machine. Crash reports are in the ignored `run/hs_err_pid*.log` files. Headless tests do not require a working graphics driver.
+Earlier milestone graphical validation was blocked by an AMD driver crash. The current test machine can run Minecraft correctly. The 0.8.0 client was launched successfully. The building/UI visual review was interrupted by the user, so graphical acceptance and Save & Quit checks remain manual: see [village identity QA](docs/village-identity-ui-polish.md).
 
 For a dedicated development server:
 
@@ -40,42 +40,46 @@ Read the Minecraft EULA linked by the server. If you accept it, change `eula=fal
 
 Settlement commands require a player context; a direct server-console invocation reports that a player is required. `create` and `generate` require permission level 2 (operator/cheats); any player may use settlement `info` or `/kingdom reputation`. Commands are for generation/inspection, not normal quest gameplay. Encounter controls below require operator permission.
 
-1. Find open, dry, nearly flat surface terrain. Let the nearby chunks load. Avoid forests, villages, water, and previous settlements.
+1. Find a dry clearing for the compact core and let nearby chunks load. Gentle slopes, scattered trees and small nearby ponds are supported when there are enough connected dry building plots. Avoid previous settlement territories and existing construction.
 2. Run `/kingdom settlement generate`. The server searches sampled positions 32–64 blocks away, within loaded chunks, and reports the settlement name, UUID, and central coordinates. If every site fails validation it changes no blocks and creates no settlement data. Move to another open area and retry.
-3. Walk to the central lodestone marker. The **31 × 7 × 31** placeholder includes a Town Hall, three houses, a Blacksmith with furnace/anvil, a small Barracks, labeled signs, a plaza, and the custom Quest Board.
-4. Run `/kingdom settlement info` inside or near the settlement. It reports name, ID, allied faction, level 1, and population. Population remains abstract; the single Mayor is a separate dialogue NPC, not a population simulation.
+3. Walk to the central lodestone marker. A **13 × 13** core includes the Town Hall, plaza, marker and custom Quest Board. Two houses, a Blacksmith with furnace/anvil and Barracks occupy independent nearby plots, potentially at different elevations, with terrain-following paths.
+4. Run `/kingdom settlement info` inside or near the settlement. It reports name, ID, allied faction, level 1, and population. Population remains abstract; the Mayor and two ordinary founding villagers are separate persistent entities, not a population simulation.
 5. Meet the named Mayor in the plaza, then follow the quest steps below. The board is also available in the Functional Blocks creative tab or via `/give @s livingkingdoms:quest_board`; no recipe is provided yet.
 6. Record the UUID. Save and Quit (or stop the dedicated server), reopen the same world, and run `info` there. Buildings, board, Mayor and quest state must remain. `/reload` must preserve commands and saved state.
 7. Repeating `generate` in the plaza must fail when all nearby candidates overlap that territory. Move at least 128 blocks from the marker to test another physical settlement with default settings, in another suitable clearing.
 
 `/kingdom settlement create` remains unchanged: it creates an **abstract** allied settlement at your position without placing blocks. Use it separately from physical generation; its saved territory prevents generating a village on top of it.
 
-Generation places a foundation above the highest ground column and supports differences of at most two blocks. It does not excavate existing terrain. It rejects non-approved ground, fluids, occupied building space, block entities, non-spectator entities, world-border/build-height violations and overlapping territories. Only air and explicitly tagged vegetation can be cleared. This is a conservative terrain heuristic, not an ownership/claim system: it cannot identify who placed a dirt/stone surface. No chunks are force-loaded by gameplay generation.
+Generation plans each module above its own highest ground column and adds short supports down to original terrain. Default local variance is two blocks for the core/Barracks and three for small houses/Blacksmith. It does not excavate hills. Wet or blocked outer plots are skipped while other nearby plots are considered. Occupied core/plots, inventories, entities, water, major cliffs, border/build-height conflicts and overlapping territories remain protected. Only air and tagged low vegetation/leaves can be cleared; trunks remain. No chunks are force-loaded. Terrain tags cannot identify who placed a dirt/stone surface.
+
+Operators can use `/kingdom settlement generate debug` for separate center/plot candidate and rejection counts. `/kingdom settlement generate here debug` first attempts a core four blocks north of the caller, then up to 24 nearby centers at offsets of 8, 16 and 24 blocks with a one-block local tolerance increase (maximum four); all water, obstacle, territory and border protections remain. See [architecture, configuration, native module authoring and five-environment QA](docs/adaptive-settlement-generation.md).
 
 Placement is checked before mutation; original states are retained for rollback of ordinary placement failures. Settlement data is added only after the exported blocks are verified. This does not provide a crash-proof transaction across chunk files and SavedData; do not interrupt the server mid-generation. Breaking or moving a marker/board does not remove or relocate the saved territory.
 
-Territories are horizontal circles in a specific dimension, with an inclusive boundary; height does not affect lookup. `info` outside every territory reports no settlement. Names use `Haven <UUID prefix>`. Abstract creation stores the player position; physical generation stores the lodestone's position. Default radius is 48 blocks. Physical generation enforces a minimum radius derived from the template bounds plus a small margin, so every building remains inside its territory even if the configured radius is reduced.
+Territories are horizontal circles in a specific dimension, with an inclusive boundary; height does not affect lookup. `info` outside every territory reports no settlement. New names use immersive combinations such as `Oakford`; old UUID-derived default names receive a clean display alias in the GUI. Abstract creation stores the player position; physical generation stores the lodestone's position. Default radius is 48 blocks. Every full building footprint and path stays inside the configured territory; reducing its radius too far can produce an insufficient-plots/territory refusal.
 
 ## Play Iron Shortage
 
-1. Right-click the named **Mayor** in the plaza. The Mayor welcomes you to that settlement and points you to the board. Dialogue is deterministic and localized.
-2. Right-click the **Quest Board** normally. Chat shows **Iron Shortage**, its state, the required Iron Ingots, current inventory progress, reward and your reputation with this settlement. Viewing does not accept the quest.
-3. **Crouch + right-click** the same board to accept. Chat confirms acceptance and shows the objective. The default requirement is **16 Iron Ingots**, with **8 Emeralds** and **+10 reputation** as the reward.
-4. Obtain the Iron Ingots. Normal right-click shows live progress from the main inventory and offhand. Items in armor slots are not counted. You can hold the iron while interacting.
-5. **Crouch + right-click** again to deliver. The server verifies the active quest, sufficient iron and capacity for the complete reward after consumption. It removes exactly the required iron, inserts the Emeralds, completes the quest and adds reputation. Insufficient iron or space changes nothing.
-6. Talk to the Mayor again: the dialogue now acknowledges your help. View the board or use optional `/kingdom reputation` to see your reputation. Repeated delivery, reconnect and `/reload` cannot grant the completed reward again.
+1. Right-click the **Mayor**. A dialogue screen shows the NPC, proper name, contextual welcome and Talk / Open Quest Board / Settlement Info / Leave options. Meeting the Mayor completes the first main step.
+2. Right-click the **Quest Board**, with an empty hand or an item. The parchment screen has **Main quests**, **Requests** and **Active quests** tabs. Viewing or crouch-clicking never accepts a quest.
+3. Select **Iron Shortage** under Main quests and press **Accept**. Default terms are **16 Iron Ingots**, **8 Emeralds**, and **+10 reputation**.
+4. Obtain the iron, then reopen the board or press **Refresh**. Item icons and counts show progress from main inventory and offhand; armor slots do not count. Scroll the right pane when the description does not fit.
+5. Select the active Iron Shortage and press **Claim**. The server validates inventory and reward capacity, consumes exactly the required resources, and pays once. Missing resources or insufficient capacity change nothing.
+6. Reopen the Mayor dialogue: it acknowledges the completed delivery. Save/reload and repeat Claim: no duplicate reward is possible.
 
-The quest is offered once **per player, per allied settlement**, keyed by UUID. Another player can complete their own instance; completing it in one settlement does not complete it in another. Boards outside an allied territory refuse quests. A board elsewhere within the same territory accesses the same player/settlement quest, not another reward. Stay close to the board and inside its territory. No commands or GUI are needed for this loop.
+The legacy delivery backend and `/kingdom quest` commands remain supported; normal play uses the GUI. See [village identity implementation and exact manual QA](docs/village-identity-ui-polish.md).
+
+The quest is offered once **per player, per allied settlement**, keyed by UUID. Another player can complete their own instance; completing it in one settlement does not complete it in another. Boards outside an allied territory refuse quests. A board elsewhere within the same territory accesses the same player/settlement quest, not another reward. Stay close to the board and inside its territory. No typed commands are needed for this loop.
 
 Existing Milestone 1 physical settlements gain a Mayor on first board use if their central lodestone is still present and a safe loaded plaza position is available. Newly generated settlements spawn the Mayor immediately. Abstract `create` records do not automatically spawn NPCs, but a manually placed board in an allied territory can offer the quest. Names are display values; renaming does not change UUID associations.
 
-The Mayor is a vanilla Villager with a persisted Living Kingdoms role and settlement UUID, a visible name and no trades. It is stationary (`NoAI`), persistent and protected from ordinary combat for this prototype; creative players can still remove it and physical pushes can move it. `MAYOR`, `BLACKSMITH` and `GUARD` are identity concepts; only the Mayor is spawned in this milestone. Missing or unloaded recorded Mayors are not automatically replaced, which avoids duplicate NPCs. There are no schedules, professions, recruitment or autonomous worker behavior.
+The Mayor is a vanilla Villager with a persisted Living Kingdoms role and settlement UUID, a visible name and no trades. It is stationary (`NoAI`), persistent and protected from ordinary combat for this prototype; creative players can still remove it and physical pushes can move it. `MAYOR`, `BLACKSMITH` and `GUARD` are identity concepts; the Mayor and two ordinary `RESIDENT` villagers are spawned at founding. Missing or unloaded recorded Mayors are not automatically replaced, which avoids duplicate NPCs. There are no schedules, professions, recruitment or autonomous worker behavior.
 
 Quest states are `AVAILABLE`, `ACTIVE`, `COMPLETED`, `FAILED`, `EXPIRED`. Original Iron Shortage still has no timer, abandonment or repeatable reset. Inventory progress is checked on interaction, not each tick. An accepted Iron quest snapshots its terms: changing settings affects new acceptances only.
 
 ## Main quests and regional requests
 
-Right-click the board to see **MAIN QUESTS — Chapter 1: First Steps** and **AVAILABLE REQUESTS / ACTIVE QUESTS**, beneath the compatible Iron Shortage section. Entries show source role, state, level/difficulty, objective, progress and reward. Click **Accept quest** or **Deliver / Claim reward** in chat; no operator permission or typed commands are needed. Remain within eight blocks of the actual board and inside its allied territory. UUID ownership, reach and lifecycle are checked again on every action.
+Right-click the board to open **Main quests**, **Requests** and **Active quests**. Select a row to read its description, difficulty, objective, inventory progress, item rewards and offer expiry. Use **Accept** or **Claim** buttons. Stay within eight blocks of the board and inside its allied territory; session ownership, quest ownership, reach, block presence and lifecycle are checked again on every action. Snapshots update on opening, button actions and explicit Refresh, not with per-tick world scans.
 
 One main chapter persists globally per player, anchored to their first Mayor-backed settlement:
 
@@ -84,7 +88,7 @@ One main chapter persists globally per player, anchored to their first Mayor-bac
 3. **Secure the Roads:** accept a quest bound to an actual nearby non-debug Pillager Patrol. Contribute meaningfully to defeating that specific group, then confirm victory at the board. Approximate origin coordinates guide travel. A missing/retired target fails; the main step can bind a replacement later.
 4. **Return Home:** accept and claim at the chapter settlement's board for six emeralds/+5 reputation by default. The chapter never expires or repeats at another settlement.
 
-Abstract records without a Mayor do not lock a player's main chapter. Their boards can still offer delivery requests. Only the existing Mayor is spawned; other quest source roles are metadata for future NPCs, brokered by the board.
+Abstract records without a Mayor do not lock a player's main chapter. Their boards can still offer delivery requests. The Mayor and two ordinary residents are spawned; other quest source roles are metadata for future NPCs, brokered by the board.
 
 | Dynamic request | Default objective | Source role |
 | --- | --- | --- |
@@ -104,7 +108,7 @@ Resource recommended level uses the existing regional service; combat uses round
 
 Combat objectives become ready only on the recorded party's final defeat event, using the existing participation threshold. Every player must accept their own instance; passive/nonparticipating players cannot inherit victory. Offline participants keep ready state, which survives party cleanup. Claim at the source settlement's board pays once. Pure faction victories, unrelated mob deaths, debug groups and retirement cannot complete a quest. Quest reputation is additional to the separately deduplicated regional roaming reward.
 
-Sources hold settlement UUID, optional NPC UUID and MAYOR/BLACKSMITH/FARMER/GUARD_CAPTAIN/CITIZEN role. Typed objectives and templates allow future quest handlers without dependence on placeholder building coordinates. No housing, NPC professions, rescue/escort AI, bosses, custom GUI or structure redesign is added.
+Sources hold settlement UUID, optional NPC UUID and MAYOR/BLACKSMITH/FARMER/GUARD_CAPTAIN/CITIZEN role. Typed objectives and templates allow future quest handlers without dependence on placeholder building coordinates. Housing, functional NPC professions, rescue/escort AI and bosses remain out of scope.
 
 ## World storage and settings
 
@@ -120,6 +124,15 @@ initialPopulation = 5
 [generation]
 searchRange = 64
 maxTerrainVariation = 2
+plotSearchRadius = 30
+plotAttempts = 64
+buildingSpacing = 2
+pathSearchNodes = 512
+
+[generation.house]
+maxHeightVariance = 3
+foundationDepth = 1
+maxSupportDepth = 3
 
 [quests]
 requiredIron = 16
@@ -257,19 +270,19 @@ Future settlement resources and buildings can extend the existing aggregate usin
 
 ## Structures and future natural generation
 
-`SettlementTemplate` uses Minecraft's `StructureTemplateManager` to load `livingkingdoms:allied/test_settlement` from a native NBT resource. It validates a single palette, no saved entities or fluids, bounded size (up to 32 × 12 × 32), a full solid foundation, one lodestone at local Y=1 and exactly one Quest Board. Placement has no rotation in this milestone. Authored state shapes are preserved; replacement exports must have valid doors, beds and other neighboring block states. The block/sign data is placed through Minecraft's official template API.
+`BuildingCatalog` loads independent native NBTs under `livingkingdoms:allied/plains/`. `BuildingTemplate` validates bounded footprints, one palette, no saved entities/fluids/control blocks, complete solid floors and module entrance contracts. `SettlementLayoutPlanner` reserves rotated building plots and local paths before mutation; `SettlementPlacement` validates the full snapshot and uses Minecraft's official template API with all four cardinal rotations. Optional layout metadata records biome style, template IDs, elevations, footprints, rotations and connections for future additions. The old `SettlementTemplate`/`SettlementSitePlanner` and 31 × 31 asset remain for legacy authoring/testing; new generation uses the modular planner.
 
 Natural placement is **not enabled** yet. `SettlementGenerator.generateAt(ServerLevel, BlockPos)` is the shared path for future biome/spacing selection; `generateNear` adds only debug site search. A future worldgen module can propose candidate centers and dispatch placement after chunks are available on the server thread. It must not mutate SavedData from chunk-generation worker threads. Structure art, biome distribution, and persistence therefore remain separate responsibilities without a premature worldgen manager.
 
-See [the template layout and WorldEdit export workflow](docs/structure-layout.md). WorldEdit can be used to build/paste in a disposable design world, then vanilla structure blocks export the final `.nbt`. Native `.schem` files require conversion, not renaming. WorldEdit, JourneyMap and JEI are optional development tools; Living Kingdoms has no dependencies on them.
+See [the current module layout and WorldEdit export workflow](docs/adaptive-settlement-generation.md) and [automated validation](docs/adaptive-settlement-generation-validation.md). The [historical template layout](docs/structure-layout.md) remains available for legacy worlds. WorldEdit can be used to build/paste in a disposable design world, then vanilla structure blocks export the final `.nbt`. Native `.schem` files require conversion, not renaming. WorldEdit, JourneyMap and JEI are optional development tools; Living Kingdoms has no dependencies on them.
 
 Regional difficulty now has a configurable pure calculation of distance, world age, activity and caller-supplied hostile settlement tier, independent of entity AI. Conquest inputs, advanced NPC progression and conquest transitions are future extensions.
 
 ## Tests and community workflow
 
-`test` uses JUnit 5 with ModDevGradle's NeoForge test environment. The 153 tests retain all previous settlement/quest/faction/encounter/progression coverage and add main ordering/prerequisites, dynamic weighting, resource variants, difficulty/rewards, lifecycle/rotation, UUID participation, multiplayer ownership, exchange preflight and schema-4 migration. Existing cases cover spatial lookup, UUID/state invariants, reward deduplication, atomic multiplayer batches, contribution expiry, lifecycle cleanup and natural gates. Real `DimensionDataStorage` save/reopen tests verify persistence and that corrupt/future-schema files remain unchanged after rejected loads.
+`test` uses JUnit 5 with ModDevGradle's NeoForge test environment. It retains all previous settlement/quest/faction/encounter/progression coverage, including main ordering, dynamic quests, reward deduplication and migrations. New layout cases verify whole-footprint spacing, circular territory safety, tolerance caps, diagnostic classification, optional metadata round trips and unchanged schema-1 legacy records. Real `DimensionDataStorage` save/reopen tests verify persistence and that corrupt/future-schema files remain unchanged after rejected loads.
 
-`runGameTestServer` starts a headless Minecraft world and loads a separate test mod from `src/gametest`. Forty-one GameTests retain all previous physical/quest/Mayor/encounter/natural/faction/progression coverage. Seven new cases verify generic multi-resource exchanges/live log tags, real board actions for nonoperators, source/reach/ownership gates, disk reload/rotation, all four main steps, actual participant-based Pillager/Undead victory and failure of missing/debug/retired targets. All test-only terrain preparation, explicit chunk loading, classes and test-mod resources are excluded from the production JAR and normal client/server runs. Its world lives in `runs/gametest`, separate from normal dev worlds. GitHub Actions runs `test build runGameTestServer` on Java 21 and uploads the JARs. The graphical Save and Quit/reopen check remains manual.
+`runGameTestServer` starts a headless Minecraft world and loads a separate test mod from `src/gametest`. Fifty GameTests retain all previous physical/quest/Mayor/encounter/natural/faction/progression coverage and add compact planning, independent elevations, isolated wet plots, four native rotations, paths, territory/chunk safety, stale-plan validation, rollback, forest clearings, future building additions and here/debug command behavior. All test-only terrain preparation, explicit chunk loading, classes and test-mod resources are excluded from the production JAR and normal client/server runs. Its world lives in `runs/gametest`, separate from normal dev worlds. GitHub Actions runs `test build runGameTestServer` on Java 21 and uploads the JARs. The graphical Save and Quit/reopen check remains manual.
 
 Open an issue with Minecraft/NeoForge/mod versions, reproduction steps, and a relevant log excerpt. Keep contributions scoped and run `test build runGameTestServer` before submitting a pull request. The GitHub workflow is configured for pushes and pull requests. The mod currently reserves all rights; a community distribution license must be selected by the project owner before public release.
 
