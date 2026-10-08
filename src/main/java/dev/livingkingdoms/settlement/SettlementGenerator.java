@@ -51,6 +51,7 @@ public final class SettlementGenerator {
     private Result generate(ServerLevel level, BlockPos position, boolean search, boolean relaxed, ServerPlayer founder) {
         SettlementSavedData data = SettlementSavedData.get(level.getServer());
         QuestSavedData.get(level.getServer());
+        dev.livingkingdoms.citizen.persistence.CitizenSavedData.get(level.getServer());
         GenerationDiagnostics diagnostics = new GenerationDiagnostics();
         BuildingCatalog catalog;
         try { catalog = BuildingCatalog.load(level, ArchitectureStyle.PLAINS); }
@@ -99,6 +100,10 @@ public final class SettlementGenerator {
             if (mayor.isEmpty()) LOGGER.warn("No safe loaded Mayor location for {}", settlement.id());
             else NpcService.spawnInitialResidents(level, settlement, mayor.orElseThrow());
         } catch (RuntimeException exception) { LOGGER.error("Mayor association failed for {}", settlement.id(), exception); }
+        try { dev.livingkingdoms.citizen.CitizenService.ensureInitialized(level,settlement); }
+        catch (RuntimeException exception) {
+            LOGGER.error("Committed settlement {} will retry citizen initialization on its next management request",settlement.id(),exception);
+        }
         return new Result(settlement, null, diagnostics.summary());
     }
 
@@ -130,7 +135,7 @@ public final class SettlementGenerator {
                     .anyMatch(bounds -> addition.buildings().getFirst().bounds().conflicts(bounds,0)))
             throw new IllegalArgumentException("Invalid addition plan");
         var updated = data.layout(settlementId).orElseThrow().append(addition);
-        updated.validate(settlement.territory());
+        updated.validate(settlement.territory(),settlement.provenance().origin() == SettlementOrigin.CONVERTED);
         try (SettlementPlacement transaction = SettlementPlacement.apply(level, addition)) {
             data.updateLayout(settlementId, updated);
             transaction.commit();

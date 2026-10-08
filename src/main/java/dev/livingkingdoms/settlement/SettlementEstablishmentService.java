@@ -49,6 +49,7 @@ public final class SettlementEstablishmentService {
         var data = SettlementSavedData.get(level.getServer());
         // Fail closed on unreadable quest storage before placing infrastructure or spending anything.
         QuestSavedData.get(level.getServer());
+        dev.livingkingdoms.citizen.persistence.CitizenSavedData.get(level.getServer());
         if (data.at(level.dimension().location().toString(),anchor.getX(),anchor.getZ()).isPresent())
             return Result.failed("commands.livingkingdoms.settlement.overlap");
         VillageSurvey survey = VillageSurvey.detect(level,anchor);
@@ -102,6 +103,11 @@ public final class SettlementEstablishmentService {
             if (failure instanceof EstablishmentPlacementEvents.Rejected) return Result.failed("charter.livingkingdoms.protected_area");
             LOGGER.error("Village conversion rolled back at {}",plan.marker(),failure);
             return Result.failed("charter.livingkingdoms.failed");
+        }
+        // Citizen registration follows the full placement/NPC commit so a rejected charter cannot claim villagers.
+        try { dev.livingkingdoms.citizen.CitizenService.initializeConverted(level,settlement,survey.villagers()); }
+        catch (RuntimeException failure) {
+            LOGGER.error("Committed village {} will retry citizen initialization on its next management request",settlement.id(),failure);
         }
         return Result.success(settlement,new GenerationDiagnostics().summary());
     }

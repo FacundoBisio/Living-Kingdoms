@@ -36,6 +36,12 @@ public final class LivingKingdoms {
         NeoForge.EVENT_BUS.addListener(ProgressionCommands::register);
         NeoForge.EVENT_BUS.addListener(QuestCommands::register);
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.command.ConstructionCommands::register);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.command.ImmigrationCommands::register);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.citizen.CitizenEvents::onJoin);
+        NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, false, dev.livingkingdoms.citizen.CitizenEvents::onDeath);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.citizen.CitizenEvents::onConversion);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.citizen.CitizenEvents::onTick);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.citizen.ImmigrationService::onServerTick);
         NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, false, EncounterEvents::onDeath);
         NeoForge.EVENT_BUS.addListener(EncounterEvents::onConversion);
         NeoForge.EVENT_BUS.addListener(EncounterEvents::onDamage);

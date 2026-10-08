@@ -1,0 +1,14 @@
+{
+  "parent": "livingkingdoms:first_kingdom",
+  "display": {
+    "icon": { "id": "minecraft:oak_door" },
+    "title": { "translate": "advancement.livingkingdoms.first_citizen.title" },
+    "description": { "translate": "advancement.livingkingdoms.first_citizen.description" },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": false,
+    "hidden": false
+  },
+  "criteria": { "accepted": { "trigger": "minecraft:impossible" } },
+  "requirements": [["accepted"]]
+}

@@ -12,11 +12,12 @@ import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import java.util.UUID;
 import java.util.function.Consumer;
 
-/** One bounded server snapshot; client actions contain only a session, quest identity and enum. */
+/** One bounded server snapshot; requests contain only a session, target identity and action. */
 public final class UiPayloads {
     private UiPayloads() {}
     public static Consumer<Snapshot> clientReceiver = ignored -> {};
-    public enum Action { ACCEPT, CLAIM, TALK, BOARD, INFO, CLOSE, REFRESH, CONSTRUCTION, DEPOSIT, RETRY, PLAN }
+    public enum Action { ACCEPT, CLAIM, TALK, BOARD, INFO, CLOSE, REFRESH, CONSTRUCTION, DEPOSIT, RETRY, PLAN,
+        IMMIGRATION, ACCEPT_CITIZEN, DECLINE_CITIZEN }
 
     public record Snapshot(CompoundTag data) implements CustomPacketPayload {
         public static final Type<Snapshot> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(LivingKingdoms.MOD_ID, "village_ui"));
@@ -25,6 +26,7 @@ public final class UiPayloads {
         @Override public Type<Snapshot> type() { return TYPE; }
     }
 
+    /** The existing quest field is also the candidate/project target for its corresponding action. */
     public record Request(UUID session, UUID quest, Action action) implements CustomPacketPayload {
         public static final Type<Request> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(LivingKingdoms.MOD_ID, "village_action"));
         public static final StreamCodec<RegistryFriendlyByteBuf, Request> CODEC = StreamCodec.of(
@@ -34,7 +36,7 @@ public final class UiPayloads {
     }
 
     public static void register(RegisterPayloadHandlersEvent event) {
-        var registrar = event.registrar("2");
+        var registrar = event.registrar("3");
         registrar.playToClient(Snapshot.TYPE, Snapshot.CODEC, (payload, context) -> clientReceiver.accept(payload));
         registrar.playToServer(Request.TYPE, Request.CODEC, (payload, context) -> {
             if (context.player() instanceof ServerPlayer player) VillageUiService.handle(player, payload);

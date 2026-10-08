@@ -135,11 +135,16 @@ public final class SettlementCommands {
             return 0;
         }
         Settlement settlement = found.orElseThrow();
+        dev.livingkingdoms.citizen.CitizenService.ensureInitialized(player.serverLevel(),settlement);
+        var citizens=dev.livingkingdoms.citizen.persistence.CitizenSavedData.get(source.getServer());
+        var housing=citizens.summary(settlement.id());
         source.sendSuccess(() -> Component.translatable("commands.livingkingdoms.settlement.info",
                 dev.livingkingdoms.ui.VillageNames.display(settlement),
                 Component.translatable("faction.livingkingdoms." + settlement.faction().id()),
-                settlement.level(), settlement.population()).append(" · ").append(Component.translatable(
-                        "construction.livingkingdoms.lifecycle."+settlement.lifecycle().name().toLowerCase(java.util.Locale.ROOT))), false);
+                settlement.level(), dev.livingkingdoms.citizen.CitizenService.population(source.getServer(),settlement)).append(" · ").append(Component.translatable(
+                        "construction.livingkingdoms.lifecycle."+settlement.lifecycle().name().toLowerCase(java.util.Locale.ROOT)))
+                .append(" · ").append(Component.translatable("citizen.livingkingdoms.housing_summary",housing.occupied(),housing.total(),housing.free(),
+                        dev.livingkingdoms.citizen.ImmigrationService.candidates(player.serverLevel(),settlement).size())), false);
         return Command.SINGLE_SUCCESS;
     }
 

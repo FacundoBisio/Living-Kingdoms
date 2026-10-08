@@ -20,7 +20,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
 import java.util.List;
 import java.util.UUID;
 
-/** Shared parchment shell, reusable NPC portrait/options, and a scrollable quest reader. */
+/** Shared parchment shell for Mayor dialogue, quests, construction and citizen approval. */
 public final class VillageScreen extends Screen {
     private CompoundTag data;
     private int left, top, panelWidth, panelHeight, listWidth;
@@ -82,7 +82,7 @@ public final class VillageScreen extends Screen {
     }
 
     @Override public Component getNarrationMessage() {
-        Component context = construction() ? tr("construction") : board() ? tr("board") : Component.translatable(
+        Component context = immigration() ? tr("immigration") : construction() ? tr("construction") : board() ? tr("board") : Component.translatable(
                 "npc.livingkingdoms." + data.getString("role") + ".name", data.getString("name"));
         var message = context.copy().append(". ").append(data.getString("settlement"));
         var quest = selectedQuest();
@@ -96,6 +96,12 @@ public final class VillageScreen extends Screen {
                 message.append(". ").append(icon(item.getString("item")).getHoverName())
                         .append(" ").append(tr("progress", item.getInt("count"), item.getInt("required")));
             }
+        } else if (immigration()) {
+            narrateSettlementMetrics(message);
+            if(quest!=null) message.append(". ").append(questTitle(quest)).append(". ").append(state(quest))
+                    .append(". ").append(tr("immigration.future_role",Component.translatable("citizen.livingkingdoms.role."+quest.getString("role"))));
+            else message.append(". ").append(tr("immigration.empty"));
+            if(!data.getBoolean("immigration_accept")) message.append(". ").append(immigrationRequirement());
         } else if (construction() && quest != null) {
             message.append(". ").append(questTitle(quest)).append(". ").append(state(quest));
             var costs=quest.getList("requirements",10);
@@ -104,16 +110,26 @@ public final class VillageScreen extends Screen {
                         .append(tr("progress",cost.getInt("count"),cost.getInt("required")));
             }
         } else if (!wide()) {
+            if(data.getBoolean("info")) narrateSettlementMetrics(message);
             message.append(". ").append(Component.translatable(data.getString("dialogue"), data.getString("settlement"),
                     data.getInt("level"), data.getInt("reputation")));
+            if(!data.getBoolean("info")) narrateSettlementMetrics(message);
         }
         if (pending) message.append(". ").append(tr("working"));
         if (data.contains("notice")) message.append(". ").append(Component.translatable(data.getString("notice")));
         return message;
     }
+
+    private void narrateSettlementMetrics(net.minecraft.network.chat.MutableComponent message) {
+        message.append(". ").append(tr("population",data.getInt("population")))
+                .append(". ").append(tr("housing",data.getInt("housing_occupied"),data.getInt("housing_total")))
+                .append(". ").append(tr("housing_free",data.getInt("housing_free")))
+                .append(". ").append(tr("immigration_pending",data.getInt("immigration_pending")));
+    }
     private boolean board() { return data.getString("screen").equals("board"); }
     private boolean construction() { return data.getString("screen").equals("construction"); }
-    private boolean wide() { return board() || construction(); }
+    private boolean immigration() { return data.getString("screen").equals("immigration"); }
+    private boolean wide() { return board() || construction() || immigration(); }
     @Override public void tick() { if(construction()) constructionTicks++; }
     private static net.minecraft.network.chat.MutableComponent tr(String key, Object... args) { return Component.translatable("ui.livingkingdoms." + key, args); }
 
@@ -138,7 +154,7 @@ public final class VillageScreen extends Screen {
     private void initBoard() {
         int tabWidth = (panelWidth-16)/3;
         String[] labels = {"main", "requests", "active"};
-        for (int i=0;i<(construction()?0:3);i++) {
+        for (int i=0;i<(board()?3:0);i++) {
             final int tab=i;
             VillageButton button=button(tr(labels[i]),left+8+i*tabWidth,top+32,tabWidth-2,() -> {section=tab;offset=0;selected=null;detailScroll=0;rebuildWidgets();});
             button.selected(section == i);
@@ -155,16 +171,38 @@ public final class VillageScreen extends Screen {
             row.selected(q.getUUID("id").equals(selected));
             row.setTooltip(Tooltip.create(questTitle(q).copy().append("\n").append(state(q))));
         }
-        button(tr("previous"),left+8,layout.footerTop(),20,()->{offset--;rebuildWidgets();}).glyph("<").active=offset>0;
-        button(tr("next"),left+31,layout.footerTop(),20,()->{offset++;rebuildWidgets();}).glyph(">").active=offset+rows<quests.size();
-        boolean buildLink=board() && data.getBoolean("construction");
-        var refresh = button(tr(buildLink?"construction_short":"refresh"),left+55,layout.footerTop(),listWidth-59,
-                ()->send(buildLink?UiPayloads.Action.CONSTRUCTION:UiPayloads.Action.REFRESH,null));
-        if (layout.compact()) refresh.glyph(buildLink?"C":"R");
+        int navWidth=board()?Math.clamp((listWidth-24)/5,16,20):20;
+        button(tr(immigration()?"immigration.previous":"previous"),left+8,layout.footerTop(),navWidth,()->{offset--;rebuildWidgets();}).glyph("<").active=offset>0;
+        button(tr(immigration()?"immigration.next":"next"),left+10+navWidth,layout.footerTop(),navWidth,()->{offset++;rebuildWidgets();}).glyph(">").active=offset+rows<quests.size();
+        var refresh = button(tr("refresh"),left+12+navWidth*2,layout.footerTop(),board()?navWidth:listWidth-59,
+                ()->send(UiPayloads.Action.REFRESH,null));
+        if (board() || layout.compact()) refresh.glyph("R");
         refresh.active=!pending;
+        if(board()) {
+            button(tr("construction"),left+14+navWidth*3,layout.footerTop(),navWidth,
+                    ()->send(UiPayloads.Action.CONSTRUCTION,null)).glyph("C").active=!pending;
+            button(tr("immigration"),left+16+navWidth*4,layout.footerTop(),navWidth,
+                    ()->send(UiPayloads.Action.IMMIGRATION,null)).glyph("I").active=!pending;
+        }
         CompoundTag q=selectedQuest();
         int x=left+listWidth+8, available=panelWidth-listWidth-20;
-        String constructionAction=data.getBoolean("plan")?"plan":q!=null&&q.getString("state").equals("FAILED")?"retry":"deposit";
+        if(immigration()) {
+            int actionWidth=(available-8)/3;
+            var accept=button("citizen_accept",tr(pending?"working":"immigration.accept"),x,layout.footerTop(),actionWidth,
+                    ()->{if(q!=null) send(UiPayloads.Action.ACCEPT_CITIZEN,q.getUUID("id"));});
+            accept.primary(); accept.active=!pending && q!=null && data.getBoolean("immigration_accept");
+            if(!accept.active && !pending && q!=null) accept.setTooltip(Tooltip.create(immigrationRequirement()));
+            button("citizen_decline",tr("immigration.decline"),x+actionWidth+4,layout.footerTop(),actionWidth,
+                    ()->{if(q!=null) send(UiPayloads.Action.DECLINE_CITIZEN,q.getUUID("id"));}).active=!pending && q!=null;
+            button(tr("back"),x+(actionWidth+4)*2,layout.footerTop(),actionWidth,()->send(switch(data.getString("return_action")) {
+                case "BOARD" -> UiPayloads.Action.BOARD;
+                case "CONSTRUCTION" -> UiPayloads.Action.CONSTRUCTION;
+                default -> UiPayloads.Action.INFO;
+            },null)).active=!pending;
+            return;
+        }
+        String constructionAction=data.getBoolean("plan")?(data.getString("lifecycle").equals("ESTABLISHED")?"plan_house":"plan")
+                :q!=null&&q.getString("state").equals("FAILED")?"retry":"deposit";
         VillageButton action=button("quest_action",tr(pending?"working":construction()?constructionAction:q!=null&&q.getBoolean("accept")?"accept":"claim"),x,layout.footerTop(),available/2-3,()->{
             if(construction()) {
                 if(data.getBoolean("plan")) send(UiPayloads.Action.PLAN,null);
@@ -178,12 +216,13 @@ public final class VillageScreen extends Screen {
     }
 
     private void initDialogue() {
-        int x=layout.detailX(),w=Math.min(128,(layout.detailWidth()-4)/2),y=layout.dialogueActionsTop();
+        int x=layout.detailX(),w=Math.min(128,(layout.detailWidth()-4)/2),y=dialogueActionsTop();
         button(tr("talk"),x,y,w,()->send(UiPayloads.Action.TALK,null)).active=!pending;
         button(tr("open_board"),x+w+4,y,w,()->send(UiPayloads.Action.BOARD,null)).active=!pending;
-        button(tr(data.getBoolean("construction")?"construction":"info"),x,y+24,w,
-                ()->send(data.getBoolean("construction")?UiPayloads.Action.CONSTRUCTION:UiPayloads.Action.INFO,null)).active=!pending;
-        button(tr("leave"),x+w+4,y+24,w,this::onClose);
+        button(tr("info"),x,y+24,w,()->send(UiPayloads.Action.INFO,null)).active=!pending;
+        button(tr("construction"),x+w+4,y+24,w,()->send(UiPayloads.Action.CONSTRUCTION,null)).active=!pending;
+        button(tr("immigration"),x,y+48,w,()->send(UiPayloads.Action.IMMIGRATION,null)).active=!pending;
+        button(tr("leave"),x+w+4,y+48,w,this::onClose);
     }
 
     private void send(UiPayloads.Action action, UUID quest) {
@@ -200,6 +239,10 @@ public final class VillageScreen extends Screen {
     @Override public boolean isPauseScreen() { return false; }
 
     private List<CompoundTag> visibleQuests() {
+        if(immigration()) {
+            var list=data.getList("candidates",10); var candidates=new java.util.ArrayList<CompoundTag>();
+            for(int i=0;i<list.size();i++) candidates.add(list.getCompound(i)); return candidates;
+        }
         if(construction()) {
             var list=data.getList("projects",10); var projects=new java.util.ArrayList<CompoundTag>();
             for(int i=0;i<list.size();i++) projects.add(list.getCompound(i)); return projects;
@@ -207,9 +250,9 @@ public final class VillageScreen extends Screen {
         return QuestBoardState.visible(data, section);
     }
     private CompoundTag selectedQuest() { return visibleQuests().stream().filter(q->q.getUUID("id").equals(selected)).findFirst().orElse(null); }
-    private Component questTitle(CompoundTag q) { return Component.translatable(construction()?"construction.livingkingdoms.building."+q.getString("building"):
+    private Component questTitle(CompoundTag q) { return immigration()?Component.literal(q.getString("name")):Component.translatable(construction()?"construction.livingkingdoms.building."+q.getString("building"):
             "quest.livingkingdoms."+q.getString("template")+".title"); }
-    private Component state(CompoundTag q) { return Component.translatable((construction()?"construction.livingkingdoms.state.":"quest.livingkingdoms.state.")+
+    private Component state(CompoundTag q) { return immigration()?tr("citizen_level",q.getInt("level")):Component.translatable((construction()?"construction.livingkingdoms.state.":"quest.livingkingdoms.state.")+
             q.getString("state").toLowerCase(java.util.Locale.ROOT)); }
 
     // Screen.render invokes this before its widgets. Drawing a menu background at
@@ -224,7 +267,7 @@ public final class VillageScreen extends Screen {
         g.drawString(font,font.plainSubstrByWidth(data.getString("settlement"),panelWidth-24),left+11,top+11,ON_BLUE,false);
         Component rep=tr("reputation",data.getInt("reputation"));
         if(font.width(data.getString("settlement"))+font.width(rep)<panelWidth-30) g.drawString(font,rep,left+panelWidth-12-font.width(rep),top+11,GOLD,false);
-        if(construction()) renderConstruction(g); else if(board()) renderBoard(g); else renderDialogue(g,mouseX,mouseY);
+        if(immigration()) renderImmigration(g); else if(construction()) renderConstruction(g); else if(board()) renderBoard(g); else renderDialogue(g,mouseX,mouseY);
         scrollUp.active = detailScroll > 0;
         scrollDown.active = detailScroll < maxDetailScroll();
         scrollUp.visible = scrollDown.visible = maxDetailScroll() > 0;
@@ -347,6 +390,43 @@ public final class VillageScreen extends Screen {
         return Math.max(y+23,paragraph(g,label,x+22,y+4,w-22,INK));
     }
 
+    private Component immigrationRequirement() {
+        if(!data.getBoolean("immigration_enabled")) return tr("immigration.disabled");
+        return data.getString("lifecycle").equals("ESTABLISHED") ? tr("immigration.no_housing",data.getInt("immigration_required_housing")) : tr("immigration.founding");
+    }
+
+    private void renderImmigration(GuiGraphics g) {
+        g.drawString(font,ellipsize(tr("immigration"),panelWidth-20),left+10,top+38,INK,false);
+        int divider=left+listWidth;
+        g.fill(divider,top+56,divider+1,layout.contentBottom(),WOOD);
+        g.fill(divider+4,top+56,left+panelWidth-5,layout.contentBottom(),PAPER);
+        var candidates=visibleQuests();
+        for(int i=offset;i<Math.min(candidates.size(),offset+layout.rows());i++)
+            g.drawString(font,ellipsize(state(candidates.get(i)),listWidth-20),left+11,layout.contentTop()+23+(i-offset)*34,MUTED,false);
+        int x=layout.detailX(),y=layout.contentTop()-detailScroll,w=layout.detailWidth()-24,start=y;
+        g.enableScissor(x,layout.contentTop(),x+w,layout.contentBottom());
+        if(data.contains("notice")) {
+            String notice=data.getString("notice");
+            y=paragraph(g,Component.translatable(notice),x,y,w,notice.endsWith(".rejected")?ERROR:SUCCESS);
+        }
+        y=paragraph(g,tr("population",data.getInt("population")),x,y,w,INK);
+        y=paragraph(g,tr("housing",data.getInt("housing_occupied"),data.getInt("housing_total")),x,y,w,INK);
+        y=paragraph(g,tr("housing_free",data.getInt("housing_free")),x,y,w,MUTED);
+        if(!data.getBoolean("immigration_accept")) y=paragraph(g,immigrationRequirement(),x,y,w,ERROR);
+        var candidate=selectedQuest();
+        if(candidate==null) y=paragraph(g,tr("immigration.empty"),x,y,w,INK);
+        else {
+            y=sectionHeader(g,questTitle(candidate),x,y,w);
+            y=paragraph(g,state(candidate),x,y,w,INK);
+            y=paragraph(g,tr("immigration.future_role",Component.translatable("citizen.livingkingdoms.role."+candidate.getString("role"))),x,y,w,INK);
+            y=paragraph(g,tr("immigration.role_placeholder"),x,y,w,MUTED);
+            y=paragraph(g,tr("immigration.expires",(candidate.getLong("expires")+59)/60),x,y,w,MUTED);
+            y=paragraph(g,tr("immigration.accept_help"),x,y,w,INK);
+        }
+        y=paragraph(g,tr("immigration.shared"),x,y,w,MUTED);
+        detailHeight=y-start; g.disableScissor(); detailScroll=Math.clamp(detailScroll,0,maxDetailScroll());
+    }
+
     private static ItemStack icon(String item) {
         return new ItemStack(switch(item) {case "iron_ingot"->Items.IRON_INGOT;case "wheat"->Items.WHEAT;case "logs"->Items.OAK_LOG;default->Items.STONE;});
     }
@@ -365,17 +445,29 @@ public final class VillageScreen extends Screen {
         dialogueStart=paragraph(g,Component.translatable("npc.livingkingdoms."+data.getString("role")+".name",data.getString("name"))
                 .withStyle(net.minecraft.ChatFormatting.BOLD),x,top+37,w-24,INK);
         int y=dialogueStart-detailScroll;
-        g.enableScissor(x,dialogueStart,x+w-24,layout.dialogueActionsTop()-8);
-        int end=paragraph(g,Component.translatable(data.getString("dialogue"),data.getString("settlement"),data.getInt("level"),data.getInt("reputation")),x,y,w-24,INK);
+        g.enableScissor(x,dialogueStart,x+w-24,dialogueActionsTop()-8);
+        int end=y;
+        if(data.getBoolean("info")) end=renderSettlementMetrics(g,x,end,w-24);
+        end=paragraph(g,Component.translatable(data.getString("dialogue"),data.getString("settlement"),data.getInt("level"),data.getInt("reputation")),x,end,w-24,INK);
         end=paragraph(g,tr("dialogue_status",data.getInt("level"),data.getInt("reputation")),x,end+4,w-24,MUTED);
+        if(!data.getBoolean("info")) end=renderSettlementMetrics(g,x,end,w-24);
         detailHeight=end-y;
         g.disableScissor();
         detailScroll=Math.clamp(detailScroll,0,maxDetailScroll());
     }
 
-    private int detailViewport() {
-        return wide() ? layout.viewport() : Math.max(1, layout.dialogueActionsTop()-8-dialogueStart);
+    private int renderSettlementMetrics(GuiGraphics g,int x,int y,int w) {
+        y=paragraph(g,tr("population",data.getInt("population")),x,y,w,INK);
+        y=paragraph(g,tr("housing",data.getInt("housing_occupied"),data.getInt("housing_total")),x,y,w,INK);
+        y=paragraph(g,tr("housing_free",data.getInt("housing_free")),x,y,w,MUTED);
+        return paragraph(g,tr("immigration_pending",data.getInt("immigration_pending")),x,y,w,MUTED);
     }
+
+    private int detailViewport() {
+        return wide() ? layout.viewport() : Math.max(1, dialogueActionsTop()-8-dialogueStart);
+    }
+
+    private int dialogueActionsTop() { return layout.dialogueActionsTop(3); }
 
     private int maxDetailScroll() { return Math.max(0, detailHeight-detailViewport()); }
 

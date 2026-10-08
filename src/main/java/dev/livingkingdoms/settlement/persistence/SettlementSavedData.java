@@ -74,7 +74,7 @@ public final class SettlementSavedData extends SavedData {
     }
 
     public void add(Settlement settlement, SettlementLayoutMetadata layout) {
-        layout.validate(settlement.territory());
+        layout.validate(settlement.territory(), settlement.provenance().origin() == dev.livingkingdoms.settlement.domain.SettlementOrigin.CONVERTED);
         add(settlement);
         layouts.put(settlement.id(), layout);
     }
@@ -82,7 +82,7 @@ public final class SettlementSavedData extends SavedData {
     /** Called only after planning and reversible placement; does not change population or quest identity. */
     public void updateLayout(UUID id, SettlementLayoutMetadata layout) {
         Settlement settlement = get(id).orElseThrow(() -> new IllegalArgumentException("Unknown settlement"));
-        layout.validate(settlement.territory());
+        layout.validate(settlement.territory(), settlement.provenance().origin() == dev.livingkingdoms.settlement.domain.SettlementOrigin.CONVERTED);
         layouts.put(id, layout);
         setDirty();
     }

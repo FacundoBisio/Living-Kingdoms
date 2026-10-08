@@ -1,6 +1,6 @@
 # Living Kingdoms
 
-Minecraft Java **1.21.1**, **Java 21**, **NeoForge 21.1.252**. Version 0.10.0 adds progressive wilderness founding: a small camp, shared construction materials, timed Town Hall/House projects and an established lifecycle. The craftable Kingdom Charter and vanilla village conversion retain persistent origin/founder metadata. It preserves the latest UI/structure QA fixes, adaptive buildings, named Mayor, founding residents, Quest Board, quests, reputation, progression and hostile encounters. All gameplay state is owned by the server. Housing, immigration, advanced professions, diplomacy, economy, conquest, armies and external AI services remain outside the current scope.
+Minecraft Java **1.21.1**, **Java 21**, **NeoForge 21.1.252**. Version 0.11.0 adds registered housing, persistent citizens and shared immigration approval through the native Mayor/Quest Board UI. Established kingdoms can construct additional Houses using the existing materials/timer system. It preserves progressive founding, Charter conversion, Mayor/residents, quests, reputation, factions, encounters, progression and saved worlds. All gameplay state is owned by the server. Profession work loops, diplomacy, economy, conquest, armies and external AI services remain outside the current scope.
 
 Living Kingdoms focuses on exploring, discovering settlements, gaining reputation, fighting and liberating hostile territory. Its settlements are RPG/strategy hubs; the buildings in this milestone do not automate workers or manage colonies.
 
@@ -24,7 +24,7 @@ bash ./gradlew runGameTestServer
 bash ./gradlew runClient
 ```
 
-The client opens the Minecraft development environment. Survival establishment requires no cheats; enable them only for optional debug commands. The mod JAR is `build/libs/livingkingdoms-0.10.0.jar`; the `-sources.jar` is for developers, not installation. Use the same mod version on clients and dedicated servers. Python and development mods are not required for the ordinary Java build or runtime.
+The client opens the Minecraft development environment. Survival establishment requires no cheats; enable them only for optional debug commands. The mod JAR is `build/libs/livingkingdoms-0.11.0.jar`; the `-sources.jar` is for developers, not installation. Use the same mod version on clients and dedicated servers. Python and development mods are not required for the ordinary Java build or runtime.
 
 The QA bugfix fixes an overlay that blurred the Quest Board/dialogue and a disconnected watchtower roof strip, adds responsive readers and validates every template at all four rotations. This session's client attempts crashed in the AMD OpenGL driver before gameplay; screenshot acceptance and Save & Quit/reopen remain pending. See the [QA findings and exact manual checklist](docs/qa-ui-structure-bugfix.md).
 
@@ -54,6 +54,14 @@ Successful survival establishment consumes **one** Charter; failure consumes non
 
 See [progressive founding, configuration, compatibility, validation and the 14-step manual QA](docs/progressive-kingdom-founding.md), plus the [historical 0.9.0 conversion/founding report](docs/village-conversion-founding.md). Natural hostile parties still spawn before any settlement exists.
 
+## Grow a community
+
+After establishment, select **Mayor > Construction > Plan House** to reserve another House with the current resource/timer flow. Default small houses have two places; the three starting citizens need a second house before a free immigration place exists. Completed registered houses count, while temporary shelters and vanilla beds do not by default.
+
+An eligible settlement may receive a traveler request. Open **Mayor > Immigration** or the board shortcut, inspect their name/level and current housing, and choose Accept or Decline. Acceptance rechecks shared housing, spawns one persistent vanilla villager and grants the accepting player the one-time **Growing Community** advancement. Death frees the citizen's home, while unloaded chunks preserve identity/population. Operator QA can trigger a request with `/kingdom immigration candidate`; lifecycle and housing requirements still apply.
+
+Read [architecture, configuration, compatibility, automated validation and the 15-step manual QA](docs/housing-citizens-immigration.md).
+
 ## Generate and inspect a settlement with debug commands
 
 Settlement commands require a player context; a direct server-console invocation reports that a player is required. `create` and `generate` require permission level 2 (operator/cheats); any player may use settlement `info` or `/kingdom reputation`. Commands are for generation/inspection, not normal quest gameplay. Encounter controls below require operator permission.
@@ -61,7 +69,7 @@ Settlement commands require a player context; a direct server-console invocation
 1. Find a dry clearing for the compact core and let nearby chunks load. Gentle slopes, scattered trees and small nearby ponds are supported when there are enough connected dry building plots. Avoid previous settlement territories and existing construction.
 2. Run `/kingdom settlement generate`. The server searches sampled positions 32–64 blocks away, within loaded chunks, and reports the settlement name, UUID, and central coordinates. If every site fails validation it changes no blocks and creates no settlement data. Move to another open area and retry.
 3. Walk to the central lodestone marker. A **13 × 13** core includes the Town Hall, plaza, marker and custom Quest Board. Two houses, a Blacksmith with furnace/anvil and Barracks occupy independent nearby plots, potentially at different elevations, with terrain-following paths.
-4. Run `/kingdom settlement info` inside or near the settlement. It reports the immersive name, allied faction, level 1, and population. Technical IDs are reserved for operator generation/debug output. Population remains abstract; the Mayor and two ordinary founding villagers are separate persistent entities, not a population simulation.
+4. Run `/kingdom settlement info` inside or near the settlement. It reports the immersive name, allied faction, level 1, and population. Technical IDs are reserved for operator generation/debug output. Population derives from registered active citizens, including the Mayor and founding residents. Information also shows registered housing, free places and pending travelers.
 5. Meet the named Mayor in the plaza, then follow the quest steps below. The board is also available in the Functional Blocks creative tab or via `/give @s livingkingdoms:quest_board`; no recipe is provided yet.
 6. Record the UUID. Save and Quit (or stop the dedicated server), reopen the same world, and run `info` there. Buildings, board, Mayor and quest state must remain. `/reload` must preserve commands and saved state.
 7. Repeating `generate` in the plaza must fail when all nearby candidates overlap that territory. Move at least 128 blocks from the marker to test another physical settlement with default settings, in another suitable clearing.
@@ -91,7 +99,7 @@ The quest is offered once **per player, per allied settlement**, keyed by UUID. 
 
 Existing Milestone 1 physical settlements gain a Mayor on first board use if their central lodestone is still present and a safe loaded plaza position is available. Newly generated settlements spawn the Mayor immediately. Abstract `create` records do not automatically spawn NPCs, but a manually placed board in an allied territory can offer the quest. Names are display values; renaming does not change UUID associations.
 
-The Mayor is a vanilla Villager with a persisted Living Kingdoms role and settlement UUID, a visible name and no trades. It is stationary (`NoAI`), persistent and protected from ordinary combat for this prototype; creative players can still remove it and physical pushes can move it. `MAYOR`, `BLACKSMITH` and `GUARD` are identity concepts; the Mayor and two ordinary `RESIDENT` villagers are spawned at founding. Missing or unloaded recorded Mayors are not automatically replaced, which avoids duplicate NPCs. There are no schedules, professions, recruitment or autonomous worker behavior.
+The Mayor is a vanilla Villager with a persisted Living Kingdoms role and settlement UUID, a visible name and no trades. It is stationary (`NoAI`), persistent and protected from ordinary combat for this prototype; creative players can still remove it and physical pushes can move it. `MAYOR`, `BLACKSMITH` and `GUARD` are identity concepts; the Mayor and two ordinary `RESIDENT` villagers are spawned at founding. Missing or unloaded recorded Mayors are not automatically replaced, which avoids duplicate NPCs. Citizens have persistent names, shared levels and automatic homes. Immigration approval creates new native villagers; profession work loops and complex schedules remain future work.
 
 Quest states are `AVAILABLE`, `ACTIVE`, `COMPLETED`, `FAILED`, `EXPIRED`. Original Iron Shortage still has no timer, abandonment or repeatable reset. Inventory progress is checked on interaction, not each tick. An accepted Iron quest snapshots its terms: changing settings affects new acceptances only.
 

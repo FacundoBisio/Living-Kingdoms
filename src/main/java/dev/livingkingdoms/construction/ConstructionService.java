@@ -36,6 +36,25 @@ public final class ConstructionService {
         if(plan.isEmpty()) return false;
         reserve(level,settlementId,plan.orElseThrow(),actor); return true;
     }
+    /** Small survival expansion using the existing materials, timer and protected-placement system. */
+    public static boolean planHouse(ServerLevel level,UUID settlementId,ServerPlayer actor) {
+        var data=SettlementSavedData.get(level.getServer()); var settlement=data.get(settlementId).orElse(null);
+        if(actor==null || !canContribute(actor,settlement) || settlement.lifecycle()!=SettlementLifecycle.ESTABLISHED
+                || current(level.getServer(),settlementId).isPresent()) return false;
+        if(data.layout(settlementId).isEmpty()) {
+            if(settlement.provenance().origin()!=SettlementOrigin.CONVERTED) return false;
+            var marker=new BlockPos(settlement.territory().x(),settlement.territory().y(),settlement.territory().z());
+            // Only infrastructure-adjacent loaded ground; vanilla buildings/beds are never invented as LK metadata.
+            var ports=java.util.stream.Stream.of(marker.east().below(),marker.west().below(),marker.north().below(),marker.south().below())
+                    .filter(pos -> level.hasChunkAt(pos) && level.getBlockState(pos).isSolid()
+                            && level.getBlockState(pos.above()).isAir() && level.getBlockState(pos.above(2)).isAir()).toList();
+            if(ports.isEmpty()) return false;
+            data.updateLayout(settlementId,new SettlementLayoutMetadata(ArchitectureStyle.at(level,marker),List.of(),ports,List.of()));
+        }
+        var plan=new SettlementGenerator().planBuildingAddition(level,settlementId,BuildingKind.HOUSE,new GenerationDiagnostics());
+        if(plan.isEmpty()) return false;
+        reserve(level,settlementId,plan.orElseThrow(),actor); return true;
+    }
     /** Also reusable by later expansion policies; the initial chain is the only current caller. */
     public static ConstructionSavedData.Entry reserve(ServerLevel level,UUID settlementId,SettlementLayout plan,ServerPlayer actor) {
         var kind=plan.buildings().getFirst().module().kind();
@@ -47,7 +66,7 @@ public final class ConstructionService {
         var metadata=settlements.layout(settlementId).orElseThrow();
         if(!settlement.faction().isAllied() || !plan.territory().equals(settlement.territory()) || plan.buildings().size()!=1)
             throw new IllegalArgumentException("Invalid construction context");
-        metadata.append(plan).validate(settlement.territory());
+        metadata.append(plan).validate(settlement.territory(),settlement.provenance().origin()==SettlementOrigin.CONVERTED);
         if(actor!=null && plan.before().keySet().stream().anyMatch(pos -> !level.mayInteract(actor,pos))) throw new EstablishmentPlacementEvents.Rejected();
         var b=plan.buildings().getFirst(); long now=now(level.getServer());
         var p=ConstructionProject.planned(settlementId,b.module().kind(),new ConstructionProject.Plot(b.origin().getX(),b.origin().getY(),b.origin().getZ(),
@@ -110,7 +129,7 @@ public final class ConstructionService {
         var markerState=level.getBlockState(entry.marker()); boolean ownsMarker=markerState.is(KingdomBlocks.CONSTRUCTION_MARKER);
         var snapshot=EstablishmentPlacementEvents.capture(level,entry.plan().before().keySet());
         try {
-            updated.validate(settlement.territory());
+            updated.validate(settlement.territory(),settlement.provenance().origin()==SettlementOrigin.CONVERTED);
             if(actor!=null && entry.plan().before().keySet().stream().anyMatch(pos -> !level.mayInteract(actor,pos))) throw new EstablishmentPlacementEvents.Rejected();
             // Remove only our saved marker. A replacement block is an obstacle and must never be erased.
             if(ownsMarker) level.setBlock(entry.marker(),entry.plan().before().get(entry.marker()),18);
@@ -133,6 +152,7 @@ public final class ConstructionService {
         }
         try { ensureNext(level,settlement.id(),actor); }
         catch(RuntimeException failure) { LogUtils.getLogger().warn("Next construction plot unavailable for {}; inspect construction to retry",settlement.id(),failure); }
+        dev.livingkingdoms.citizen.CitizenService.ensureInitialized(level,settlements.get(settlement.id()).orElseThrow());
         for(ServerPlayer player:level.players()) if(canContribute(player,settlement))
             player.displayClientMessage(Component.translatable("construction.livingkingdoms.completed",Component.translatable("construction.livingkingdoms.building."+entry.project().building().name().toLowerCase(Locale.ROOT))),true);
         return true;

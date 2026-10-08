@@ -27,6 +27,20 @@ class VillageUiLayoutTest {
         }
     }
 
+    @Test void threeMayorActionRowsPreserveReadableSpaceAndStayInsideThePanel() {
+        for(int[] resolution:new int[][]{{320,240},{427,240},{640,360},{854,480},{960,540},{1920,1080}}) {
+            var layout=VillageUiLayout.fit(resolution[0],resolution[1],false);
+            int firstRow=layout.dialogueActionsTop(3);
+            int lastRow=firstRow+48;
+            assertTrue(firstRow>=layout.contentTop()+64,"Mayor actions must leave a usable scrolling reader");
+            assertTrue(lastRow+20<=layout.top()+layout.height()-8,"All six controls must fit above the panel inset");
+            int buttonWidth=Math.min(128,(layout.detailWidth()-4)/2);
+            assertTrue(buttonWidth>=80,"Labels must remain usable at supported GUI scales");
+            assertTrue(layout.detailX()+buttonWidth*2+4<=layout.left()+layout.width()-8);
+            assertEquals(layout.dialogueActionsTop(),lastRow-24,"The extra row moves upward without changing the bottom inset");
+        }
+    }
+
     @Test void acceptingAndClaimingKeepSelectionInItsDestinationTab() {
         UUID id=UUID.randomUUID();
         CompoundTag data=snapshot(id,"DYNAMIC","ACTIVE");

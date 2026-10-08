@@ -1,6 +1,10 @@
 package dev.livingkingdoms.ui;
 
 import dev.livingkingdoms.npc.*;
+import dev.livingkingdoms.citizen.CitizenService;
+import dev.livingkingdoms.citizen.ImmigrationService;
+import dev.livingkingdoms.citizen.persistence.CitizenSavedData;
+import dev.livingkingdoms.config.CitizenConfig;
 import dev.livingkingdoms.quest.DeliveryInventory;
 import dev.livingkingdoms.quest.QuestService;
 import dev.livingkingdoms.quest.domain.QuestState;
@@ -26,11 +30,13 @@ public final class VillageUiService {
     private static final Map<ServerPlayer, Session> SESSIONS = new WeakHashMap<>();
     private VillageUiService() {}
     private record Session(UUID token, UUID settlement, String dimension, BlockPos board, UUID npc, long opened,
-                           BlockPos marker, boolean construction) {
+                           BlockPos marker, boolean construction, boolean immigration) {
         Session(UUID token, UUID settlement, String dimension, BlockPos board, UUID npc, long opened) {
-            this(token,settlement,dimension,board,npc,opened,null,false);
+            this(token,settlement,dimension,board,npc,opened,null,false,false);
         }
-        Session constructionView() { return new Session(token,settlement,dimension,board,npc,opened,marker,true); }
+        Session constructionView() { return new Session(token,settlement,dimension,board,npc,opened,marker,true,false); }
+        Session immigrationView() { return new Session(token,settlement,dimension,board,npc,opened,marker,false,true); }
+        Session originalView() { return new Session(token,settlement,dimension,board,npc,opened,marker,false,false); }
     }
 
     public static boolean openConstructionMarker(ServerPlayer player,BlockPos marker) {
@@ -42,7 +48,7 @@ public final class VillageUiService {
         if(project.isEmpty()) return false;
         var settlement=SettlementSavedData.get(player.server).get(project.get().project().settlementId()).orElse(null);
         if(settlement==null || !settlement.faction().isAllied() || !inside(player,settlement)) return false;
-        Session session=new Session(UUID.randomUUID(),settlement.id(),player.level().dimension().location().toString(),null,null,now(player),marker.immutable(),true);
+        Session session=new Session(UUID.randomUUID(),settlement.id(),player.level().dimension().location().toString(),null,null,now(player),marker.immutable(),true,false);
         SESSIONS.put(player,session); sendConstruction(player,session,settlement,false); return true;
     }
 
@@ -93,14 +99,47 @@ public final class VillageUiService {
         // A construction view retains its original physical anchor and all reach/ownership checks.
         if (session.npc != null && !validMayor(player,session)) return invalidate(player);
         if (session.board != null && ExpandedQuestService.boardSettlement(player,session.board).filter(s -> s.id().equals(session.settlement)).isEmpty()) return invalidate(player);
-        if (request.action() == UiPayloads.Action.CONSTRUCTION || session.construction) {
+        if (request.action() == UiPayloads.Action.IMMIGRATION) {
+            Session immigration=session.immigrationView(); SESSIONS.put(player,immigration);
+            sendImmigration(player,immigration,settlement,null);
+            return true;
+        }
+        if (request.action() == UiPayloads.Action.ACCEPT_CITIZEN || request.action() == UiPayloads.Action.DECLINE_CITIZEN) {
+            // The session is a capability for this view, not permission to mutate arbitrary candidates.
+            if (!session.immigration) return false;
+            boolean accepted=request.action()==UiPayloads.Action.ACCEPT_CITIZEN;
+            boolean result;
+            try {
+                result=accepted ? ImmigrationService.accept(player,settlement.id(),request.quest())
+                        : ImmigrationService.decline(player,settlement.id(),request.quest());
+            } catch (RuntimeException failure) {
+                com.mojang.logging.LogUtils.getLogger().warn("Immigration interaction rejected for {}: {}",settlement.id(),failure.toString());
+                result=false;
+            }
+            sendImmigration(player,session,SettlementSavedData.get(player.server).get(settlement.id()).orElse(settlement),result ? accepted ? "ui.livingkingdoms.immigration.accepted"
+                    : "ui.livingkingdoms.immigration.declined" : "ui.livingkingdoms.immigration.rejected");
+            return result;
+        }
+        if (session.immigration && request.action()==UiPayloads.Action.REFRESH) {
+            sendImmigration(player,session,settlement,null); return true;
+        }
+        if (session.immigration && request.action()!=UiPayloads.Action.INFO
+                && request.action()!=UiPayloads.Action.BOARD && request.action()!=UiPayloads.Action.CONSTRUCTION) return false;
+        if (request.action()==UiPayloads.Action.INFO || request.action()==UiPayloads.Action.TALK || request.action()==UiPayloads.Action.BOARD) {
+            // Navigation clears the mode while retaining the physical anchor and original nonce.
+            SESSIONS.put(player,session.originalView());
+        }
+        if (request.action() == UiPayloads.Action.CONSTRUCTION || session.construction
+                && request.action()!=UiPayloads.Action.INFO && request.action()!=UiPayloads.Action.TALK && request.action()!=UiPayloads.Action.BOARD) {
             Session construction=session.constructionView(); SESSIONS.put(player,construction);
             boolean result;
             try { result=switch(request.action()) {
                 case CONSTRUCTION, REFRESH -> true;
                 case DEPOSIT -> dev.livingkingdoms.construction.ConstructionService.deposit(player,settlement.id(),request.quest());
                 case RETRY -> dev.livingkingdoms.construction.ConstructionService.retry(player,settlement.id(),request.quest());
-                case PLAN -> dev.livingkingdoms.construction.ConstructionService.ensureNext(player.serverLevel(),settlement.id(),player);
+                case PLAN -> settlement.lifecycle()==dev.livingkingdoms.settlement.domain.SettlementLifecycle.FOUNDING
+                        ? dev.livingkingdoms.construction.ConstructionService.ensureNext(player.serverLevel(),settlement.id(),player)
+                        : dev.livingkingdoms.construction.ConstructionService.planHouse(player.serverLevel(),settlement.id(),player);
                 default -> false;
             }; } catch (RuntimeException failure) {
                 com.mojang.logging.LogUtils.getLogger().warn("Construction interaction rejected for {}: {}",settlement.id(),failure.toString());
@@ -109,11 +148,12 @@ public final class VillageUiService {
             sendConstruction(player,construction,SettlementSavedData.get(player.server).get(settlement.id()).orElseThrow(),!result);
             return result;
         }
+        if (session.marker != null) return false;
         if (session.board != null) {
             if (ExpandedQuestService.boardSettlement(player, session.board).filter(s -> s.id().equals(session.settlement)).isEmpty()) return invalidate(player);
             boolean result = switch (request.action()) {
                 case ACCEPT, CLAIM -> ExpandedQuestService.act(player, session.board, request.quest(), request.action() == UiPayloads.Action.ACCEPT ? "accept" : "claim", false);
-                case REFRESH -> true;
+                case REFRESH, BOARD -> true;
                 default -> false;
             };
             sendBoard(player, session, settlement, !result);
@@ -152,13 +192,19 @@ public final class VillageUiService {
     }
 
     private static CompoundTag base(ServerPlayer player, Session session, Settlement settlement, String screen) {
+        CitizenService.ensureInitialized(player.serverLevel(),settlement);
+        var candidates=ImmigrationService.candidates(player.serverLevel(),settlement);
+        var citizens=CitizenSavedData.get(player.server);
+        var housing=citizens.summary(settlement.id());
         CompoundTag tag = new CompoundTag();
         tag.putUUID("session", session.token); tag.putString("screen", screen);
         tag.putString("settlement", VillageNames.display(settlement));
         tag.putInt("reputation", QuestSavedData.get(player.server).reputation(player.getUUID(), settlement.id()));
         tag.putString("lifecycle",settlement.lifecycle().name());
-        tag.putBoolean("construction",settlement.lifecycle()==dev.livingkingdoms.settlement.domain.SettlementLifecycle.FOUNDING
-                || !dev.livingkingdoms.construction.persistence.ConstructionSavedData.get(player.server).projects(settlement.id()).isEmpty());
+        tag.putBoolean("construction",true);
+        tag.putInt("population",CitizenService.population(player.server,settlement));
+        tag.putInt("housing_total",housing.total()); tag.putInt("housing_occupied",housing.occupied()); tag.putInt("housing_free",housing.free());
+        tag.putInt("immigration_pending",candidates.size());
         return tag;
     }
 
@@ -167,8 +213,10 @@ public final class VillageUiService {
         tag.putInt("entity", npc.getId());
         tag.putString("name", MayorPresentation.name(npc));
         tag.putString("role", "mayor");
-        tag.putString("dialogue", settlement.lifecycle()==dev.livingkingdoms.settlement.domain.SettlementLifecycle.FOUNDING ? "ui.livingkingdoms.dialogue.founding"
-                : info ? "ui.livingkingdoms.dialogue.info" : QuestSavedData.get(player.server).progress(player.getUUID(), settlement.id()).state() == QuestState.COMPLETED
+        tag.putBoolean("info",info);
+        tag.putString("dialogue", info ? "ui.livingkingdoms.dialogue.info"
+                : settlement.lifecycle()==dev.livingkingdoms.settlement.domain.SettlementLifecycle.FOUNDING ? "ui.livingkingdoms.dialogue.founding"
+                : QuestSavedData.get(player.server).progress(player.getUUID(), settlement.id()).state() == QuestState.COMPLETED
                 ? "npc.livingkingdoms.mayor.after" : "npc.livingkingdoms.mayor.before");
         tag.putInt("level", settlement.level());
         PacketDistributor.sendToPlayer(player, new UiPayloads.Snapshot(tag));
@@ -194,8 +242,30 @@ public final class VillageUiService {
             }
             view.put("requirements",costs); projects.add(view);
         }
-        tag.put("projects",projects); tag.putBoolean("plan",settlement.lifecycle()==dev.livingkingdoms.settlement.domain.SettlementLifecycle.FOUNDING
+        tag.put("projects",projects); tag.putBoolean("plan",(settlement.lifecycle()==dev.livingkingdoms.settlement.domain.SettlementLifecycle.FOUNDING
+                || settlement.lifecycle()==dev.livingkingdoms.settlement.domain.SettlementLifecycle.ESTABLISHED)
                 && entries.stream().noneMatch(e -> e.project().state()!=dev.livingkingdoms.construction.domain.ConstructionState.COMPLETED));
+        PacketDistributor.sendToPlayer(player,new UiPayloads.Snapshot(tag));
+    }
+
+    private static void sendImmigration(ServerPlayer player,Session session,Settlement settlement,String notice) {
+        CompoundTag tag=base(player,session,settlement,"immigration");
+        if(notice!=null) tag.putString("notice",notice);
+        tag.putString("return_action",session.marker!=null ? "CONSTRUCTION" : session.board!=null ? "BOARD" : "INFO");
+        boolean established=settlement.lifecycle()==dev.livingkingdoms.settlement.domain.SettlementLifecycle.ESTABLISHED;
+        tag.putBoolean("immigration_enabled",CitizenConfig.IMMIGRATION_ENABLED.get());
+        tag.putInt("immigration_required_housing",CitizenConfig.MIN_FREE_HOUSING.get());
+        tag.putBoolean("immigration_accept",established && CitizenConfig.IMMIGRATION_ENABLED.get()
+                && tag.getInt("housing_free")>=CitizenConfig.MIN_FREE_HOUSING.get());
+        ListTag candidates=new ListTag();
+        for(var candidate:ImmigrationService.candidates(player.serverLevel(),settlement)) {
+            CompoundTag view=new CompoundTag(); view.putUUID("id",candidate.id());
+            view.putString("name",candidate.name()); view.putInt("level",candidate.level().value());
+            view.putString("role",candidate.preferredRole().name().toLowerCase(java.util.Locale.ROOT));
+            view.putLong("expires",Math.max(0,(candidate.expiresAt()-now(player)+19)/20));
+            candidates.add(view);
+        }
+        tag.put("candidates",candidates);
         PacketDistributor.sendToPlayer(player,new UiPayloads.Snapshot(tag));
     }
 

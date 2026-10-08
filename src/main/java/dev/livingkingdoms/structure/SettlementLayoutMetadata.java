@@ -17,7 +17,7 @@ public record SettlementLayoutMetadata(ArchitectureStyle style, List<Building> b
         ports = List.copyOf(ports);
         paths = List.copyOf(paths);
         java.util.Objects.requireNonNull(style);
-        if (buildings.isEmpty() || buildings.size() > 256 || ports.isEmpty() || ports.size() > 16 || paths.size() > 16384)
+        if (buildings.size() > 256 || ports.isEmpty() || ports.size() > 16 || paths.size() > 16384)
             throw new IllegalArgumentException("Invalid layout metadata size");
     }
 
@@ -39,12 +39,17 @@ public record SettlementLayoutMetadata(ArchitectureStyle style, List<Building> b
     }
 
     public void validate(Territory territory) {
+        validate(territory, false);
+    }
+
+    /** Converted villages have a native plaza rather than an invented core building. */
+    public void validate(Territory territory, boolean converted) {
         List<Building> cores = buildings.stream().filter(building -> anchor(building.kind)).toList();
         boolean camp = cores.size() == 1 && cores.getFirst().kind == BuildingKind.FOUNDING_CAMP;
-        if (cores.size() != 1 || cores.getFirst().rotation != Rotation.NONE
+        if (!(converted && cores.isEmpty()) && (cores.size() != 1 || cores.getFirst().rotation != Rotation.NONE
                 || !cores.getFirst().origin.offset(camp ? 4 : 6, 1, camp ? 4 : 9).equals(new BlockPos(territory.x(), territory.y(), territory.z()))
                 || cores.getFirst().bounds.maxX() - cores.getFirst().bounds.minX() != (camp ? 8 : 12)
-                || cores.getFirst().bounds.maxZ() - cores.getFirst().bounds.minZ() != (camp ? 8 : 12))
+                || cores.getFirst().bounds.maxZ() - cores.getFirst().bounds.minZ() != (camp ? 8 : 12)))
             throw new IllegalArgumentException("Layout core does not match founding marker");
         for (int i = 0; i < buildings.size(); i++) {
             Building building = buildings.get(i);

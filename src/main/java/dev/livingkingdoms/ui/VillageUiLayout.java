@@ -18,5 +18,9 @@ public record VillageUiLayout(int left, int top, int width, int height, int list
     public int rows() { return Math.max(1, viewport() / 34); }
     public int detailX() { return left + listWidth + 12; }
     public int detailWidth() { return width - listWidth - 24; }
-    public int dialogueActionsTop() { return top + height - 56; }
+    public int dialogueActionsTop() { return dialogueActionsTop(2); }
+    public int dialogueActionsTop(int actionRows) {
+        if(actionRows<1 || actionRows>3) throw new IllegalArgumentException("Dialogue requires one to three action rows");
+        return top + height - 8 - actionRows * 24;
+    }
 }
