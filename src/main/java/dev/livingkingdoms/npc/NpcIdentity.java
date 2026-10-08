@@ -35,6 +35,9 @@ public record NpcIdentity(UUID settlementId, NpcRole role) {
         }
     }
 
+    /** Even an unreadable identity is reserved and must never be reassigned. */
+    public static boolean isUnassigned(Entity entity) { return !entity.getPersistentData().contains(DATA_KEY); }
+
     public static void attach(Entity entity, UUID settlementId, NpcRole role) {
         if (!(entity.level() instanceof ServerLevel level) || !level.getServer().isSameThread()) {
             throw new IllegalStateException("Living Kingdoms NPC identities must be changed on the server thread");

@@ -94,7 +94,7 @@ public final class QuestService {
                 player.inventoryMenu.broadcastChanges();
                 if (player.containerMenu != player.inventoryMenu) player.containerMenu.broadcastChanges();
                 message(player, "quest.livingkingdoms.delivered", terms.requiredIron(), terms.rewardEmeralds(), terms.reputationReward());
-                message(player, "quest.livingkingdoms.reputation", settlement.name(), data.progress(player.getUUID(), settlement.id()).reputation());
+                message(player, "quest.livingkingdoms.reputation", dev.livingkingdoms.ui.VillageNames.display(settlement), data.progress(player.getUUID(), settlement.id()).reputation());
             }
             case COMPLETED -> message(player, "quest.livingkingdoms.already_completed", title());
             case FAILED, EXPIRED -> message(player, "quest.livingkingdoms.failed", title());
@@ -104,7 +104,7 @@ public final class QuestService {
 
     private static void inspect(ServerPlayer player, Settlement settlement, QuestState state, QuestTerms savedTerms, int reputation) {
         QuestTerms terms = savedTerms == null ? currentTerms() : savedTerms;
-        message(player, "quest.livingkingdoms.header", settlement.name(), title(),
+        message(player, "quest.livingkingdoms.header", dev.livingkingdoms.ui.VillageNames.display(settlement), title(),
                 Component.translatable("quest.livingkingdoms.state." + state.name().toLowerCase(java.util.Locale.ROOT)));
         if (state == QuestState.AVAILABLE || state == QuestState.ACTIVE) {
             int count = DeliveryInventory.ironCount(player.getInventory());
@@ -112,7 +112,7 @@ public final class QuestService {
             message(player, "quest.livingkingdoms.rewards", terms.rewardEmeralds(), terms.reputationReward());
             message(player, state == QuestState.AVAILABLE ? "quest.livingkingdoms.help.accept" : "quest.livingkingdoms.help.deliver");
         }
-        message(player, "quest.livingkingdoms.reputation", settlement.name(), reputation);
+        message(player, "quest.livingkingdoms.reputation", dev.livingkingdoms.ui.VillageNames.display(settlement), reputation);
     }
 
     private static Component title() { return Component.translatable("quest.livingkingdoms.iron_shortage.title"); }

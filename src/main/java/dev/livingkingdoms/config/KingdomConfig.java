@@ -101,6 +101,7 @@ public final class KingdomConfig {
         builder.pop();
         builder.pop();
         ProgressionConfig.define(builder);
+        SettlementEstablishmentConfig.define(builder);
         QuestExpansionConfig.define(builder);
         SPEC = builder.build();
     }

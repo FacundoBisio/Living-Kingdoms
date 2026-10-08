@@ -27,7 +27,7 @@ import java.util.UUID;
 public final class SettlementSavedData extends SavedData {
     public static final String DATA_NAME = "livingkingdoms_settlements";
     public static final int MAX_NEAREST_DISTANCE = 4096;
-    private static final int SCHEMA_VERSION = 1;
+    private static final int SCHEMA_VERSION = 2;
     private static final int INDEX_BUCKET_SIZE = 256;
     private final Map<UUID, Settlement> settlements = new LinkedHashMap<>();
     private final Map<UUID, SettlementLayoutMetadata> layouts = new HashMap<>();
@@ -166,6 +166,20 @@ public final class SettlementSavedData extends SavedData {
         setDirty();
     }
 
+    /** Only for a failed synchronous establishment, before it becomes visible to gameplay. */
+    public void rollbackEstablishment(Settlement expected) {
+        if (!expected.equals(settlements.get(expected.id()))) throw new IllegalStateException("Establishment changed during rollback");
+        settlements.remove(expected.id());
+        layouts.remove(expected.id());
+        var index = alliedCenters.get(expected.territory().dimension());
+        if (index != null) {
+            index.values().forEach(ids -> ids.remove(expected.id()));
+            index.values().removeIf(List::isEmpty);
+        }
+        oversizedAlliedTerritories.getOrDefault(expected.territory().dimension(), new ArrayList<>()).remove(expected.id());
+        setDirty();
+    }
+
     private void indexAlliedCenter(Settlement settlement) {
         if (!settlement.faction().isAllied()) return;
         Territory territory = settlement.territory();
@@ -183,7 +197,8 @@ public final class SettlementSavedData extends SavedData {
 
     public static SettlementSavedData load(CompoundTag tag, HolderLookup.Provider registries) {
         SettlementNbt.require(tag, "schema_version", Tag.TAG_INT);
-        if (tag.getInt("schema_version") != SCHEMA_VERSION) {
+        int schema = tag.getInt("schema_version");
+        if (schema != 1 && schema != SCHEMA_VERSION) {
             throw new IllegalArgumentException("Unsupported Living Kingdoms settlement schema: "
                     + tag.getInt("schema_version"));
         }
@@ -195,13 +210,13 @@ public final class SettlementSavedData extends SavedData {
         SettlementSavedData data = new SettlementSavedData();
         for (int i = 0; i < entries.size(); i++) {
             CompoundTag entry = entries.getCompound(i);
-            Settlement settlement = SettlementNbt.read(entry);
+            Settlement settlement = SettlementNbt.read(entry, schema == 1);
             if (entry.contains("layout")) {
                 SettlementNbt.require(entry, "layout", Tag.TAG_COMPOUND);
                 data.add(settlement, SettlementLayoutNbt.read(entry.getCompound("layout")));
             } else data.add(settlement);
         }
-        data.setDirty(false);
+        data.setDirty(schema == 1);
         return data;
     }
 

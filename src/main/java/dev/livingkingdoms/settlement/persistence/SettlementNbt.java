@@ -3,6 +3,8 @@ package dev.livingkingdoms.settlement.persistence;
 import dev.livingkingdoms.faction.Faction;
 import dev.livingkingdoms.settlement.domain.Settlement;
 import dev.livingkingdoms.settlement.domain.Territory;
+import dev.livingkingdoms.settlement.domain.SettlementOrigin;
+import dev.livingkingdoms.settlement.domain.SettlementProvenance;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 
@@ -17,6 +19,12 @@ final class SettlementNbt {
         tag.putString("faction", settlement.faction().id());
         tag.putInt("level", settlement.level());
         tag.putInt("population", settlement.population());
+        CompoundTag provenance = new CompoundTag();
+        provenance.putString("origin", settlement.provenance().origin().name());
+        provenance.putLong("created_at_epoch_millis", settlement.provenance().createdAtEpochMillis());
+        settlement.provenance().founder().ifPresent(id -> provenance.putUUID("founder", id));
+        settlement.provenance().kingdom().ifPresent(id -> provenance.putUUID("kingdom", id));
+        tag.put("provenance", provenance);
         Territory territory = settlement.territory();
         CompoundTag location = new CompoundTag();
         location.putString("dimension", territory.dimension());
@@ -28,7 +36,7 @@ final class SettlementNbt {
         return tag;
     }
 
-    static Settlement read(CompoundTag tag) {
+    static Settlement read(CompoundTag tag, boolean legacy) {
         if (!tag.hasUUID("id")) throw new IllegalArgumentException("Missing settlement UUID");
         require(tag, "name", Tag.TAG_STRING);
         require(tag, "faction", Tag.TAG_STRING);
@@ -42,9 +50,24 @@ final class SettlementNbt {
         }
         Territory territory = new Territory(location.getString("dimension"), location.getInt("x"),
                 location.getInt("y"), location.getInt("z"), location.getInt("radius"));
+        SettlementProvenance provenance = SettlementProvenance.legacy();
+        if (!legacy) {
+            require(tag, "provenance", Tag.TAG_COMPOUND);
+            CompoundTag history = tag.getCompound("provenance");
+            require(history, "origin", Tag.TAG_STRING);
+            require(history, "created_at_epoch_millis", Tag.TAG_LONG);
+            provenance = new SettlementProvenance(SettlementOrigin.valueOf(history.getString("origin")),
+                    optionalUuid(history, "founder"), history.getLong("created_at_epoch_millis"), optionalUuid(history, "kingdom"));
+        }
         return new Settlement(tag.getUUID("id"), tag.getString("name"),
                 Faction.fromId(tag.getString("faction")), tag.getInt("level"),
-                tag.getInt("population"), territory);
+                tag.getInt("population"), territory, provenance);
+    }
+
+    private static java.util.Optional<java.util.UUID> optionalUuid(CompoundTag tag, String key) {
+        if (!tag.contains(key)) return java.util.Optional.empty();
+        if (!tag.hasUUID(key)) throw new IllegalArgumentException("Invalid provenance UUID: " + key);
+        return java.util.Optional.of(tag.getUUID(key));
     }
 
     static void require(CompoundTag tag, String key, int type) {

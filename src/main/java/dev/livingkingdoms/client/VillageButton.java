@@ -35,12 +35,14 @@ final class VillageButton extends Button {
         // Focus is distinct from selection, and does not change the control's bounds.
         if (isHoveredOrFocused() && active) graphics.renderOutline(x-1, y-1, w+2, h+2, VillageTheme.WOOD);
         int textColor = accent ? VillageTheme.ON_BLUE : VillageTheme.INK;
-        if (glyph == null) {
-            renderScrollingString(graphics, Minecraft.getInstance().font, selected ? 8 : 4, textColor);
-        } else {
-            var font = Minecraft.getInstance().font;
-            graphics.drawString(font, glyph, x+(w-font.width(glyph))/2, y+(h-8)/2, textColor, false);
-        }
+        var font = Minecraft.getInstance().font;
+        int inset = selected ? 9 : 5;
+        String text = glyph == null ? getMessage().getString() : glyph;
+        int available = Math.max(1, w - inset * 2);
+        if (font.width(text) > available) text = font.plainSubstrByWidth(text, Math.max(1, available - font.width("..."))) + "...";
+        // Native scrolling labels use a shadow. Plain ink stays sharp on parchment;
+        // the tooltip and narration retain the full translated label.
+        graphics.drawString(font, text, x + Math.max(inset, (w-font.width(text))/2), y+(h-8)/2, textColor, false);
     }
 
     @Override protected MutableComponent createNarrationMessage() {

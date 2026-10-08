@@ -1,6 +1,6 @@
 # Living Kingdoms
 
-Minecraft Java **1.21.1**, **Java 21**, **NeoForge 21.1.252**. Version 0.8.0 adds redesigned medieval buildings, three house variants, a named Mayor with a circlet, two founding residents, a Quest Board GUI and NPC dialogue to the existing adaptive settlements and quest systems. All gameplay state is owned by the server. Housing, advanced professions, diplomacy, economy, conquest, armies and external AI services remain outside the current scope.
+Minecraft Java **1.21.1**, **Java 21**, **NeoForge 21.1.252**. Version 0.9.0 adds a craftable Kingdom Charter for survival village conversion and wilderness founding, with persistent origin/founder metadata. It preserves the latest UI/structure QA fixes, adaptive buildings, named Mayor, founding residents, Quest Board, quests, reputation, progression and hostile encounters. All gameplay state is owned by the server. Housing, immigration, advanced professions, diplomacy, economy, conquest, armies and external AI services remain outside the current scope.
 
 Living Kingdoms focuses on exploring, discovering settlements, gaining reputation, fighting and liberating hostile territory. Its settlements are RPG/strategy hubs; the buildings in this milestone do not automate workers or manage colonies.
 
@@ -24,9 +24,9 @@ bash ./gradlew runGameTestServer
 bash ./gradlew runClient
 ```
 
-The client opens the Minecraft development environment. Create a world with cheats enabled for debug generation. The mod JAR is `build/libs/livingkingdoms-0.8.0.jar`; the `-sources.jar` is for developers, not installation. Use the same mod version on clients and dedicated servers. Python and development mods are not required for the ordinary Java build or runtime.
+The client opens the Minecraft development environment. Survival establishment requires no cheats; enable them only for optional debug commands. The mod JAR is `build/libs/livingkingdoms-0.9.0.jar`; the `-sources.jar` is for developers, not installation. Use the same mod version on clients and dedicated servers. Python and development mods are not required for the ordinary Java build or runtime.
 
-Earlier milestone graphical validation was blocked by an AMD driver crash. The current test machine can run Minecraft correctly. The 0.8.0 client was launched successfully. The building/UI visual review was interrupted by the user, so graphical acceptance and Save & Quit checks remain manual: see [village identity QA](docs/village-identity-ui-polish.md).
+The QA bugfix fixes an overlay that blurred the Quest Board/dialogue and a disconnected watchtower roof strip, adds responsive readers and validates every template at all four rotations. This session's client attempts crashed in the AMD OpenGL driver before gameplay; screenshot acceptance and Save & Quit/reopen remain pending. See the [QA findings and exact manual checklist](docs/qa-ui-structure-bugfix.md).
 
 For a dedicated development server:
 
@@ -36,14 +36,32 @@ For a dedicated development server:
 
 Read the Minecraft EULA linked by the server. If you accept it, change `eula=false` to `eula=true` in `run/eula.txt` and rerun. Stop with `stop` to save cleanly. Development files and worlds live in the ignored `run/` directory. A production server also requires Java 21 and the matching NeoForge version.
 
-## Generate and inspect the first physical settlement
+## Establish a kingdom in survival
+
+Craft a **Kingdom Charter** at a crafting table:
+
+```text
+Emerald     Paper       Emerald
+Iron Ingot  Any Banner  Iron Ingot
+Stone Brick Stone Brick Stone Brick
+```
+
+Use it on nearby ground in the **Overworld**, after surrounding chunks load. Near a village with at least two villagers and two complete beds, it converts the village to an allied settlement, preserving houses, inventories, beds and the bell. A small free plaza receives a lodestone marker and Quest Board. An unnamed adult villager without a profession or existing trades becomes the Mayor when possible; otherwise one new Mayor is spawned. A Town Hall is not required.
+
+In wilderness with no nearby village signals, the same action runs the adaptive planner and founds a settlement with its normal core/modules, Mayor and two initial residents. Water, cliffs, blocked space, unloaded chunks, protected terrain, world borders and existing territories can refuse the attempt. Incomplete village signals report the missing villager/bed counts instead of falling back to founding. **Sneak-use** always attempts conversion only, so it fails outside a qualifying village.
+
+Successful survival establishment consumes **one** Charter; failure consumes none. Creative use retains it. Both routes immediately use the existing Mayor dialogue, Quest Board GUI, main/dynamic quests and reputation. The recipe is a normal datapack recipe, and village minimums/range are per-world server configuration. Origin, founder UUID and creation time are saved independently of the readable settlement name; founder metadata grants no ownership privileges. `/kingdom settlement inspect` is an optional operator tool for these internal fields.
+
+See [conversion/founding implementation, compatibility, configuration and exact manual QA](docs/village-conversion-founding.md). Natural hostile parties still spawn before any settlement exists.
+
+## Generate and inspect a settlement with debug commands
 
 Settlement commands require a player context; a direct server-console invocation reports that a player is required. `create` and `generate` require permission level 2 (operator/cheats); any player may use settlement `info` or `/kingdom reputation`. Commands are for generation/inspection, not normal quest gameplay. Encounter controls below require operator permission.
 
 1. Find a dry clearing for the compact core and let nearby chunks load. Gentle slopes, scattered trees and small nearby ponds are supported when there are enough connected dry building plots. Avoid previous settlement territories and existing construction.
 2. Run `/kingdom settlement generate`. The server searches sampled positions 32–64 blocks away, within loaded chunks, and reports the settlement name, UUID, and central coordinates. If every site fails validation it changes no blocks and creates no settlement data. Move to another open area and retry.
 3. Walk to the central lodestone marker. A **13 × 13** core includes the Town Hall, plaza, marker and custom Quest Board. Two houses, a Blacksmith with furnace/anvil and Barracks occupy independent nearby plots, potentially at different elevations, with terrain-following paths.
-4. Run `/kingdom settlement info` inside or near the settlement. It reports name, ID, allied faction, level 1, and population. Population remains abstract; the Mayor and two ordinary founding villagers are separate persistent entities, not a population simulation.
+4. Run `/kingdom settlement info` inside or near the settlement. It reports the immersive name, allied faction, level 1, and population. Technical IDs are reserved for operator generation/debug output. Population remains abstract; the Mayor and two ordinary founding villagers are separate persistent entities, not a population simulation.
 5. Meet the named Mayor in the plaza, then follow the quest steps below. The board is also available in the Functional Blocks creative tab or via `/give @s livingkingdoms:quest_board`; no recipe is provided yet.
 6. Record the UUID. Save and Quit (or stop the dedicated server), reopen the same world, and run `info` there. Buildings, board, Mayor and quest state must remain. `/reload` must preserve commands and saved state.
 7. Repeating `generate` in the plaza must fail when all nearby candidates overlap that territory. Move at least 128 blocks from the marker to test another physical settlement with default settings, in another suitable clearing.
@@ -166,7 +184,7 @@ maximumTrackedParties = 256
 
 Settlement settings apply to new settlements. Existing territories and populations retain their saved values. Quest item quantities accept 1–2304 and reputation rewards 1–1,000,000. Patrol sizes accept 3–5, hordes 4–8 and threat ratings 1–100. Encounter rewards accept 0–1,000,000 (0 disables); size, threat and reward are snapshotted when the party spawns. Reward range is an event-time setting, 0–4096 blocks. Signed player reputation defaults to zero; no tiers or decay exist yet.
 
-Normal Minecraft autosave and shutdown write dirty data; interactions do not force disk I/O on every click. Settlement schema remains 1; legacy `allied` faction IDs read as `ALLIED_KINGDOM` and new writes use `allied_kingdom`. Quest/reputation schema 4 reads schemas 1, 2 and 3, preserving legacy Iron, reputation, Mayors and encounter receipts while adding expanded quests and board clocks. Encounter schema 2 reads schema 1 and adds lifecycle/contribution/cooldown metadata; legacy unknown lifetimes start conservatively at first maintenance. Older mod versions cannot read the new schemas. Like ordinary Minecraft storage, independent player/entity/chunk/SavedData files are not a crash-proof transaction; use normal save/shutdown for durability.
+Normal Minecraft autosave and shutdown write dirty data; interactions do not force disk I/O on every click. Settlement schema 2 reads schema 1, preserving identity/layout and adding origin/founder/time/optional kingdom metadata; old records default to `GENERATED` with unknown founder/time. Legacy `allied` faction IDs read as `ALLIED_KINGDOM` and new writes use `allied_kingdom`. Quest/reputation schema 4 reads schemas 1, 2 and 3, preserving legacy Iron, reputation, Mayors and encounter receipts while adding expanded quests and board clocks. Encounter schema 2 reads schema 1 and adds lifecycle/contribution/cooldown metadata; legacy unknown lifetimes start conservatively at first maintenance. Older mod versions cannot read the new schemas. Like ordinary Minecraft storage, independent player/entity/chunk/SavedData files are not a crash-proof transaction; use normal save/shutdown for durability.
 
 ## Factions and dynamic roaming encounters
 
@@ -264,7 +282,7 @@ Quest policies reuse party levels and the existing `RegionalDifficulty` service;
 
 There are no client imports in common code and no global settlement cache. Each world owns its data through Minecraft's `DimensionDataStorage`. Commands and gameplay services run on the server thread; storage entrypoints check thread ownership. Immutable records and snapshots prevent changes without dirty-marked storage mutations. UUID lookup is map-backed, nearest allied centers are spatially indexed, and existing territory/overlap queries scan metadata only on requests/interactions. Natural proposals have a cheap tick guard; low-frequency maintenance scans tracked metadata only. There is no global entity polling, external database or gameplay chunk loading.
 
-Persistence validates required fields, stable IDs, bounds, UUID uniqueness, non-overlapping territories, roster consistency and receipt uniqueness. Unsupported or malformed data is rejected. If Minecraft catches a loading error, guarded factories refuse to create fresh data over existing files. Quest schemas 1/2/3-to-4 and encounter schema 1-to-2 migrations are explicit and tested.
+Persistence validates required fields, stable IDs, bounds, UUID uniqueness, non-overlapping territories, provenance, roster consistency and receipt uniqueness. Unsupported or malformed data is rejected. If Minecraft catches a loading error, guarded factories refuse to create fresh data over existing files. Settlement schema 1-to-2, quest schemas 1/2/3-to-4 and encounter schema 1-to-2 migrations are explicit and tested.
 
 Future settlement resources and buildings can extend the existing aggregate using typed values and versioned migrations. Put progression rules in focused domain/application services and store replacements through dirty-marked persistence methods. Quest IDs/types and per-relationship quest entries allow later quests to share settlement reputation without sharing individual completion. Expanded typed resource/party/meeting/return objectives share handlers; the original Iron API remains as a compatibility bridge. Add future objective handlers only with their actual gameplay. NPC identities keep roles independent of vanilla professions. Conquest should use an explicit lifecycle alongside faction (hostile, defeated, liberating, allied outpost, village), with validated transitions.
 
@@ -280,9 +298,9 @@ Regional difficulty now has a configurable pure calculation of distance, world a
 
 ## Tests and community workflow
 
-`test` uses JUnit 5 with ModDevGradle's NeoForge test environment. It retains all previous settlement/quest/faction/encounter/progression coverage, including main ordering, dynamic quests, reward deduplication and migrations. New layout cases verify whole-footprint spacing, circular territory safety, tolerance caps, diagnostic classification, optional metadata round trips and unchanged schema-1 legacy records. Real `DimensionDataStorage` save/reopen tests verify persistence and that corrupt/future-schema files remain unchanged after rejected loads.
+`test` uses JUnit 5 with ModDevGradle's NeoForge test environment. All **178 unit tests** pass, retaining previous settlement/quest/faction/encounter/progression coverage, main ordering, dynamic quests, reward deduplication and layout geometry. Provenance tests verify every origin, founder/kingdom/time fields, safe schema-1 migration, corruption guards and derived-index rollback. Real `DimensionDataStorage` save/reopen tests verify persistence and that corrupt/future-schema files remain unchanged after rejected loads.
 
-`runGameTestServer` starts a headless Minecraft world and loads a separate test mod from `src/gametest`. Fifty GameTests retain all previous physical/quest/Mayor/encounter/natural/faction/progression coverage and add compact planning, independent elevations, isolated wet plots, four native rotations, paths, territory/chunk safety, stale-plan validation, rollback, forest clearings, future building additions and here/debug command behavior. All test-only terrain preparation, explicit chunk loading, classes and test-mod resources are excluded from the production JAR and normal client/server runs. Its world lives in `runs/gametest`, separate from normal dev worlds. GitHub Actions runs `test build runGameTestServer` on Java 21 and uploads the JARs. The graphical Save and Quit/reopen check remains manual.
+`runGameTestServer` starts a headless Minecraft world and loads a separate test mod from `src/gametest`. All **68 GameTests** pass, retaining previous physical/quest/Mayor/encounter/natural/faction/progression and QA coverage. Thirteen establishment tests add actual recipe crafting, POI detection, conversion/founding, exact consumption, multiplayer duplicate refusal, NPC promotion/fallback, immediate UI/quest integration, persistence and full rollback after protection cancellation or refused Mayor creation. All test-only terrain preparation, chunk tickets/loading, classes and test-mod resources are excluded from the production JAR and normal client/server runs. Its world lives in `runs/gametest`, separate from normal dev worlds. GitHub Actions runs `test build runGameTestServer` on Java 21 and uploads the JARs. The graphical Save and Quit/reopen check remains manual.
 
 Open an issue with Minecraft/NeoForge/mod versions, reproduction steps, and a relevant log excerpt. Keep contributions scoped and run `test build runGameTestServer` before submitting a pull request. The GitHub workflow is configured for pushes and pull requests. The mod currently reserves all rights; a community distribution license must be selected by the project owner before public release.
 
@@ -296,4 +314,4 @@ Local results and known runtime limits: [Milestone 0](docs/validation.md), [Mile
 
 ## Next milestone
 
-Recommended next gameplay milestone: one Tier 1 Pillager camp with a regional quest, reusing shared factions, settlement metadata, progression and quest objectives. Keep raids, conquest, housing and advanced NPC professions for later. The next milestone has not been started.
+Village Conversion and Founding are implemented. Complete the [survival, multiplayer and reload checklist](docs/village-conversion-founding.md) and the [remaining screenshot acceptance checklist](docs/qa-ui-structure-bugfix.md), then design Housing/Citizens around converted village buildings and persistent identity. Housing, immigration, profession systems, settlement levels, raids, conquest, liberation and bosses have not been started.

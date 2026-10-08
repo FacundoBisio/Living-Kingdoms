@@ -54,9 +54,24 @@ class SettlementSavedDataTest {
     }
 
     @Test
+    void founderOriginAndCreationTimeSurviveActualSavedDataFileReopen() {
+        DimensionDataStorage storage = newStorage();
+        var data = SettlementSavedData.getOrCreate(storage,directory);
+        UUID founder = UUID.randomUUID();
+        var settlement = Settlement.established(UUID.randomUUID(),new Territory("minecraft:overworld",120,72,-32,48),2,
+                dev.livingkingdoms.settlement.domain.SettlementOrigin.CONVERTED,founder);
+        data.add(settlement); storage.save(); IOUtilities.waitUntilIOWorkerComplete();
+        var reopened = SettlementSavedData.getOrCreate(newStorage(),directory);
+        IOUtilities.waitUntilIOWorkerComplete();
+        assertEquals(settlement,reopened.get(settlement.id()).orElseThrow());
+        assertEquals(founder,reopened.get(settlement.id()).orElseThrow().provenance().founder().orElseThrow());
+        assertFalse(reopened.isDirty());
+    }
+
+    @Test
     void dimensionDataStorageRefusesFutureSchemaWithoutOverwritingFile() throws IOException {
         CompoundTag future = new SettlementSavedData().save(new CompoundTag(), null);
-        future.putInt("schema_version", 2);
+        future.putInt("schema_version", 99);
         CompoundTag root = new CompoundTag();
         root.put("data", future);
         Path file = directory.resolve(SettlementSavedData.DATA_NAME + ".dat");
@@ -129,7 +144,7 @@ class SettlementSavedDataTest {
     @Test
     void rejectsUnsupportedSchemaAndMalformedEntries() {
         CompoundTag future = new SettlementSavedData().save(new CompoundTag(), null);
-        future.putInt("schema_version", 2);
+        future.putInt("schema_version", 99);
         assertThrows(IllegalArgumentException.class, () -> SettlementSavedData.load(future, null));
         assertThrows(IllegalArgumentException.class, () -> SettlementSavedData.load(new CompoundTag(), null));
         CompoundTag corrupt = new SettlementSavedData().save(new CompoundTag(), null);

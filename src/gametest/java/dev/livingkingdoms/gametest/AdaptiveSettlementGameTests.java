@@ -173,7 +173,16 @@ public final class AdaptiveSettlementGameTests {
         var original = plan(level, center, new GenerationDiagnostics());
         List<SettlementLayout.Building> buildings = new ArrayList<>(original.buildings());
         var valid = buildings.get(1);
-        var broken = new BuildingTemplate(valid.module().kind(), valid.module().id(), new StructureTemplate(),
+        // Keep the correct declared geometry, but refuse native placement after the core.
+        // An actually empty template is now rejected by the pre-APPLY geometry audit.
+        var refusingTemplate = new StructureTemplate() {
+            @Override public net.minecraft.core.Vec3i getSize() { return valid.module().size(); }
+            @Override public net.minecraft.world.level.levelgen.structure.BoundingBox getBoundingBox(
+                    net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings settings, BlockPos origin) {
+                return valid.module().template().getBoundingBox(settings, origin);
+            }
+        };
+        var broken = new BuildingTemplate(valid.module().kind(), valid.module().id(), refusingTemplate,
                 valid.module().size(), valid.module().blocks(), valid.module().entrance());
         buildings.set(1, new SettlementLayout.Building(broken, valid.origin(), valid.rotation(), valid.bounds(), valid.entrance(), valid.supports()));
         var failing = new SettlementLayout(original.territory(), original.style(), buildings, original.pathBlocks(), original.before());

@@ -33,15 +33,19 @@ class SettlementLayoutPersistenceTest {
 
     @Test void legacySchemaOneLoadsWithoutLayoutAndRetainsAllIdentityFields() {
         var old = new SettlementSavedData();
-        var settlement = settlement();
+        var generated = settlement();
+        var settlement = new Settlement(generated.id(),generated.name(),generated.faction(),generated.level(),generated.population(),generated.territory());
         old.add(settlement);
         CompoundTag saved = old.save(new CompoundTag(), null);
+        saved.putInt("schema_version",1);
+        saved.getList("settlements",10).getCompound(0).remove("provenance");
         assertEquals(1, saved.getInt("schema_version"));
         assertFalse(saved.getList("settlements", 10).getCompound(0).contains("layout"));
         var loaded = SettlementSavedData.load(saved, null);
         assertEquals(List.of(settlement), loaded.settlements());
         assertTrue(loaded.layout(settlement.id()).isEmpty());
-        assertEquals(saved, loaded.save(new CompoundTag(), null));
+        assertTrue(loaded.isDirty());
+        assertEquals(2, loaded.save(new CompoundTag(), null).getInt("schema_version"));
     }
 
     @Test void optionalMetadataRoundTripsRotationsElevationsPathsAndBiomeStyle() {

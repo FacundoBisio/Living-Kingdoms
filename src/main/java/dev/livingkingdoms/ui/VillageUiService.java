@@ -111,7 +111,7 @@ public final class VillageUiService {
     private static void sendDialogue(ServerPlayer player, Session session, Settlement settlement, Villager npc, boolean info) {
         CompoundTag tag = base(player, session, settlement, "dialogue");
         tag.putInt("entity", npc.getId());
-        tag.putString("name", MayorPresentation.name(npc.getUUID()));
+        tag.putString("name", MayorPresentation.name(npc));
         tag.putString("role", "mayor");
         tag.putString("dialogue", info ? "ui.livingkingdoms.dialogue.info" : QuestSavedData.get(player.server).progress(player.getUUID(), settlement.id()).state() == QuestState.COMPLETED
                 ? "npc.livingkingdoms.mayor.after" : "npc.livingkingdoms.mayor.before");

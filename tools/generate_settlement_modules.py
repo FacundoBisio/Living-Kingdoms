@@ -53,9 +53,14 @@ def frame(b, x0, z0, x1, z1, stone=False, cross=False, tall=False):
                 post = x in (x0, x1) and z in (z0, z1)
                 material = "stripped_oak_log" if post else ("stone_bricks" if y == 1 or stone else "oak_planks")
                 if y == beam: material = "spruce_log"
-                put(b, x, y, z, material, **({"axis": "y" if post else "x"} if "log" in material else {}))
+                put(b, x, y, z, material, **({"axis": "y" if post else "x" if z in (z0,z1) else "z"} if "log" in material else {}))
     for x, z in ((x0, (z0+z1)//2), (x1, (z0+z1)//2), ((x0+x1)//2, z0)):
-        put(b, x, 2, z, "glass_pane", north="true", south="true", east="true", west="true", waterlogged="false")
+        side = x in (x0,x1)
+        put(b, x, 2, z, "glass_pane", north=str(side).lower(), south=str(side).lower(),
+            east=str(not side).lower(), west=str(not side).lower(), waterlogged="false")
+        # Small vanilla shutters sit in the reserved one-block eave margin.
+        dx,dz,facing = (-1,0,"west") if x==x0 else (1,0,"east") if x==x1 else (0,-1,"north")
+        put(b,x+dx,2,z+dz,"spruce_trapdoor",facing=facing,half="bottom",open="true",powered="false",waterlogged="false")
     for y, half in ((1, "lower"), (2, "upper")):
         put(b, (x0+x1)//2, y, z1, "spruce_door", facing="south", half=half, hinge="left", open="false", powered="false")
     # Full gables and steep stair courses, ending in a narrow ridge.
@@ -67,6 +72,10 @@ def frame(b, x0, z0, x1, z1, stone=False, cross=False, tall=False):
             roof = beam + rise
             if x in (x0, x1) or z in (z0, z1):
                 for y in range(beam, roof): put(b, x, y, z, "oak_planks")
+            # Stair courses previously met only diagonally between gable ends.
+            # Continuous boarding joins every course to the walls, including the ridge.
+            if rise > 0 and b.palette[b.blocks[(x,roof-1,z)]]["Name"][1] == "minecraft:air":
+                put(b,x,roof-1,z,"spruce_planks")
             if axis == (low+high)//2:
                 put(b, x, roof, z, "dark_oak_slab", type="bottom", waterlogged="false")
             else:
@@ -95,9 +104,10 @@ def module(kind, width, depth, height):
             for y in (1,2): put(b,x,y,7,"spruce_fence")
             lantern(b,x,3,7)
         for z in (8,10):
-            for y in (1,2): put(b,10,y,z,"spruce_fence")
+            for y in (1,2): put(b,11,y,z,"spruce_fence")
         for x in (9,10,11):
             for z in (8,9,10): put(b,x,3,z,"spruce_slab",type="bottom",waterlogged="false")
+        put(b,11,2,9,"lantern",hanging="true",waterlogged="false")
         for x in (2,3): stair(b,x,1,11,"north")
         put(b,11,1,11,"barrel",facing="up",open="false")
         for x in (3,9):
@@ -108,22 +118,33 @@ def module(kind, width, depth, height):
         put(b,3,1,2,"crafting_table")
         lantern(b,6,2,3)
     elif kind == "watchtower":
+        # One accessible lookout, continuous corner posts and a compact gable.
         for x in (1,5):
             for z in (1,5):
                 for y in range(1,9): put(b,x,y,z,"stone_bricks" if y<3 else "spruce_log",**({"axis":"y"} if y>=3 else {}))
         for x in range(1,6):
             for z in range(1,6):
-                put(b,x,7,z,"spruce_planks")
-                if x in (1,5) or z in (1,5): put(b,x,8,z,"spruce_fence")
-        put(b,3,7,2,"air")
-        for y in range(1,9): put(b,3,y,2,"ladder",facing="south",waterlogged="false")
+                put(b,x,5,z,"spruce_planks")
+                if (x in (1,5) or z in (1,5)) and (x,z) not in ((1,1),(1,5),(5,1),(5,5)):
+                    put(b,x,6,z,"spruce_fence",north=str(z<5).lower(),south=str(z>1).lower(),
+                        east=str(x<5).lower(),west=str(x>1).lower(),waterlogged="false")
+        for y in range(1,8): put(b,3,y,2,"ladder",facing="south",waterlogged="false")
         for y in range(1,9): put(b,3,y,1,"stripped_oak_log",axis="y")
         for x in range(7):
             for z in range(7):
-                rise=min(x,6-x)//2
-                put(b,x,9+rise,z,"spruce_slab",type="bottom",waterlogged="false")
-        lantern(b,1,9,3)
-        put(b,5,6,3,"blue_wall_banner",facing="east")
+                rise=min(x,6-x)
+                if rise:
+                    put(b,x,7+rise,z,"spruce_planks")
+                if z in (1,5):
+                    for y in range(8,8+rise): put(b,x,y,z,"oak_planks")
+                if x==3: put(b,x,8+rise,z,"spruce_slab",type="bottom",waterlogged="false")
+                else: stair(b,x,8+rise,z,"east" if x<3 else "west")
+        for x in range(1,6): put(b,x,8,1,"spruce_log",axis="x")
+        for y in (6,7): put(b,5,y,3,"stripped_oak_log",axis="y")
+        put(b,6,6,3,"blue_wall_banner",facing="east")
+        put(b,2,8,4,"lantern",hanging="true",waterlogged="false")
+        for x in (1,5):
+            for z in (2,3,4): put(b,x,2,z,"cobblestone_wall",up="true",north="low",south="low",east="none",west="none",waterlogged="false")
     else:
         frame(b,1,1,width-2,depth-2,stone=kind=="blacksmith",cross=kind=="house_variant",tall=kind=="town_hall")
         put(b,width-3,1,2,"barrel",facing="up",open="false")
@@ -141,6 +162,7 @@ def module(kind, width, depth, height):
             # Open front-side arcade with sheltered working space.
             for z in range(2,depth-2):
                 for y in (1,2,3): put(b,width-2,y,z,"air")
+            put(b,width-1,2,(1+depth-2)//2,"air")  # No shutter on the open arcade.
             put(b,5,1,1,"furnace",facing="south",lit="false")
             for y in range(2,9): put(b,5,y,1,"stone_bricks")
             put(b,5,9,1,"stone_brick_wall")
@@ -152,7 +174,7 @@ def module(kind, width, depth, height):
             for x in (0,width-1):
                 put(b,x,1,depth-3,"target")
                 put(b,x,2,depth-3,"spruce_fence")
-                put(b,x,3,depth-3,"blue_wall_banner",facing="south")
+                put(b,x,2,depth-2,"blue_wall_banner",facing="south")
             put(b,width-2,1,depth-1,"spruce_fence")
         if kind=="town_hall":
             for z in (2,3,4): put(b,width//2,1,z,"oak_slab",type="top",waterlogged="false")

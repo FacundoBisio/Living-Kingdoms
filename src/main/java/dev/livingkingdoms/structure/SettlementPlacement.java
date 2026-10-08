@@ -23,6 +23,7 @@ public final class SettlementPlacement implements AutoCloseable {
     public static SettlementPlacement apply(ServerLevel level, SettlementLayout plan) {
         if (!level.getServer().isSameThread() || !level.dimension().location().toString().equals(plan.territory().dimension()))
             throw new IllegalStateException("Placement requires the owning server thread and dimension");
+        plan.validateGeometry();
         // Revalidate the entire immutable snapshot before the first write, even for delayed growth requests.
         for (var entry : plan.before().entrySet()) {
             BlockPos pos = entry.getKey();

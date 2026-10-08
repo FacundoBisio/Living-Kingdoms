@@ -83,12 +83,14 @@ public final class NpcService {
     }
 
     /** Called only at founding. Receipts live with the persistent Mayor, never respawn missing/unloaded residents. */
-    public static void spawnInitialResidents(ServerLevel level, Settlement settlement, Villager mayor) {
+    public static int spawnInitialResidents(ServerLevel level, Settlement settlement, Villager mayor) {
+        SettlementSavedData.get(level.getServer());
         var saved = mayor.getPersistentData();
         java.util.List<BlockPos> placed = new java.util.ArrayList<>();
+        int count = 0;
         for (int index = 0; index < 2; index++) {
             String receipt = "livingkingdoms:founding_resident_" + index;
-            if (saved.hasUUID(receipt)) continue;
+            if (saved.hasUUID(receipt)) { count++; continue; }
             Villager resident = EntityType.VILLAGER.create(level);
             if (resident == null) continue;
             resident.setPersistenceRequired();
@@ -100,10 +102,11 @@ public final class NpcService {
                 if (mayor.distanceToSqr(resident) < 1 || placed.contains(feet) || !safePosition(level, resident, feet)) continue;
                 resident.setVillagerData(new VillagerData(VillagerType.byBiome(level.getBiome(feet)), VillagerProfession.NONE, 1));
                 NpcIdentity.attach(resident, settlement.id(), NpcRole.RESIDENT);
-                if (level.addFreshEntity(resident)) { saved.putUUID(receipt, resident.getUUID()); placed.add(feet); }
+                if (level.addFreshEntity(resident)) { saved.putUUID(receipt, resident.getUUID()); placed.add(feet); count++; }
                 break;
             }
         }
+        return count;
     }
 
     private static boolean isMayorOf(Villager villager, UUID settlementId) {
@@ -111,7 +114,7 @@ public final class NpcService {
                 .filter(identity -> identity.role() == NpcRole.MAYOR && identity.settlementId().equals(settlementId)).isPresent();
     }
 
-    private static boolean safePosition(ServerLevel level, Villager mayor, BlockPos feet) {
+    static boolean safePosition(ServerLevel level, Villager mayor, BlockPos feet) {
         if (feet.getY() <= level.getMinBuildHeight() || feet.getY() + 2 >= level.getMaxBuildHeight()
                 || !level.getWorldBorder().isWithinBounds(feet)) return false;
         AABB bounds = mayor.getBoundingBox();
@@ -126,6 +129,6 @@ public final class NpcService {
             if (!level.getFluidState(feet.above(y)).isEmpty()) return false;
         }
         return level.noCollision(mayor)
-                && level.getEntities((Entity) null, bounds, entity -> entity.isAlive() && !entity.isSpectator()).isEmpty();
+                && level.getEntities(mayor, bounds, entity -> entity.isAlive() && !entity.isSpectator()).isEmpty();
     }
 }

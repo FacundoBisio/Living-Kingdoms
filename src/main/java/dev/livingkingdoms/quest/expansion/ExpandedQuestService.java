@@ -242,7 +242,9 @@ public final class ExpandedQuestService {
             }
         } else if (anchor.isEmpty()) message(player, "quest.livingkingdoms.meet_mayor");
         else {
-            var name = SettlementSavedData.get(player.server).get(anchor.orElseThrow()).map(Settlement::name).orElse(anchor.orElseThrow().toString());
+            Component name = SettlementSavedData.get(player.server).get(anchor.orElseThrow())
+                    .map(settlementName -> (Component) Component.literal(dev.livingkingdoms.ui.VillageNames.display(settlementName)))
+                    .orElse(Component.translatable("ui.livingkingdoms.original_settlement"));
             message(player, "quest.livingkingdoms.main_other_settlement", name);
         }
         message(player, "quest.livingkingdoms.requests_heading");

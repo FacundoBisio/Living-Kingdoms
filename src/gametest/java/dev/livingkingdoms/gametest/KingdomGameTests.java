@@ -83,14 +83,15 @@ public final class KingdomGameTests {
                 "Info must send translatable feedback");
         TranslatableContents info = (TranslatableContents) feedback.messages.getFirst().getContents();
         Object[] fields = info.getArgs();
-        helper.assertTrue(info.getKey().equals("commands.livingkingdoms.settlement.info") && fields.length == 5,
-                "Info must contain name, ID, faction, level and population");
-        helper.assertTrue(fields[0].equals(created.name()) && fields[1].equals(created.id().toString())
-                && fields[3].equals(created.level()) && fields[4].equals(created.population()),
+        helper.assertTrue(info.getKey().equals("commands.livingkingdoms.settlement.info") && fields.length == 4,
+                "Normal info contains only name, faction, level and population");
+        helper.assertTrue(fields[0].equals(dev.livingkingdoms.ui.VillageNames.display(created))
+                && fields[2].equals(created.level()) && fields[3].equals(created.population())
+                && java.util.Arrays.stream(fields).noneMatch(field -> field.toString().contains(created.id().toString())),
                 "Info fields must match the server settlement");
-        helper.assertTrue(fields[2] instanceof Component
-                && ((Component) fields[2]).getContents() instanceof TranslatableContents
-                && ((TranslatableContents) ((Component) fields[2]).getContents()).getKey()
+        helper.assertTrue(fields[1] instanceof Component
+                && ((Component) fields[1]).getContents() instanceof TranslatableContents
+                && ((TranslatableContents) ((Component) fields[1]).getContents()).getKey()
                 .equals("faction.livingkingdoms." + created.faction().id()), "Info must include the settlement faction");
 
         level.getDataStorage().save();

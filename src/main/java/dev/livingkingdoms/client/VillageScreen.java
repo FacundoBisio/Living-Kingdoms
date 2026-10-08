@@ -1,6 +1,8 @@
 package dev.livingkingdoms.client;
 
 import dev.livingkingdoms.ui.UiPayloads;
+import dev.livingkingdoms.ui.VillageUiLayout;
+import dev.livingkingdoms.ui.QuestBoardState;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Tooltip;
 import org.lwjgl.glfw.GLFW;
@@ -15,7 +17,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.neoforged.neoforge.network.PacketDistributor;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -30,6 +31,7 @@ public final class VillageScreen extends Screen {
     private UUID pendingQuest;
     private String focusKey;
     private int dialogueStart;
+    private VillageUiLayout layout;
     private VillageButton scrollUp, scrollDown;
 
     public VillageScreen(CompoundTag data) { super(tr("board")); this.data = data; }
@@ -40,19 +42,8 @@ public final class VillageScreen extends Screen {
         if (changedScreen) { detailScroll = 0; focusKey = null; }
         if (pendingQuest != null) selected = pendingQuest;
         // Keep the accepted request visible when it moves from Requests to Active.
-        if (selected != null && !data.contains("notice")) {
-            var quests = data.getList("quests", 10);
-            for (int i = 0; i < quests.size(); i++) {
-                var quest = quests.getCompound(i);
-                if (!selected.equals(quest.getUUID("id"))) continue;
-                if (pendingAction == UiPayloads.Action.ACCEPT && quest.getString("state").equals("ACTIVE")) {
-                    section = 2; offset = 0; detailScroll = 0;
-                } else if (pendingAction == UiPayloads.Action.CLAIM && quest.getString("state").equals("COMPLETED")) {
-                    section = quest.getString("category").equals("MAIN") ? 0 : 1;
-                    offset = 0; detailScroll = 0;
-                }
-            }
-        }
+        int nextSection = QuestBoardState.afterAction(data, selected, pendingAction, section);
+        if (nextSection != section) { section = nextSection; offset = 0; detailScroll = 0; }
         if (data.contains("notice")) detailScroll = 0;
         pending = false;
         pendingAction = null;
@@ -112,15 +103,16 @@ public final class VillageScreen extends Screen {
         return message;
     }
     private boolean board() { return data.getString("screen").equals("board"); }
-    private static Component tr(String key, Object... args) { return Component.translatable("ui.livingkingdoms." + key, args); }
+    private static net.minecraft.network.chat.MutableComponent tr(String key, Object... args) { return Component.translatable("ui.livingkingdoms." + key, args); }
 
     @Override protected void init() {
-        panelWidth = Math.min(460, width - 12); panelHeight = Math.min(292, height - 12);
-        left = (width-panelWidth)/2; top = (height-panelHeight)/2; listWidth = Math.max(100, panelWidth/3);
+        layout = VillageUiLayout.fit(width, height, board());
+        panelWidth = layout.width(); panelHeight = layout.height();
+        left = layout.left(); top = layout.top(); listWidth = layout.listWidth();
         if (board()) initBoard(); else initDialogue();
         int scrollX = left + panelWidth - 27;
-        scrollUp = button(tr("scroll_up"), scrollX, top + 58, 20, () -> scrollDetail(-33)).glyph("^");
-        scrollDown = button(tr("scroll_down"), scrollX, top + 81, 20, () -> scrollDetail(33)).glyph("v");
+        scrollUp = button(tr("scroll_up"), scrollX, layout.contentTop(), 20, () -> scrollDetail(-33)).glyph("^");
+        scrollDown = button(tr("scroll_down"), scrollX, layout.contentTop() + 23, 20, () -> scrollDetail(33)).glyph("v");
     }
 
     private VillageButton button(Component label, int x, int y, int w, Runnable action) {
@@ -141,34 +133,36 @@ public final class VillageScreen extends Screen {
         }
         var quests=visibleQuests();
         if (selected == null || quests.stream().noneMatch(q -> q.getUUID("id").equals(selected))) selected=quests.isEmpty()?null:quests.getFirst().getUUID("id");
-        int rows=Math.max(1,(panelHeight-116)/32);
+        int rows=layout.rows();
         offset=Math.clamp(offset,0,Math.max(0,quests.size()-rows));
         for(int i=offset;i<Math.min(quests.size(),offset+rows);i++) {
             CompoundTag q=quests.get(i);
-            var row = button(q.getUUID("id").toString(), questTitle(q), left+8, top+59+(i-offset)*32, listWidth-12,
+            var row = button(q.getUUID("id").toString(), questTitle(q), left+8, layout.contentTop()+(i-offset)*34, listWidth-12,
                     () -> {selected=q.getUUID("id");detailScroll=0;rebuildWidgets();});
             row.selected(q.getUUID("id").equals(selected));
             row.setTooltip(Tooltip.create(questTitle(q).copy().append("\n").append(state(q))));
         }
-        button(tr("previous"),left+8,top+panelHeight-27,20,()->{offset--;rebuildWidgets();}).glyph("<").active=offset>0;
-        button(tr("next"),left+31,top+panelHeight-27,20,()->{offset++;rebuildWidgets();}).glyph(">").active=offset+rows<quests.size();
-        button(tr("refresh"),left+55,top+panelHeight-27,listWidth-59,()->send(UiPayloads.Action.REFRESH,null)).active=!pending;
+        button(tr("previous"),left+8,layout.footerTop(),20,()->{offset--;rebuildWidgets();}).glyph("<").active=offset>0;
+        button(tr("next"),left+31,layout.footerTop(),20,()->{offset++;rebuildWidgets();}).glyph(">").active=offset+rows<quests.size();
+        var refresh = button(tr("refresh"),left+55,layout.footerTop(),listWidth-59,()->send(UiPayloads.Action.REFRESH,null));
+        if (layout.compact()) refresh.glyph("R");
+        refresh.active=!pending;
         CompoundTag q=selectedQuest();
         int x=left+listWidth+8, available=panelWidth-listWidth-20;
-        VillageButton action=button("quest_action",tr(pending?"working":q!=null&&q.getBoolean("accept")?"accept":"claim"),x,top+panelHeight-27,available/2-3,()->{
+        VillageButton action=button("quest_action",tr(pending?"working":q!=null&&q.getBoolean("accept")?"accept":"claim"),x,layout.footerTop(),available/2-3,()->{
             if(q!=null) send(q.getBoolean("accept")?UiPayloads.Action.ACCEPT:UiPayloads.Action.CLAIM,q.getUUID("id"));
         });
         action.primary();
         action.active=!pending&&q!=null&&(q.getBoolean("accept")||q.getBoolean("claim"));
-        button(tr("leave"),x+available/2+3,top+panelHeight-27,available/2-3,this::onClose);
+        button(tr("leave"),x+available/2+3,layout.footerTop(),available/2-3,this::onClose);
     }
 
     private void initDialogue() {
-        int x=left+listWidth+12,w=panelWidth-listWidth-24;
-        button(tr("talk"),x,top+panelHeight-99,w,()->send(UiPayloads.Action.TALK,null)).active=!pending;
-        button(tr("open_board"),x,top+panelHeight-76,w,()->send(UiPayloads.Action.BOARD,null)).active=!pending;
-        button(tr("info"),x,top+panelHeight-53,w,()->send(UiPayloads.Action.INFO,null)).active=!pending;
-        button(tr("leave"),x,top+panelHeight-30,w,this::onClose);
+        int x=layout.detailX(),w=Math.min(128,(layout.detailWidth()-4)/2),y=layout.dialogueActionsTop();
+        button(tr("talk"),x,y,w,()->send(UiPayloads.Action.TALK,null)).active=!pending;
+        button(tr("open_board"),x+w+4,y,w,()->send(UiPayloads.Action.BOARD,null)).active=!pending;
+        button(tr("info"),x,y+24,w,()->send(UiPayloads.Action.INFO,null)).active=!pending;
+        button(tr("leave"),x+w+4,y+24,w,this::onClose);
     }
 
     private void send(UiPayloads.Action action, UUID quest) {
@@ -185,16 +179,15 @@ public final class VillageScreen extends Screen {
     @Override public boolean isPauseScreen() { return false; }
 
     private List<CompoundTag> visibleQuests() {
-        List<CompoundTag> result=new ArrayList<>(); var list=data.getList("quests",10);
-        for(int i=0;i<list.size();i++) {
-            var q=list.getCompound(i); String state=q.getString("state");
-            if(section==0&&q.getString("category").equals("MAIN") || section==1&&q.getString("category").equals("DYNAMIC")&&!state.equals("ACTIVE") || section==2&&state.equals("ACTIVE")) result.add(q);
-        }
-        return result;
+        return QuestBoardState.visible(data, section);
     }
     private CompoundTag selectedQuest() { return visibleQuests().stream().filter(q->q.getUUID("id").equals(selected)).findFirst().orElse(null); }
     private Component questTitle(CompoundTag q) { return Component.translatable("quest.livingkingdoms."+q.getString("template")+".title"); }
     private Component state(CompoundTag q) { return Component.translatable("quest.livingkingdoms.state."+q.getString("state").toLowerCase(java.util.Locale.ROOT)); }
+
+    // Screen.render invokes this before its widgets. Drawing a menu background at
+    // that point used to blur and cover the already-rendered parchment and text.
+    @Override public void renderBackground(GuiGraphics g,int mouseX,int mouseY,float delta) {}
 
     @Override public void render(GuiGraphics g,int mouseX,int mouseY,float delta) {
         g.fill(0,0,width,height,0x880C151B);
@@ -208,61 +201,83 @@ public final class VillageScreen extends Screen {
         scrollUp.active = detailScroll > 0;
         scrollDown.active = detailScroll < maxDetailScroll();
         scrollUp.visible = scrollDown.visible = maxDetailScroll() > 0;
-        if (pending) g.drawString(font, tr("working"), board()?left+listWidth+10:left+12,
-                top+panelHeight-(board()?45:24), MUTED, false);
         super.render(g,mouseX,mouseY,delta);
     }
 
     private int paragraph(GuiGraphics g,Component text,int x,int y,int width,int color) {
-        for(var line:font.split(text,Math.max(30,width))) {g.drawString(font,line,x,y,color,false);y+=11;}
-        return y+5;
+        for(var line:VillageTextFlow.wrap(font.getSplitter(),text,width)) {
+            g.drawString(font,net.minecraft.locale.Language.getInstance().getVisualOrder(line),x,y,color,false);
+            y+=VillageTextFlow.LINE_HEIGHT;
+        }
+        return y+VillageTextFlow.PARAGRAPH_GAP;
     }
 
     private void renderBoard(GuiGraphics g) {
         int divider=left+listWidth;
-        g.fill(divider,top+57,divider+1,top+panelHeight-33,0xFFBCA575);
-        var quests=visibleQuests(); int rows=Math.max(1,(panelHeight-116)/32);
+        g.fill(divider,top+56,divider+1,layout.contentBottom(),WOOD);
+        g.fill(divider+4,top+56,left+panelWidth-5,layout.contentBottom(),PAPER);
+        var quests=visibleQuests(); int rows=layout.rows();
         for(int i=offset;i<Math.min(quests.size(),offset+rows);i++) {
-            var q=quests.get(i); int y=top+80+(i-offset)*32;
+            var q=quests.get(i); int y=layout.contentTop()+23+(i-offset)*34;
             g.drawString(font,ellipsize(state(q),listWidth-20),left+11,y,q.getUUID("id").equals(selected)?SUCCESS:MUTED,false);
         }
-        int x=divider+10,y=top+59-detailScroll,w=panelWidth-listWidth-44;
-        g.enableScissor(divider+3,top+56,left+panelWidth-30,top+panelHeight-51);
+        int x=layout.detailX(),y=layout.contentTop()-detailScroll,w=layout.detailWidth()-24;
+        g.enableScissor(x,layout.contentTop(),x+w,layout.contentBottom());
         var q=selectedQuest();
-        if(q==null) { detailHeight=0; paragraph(g,section==2?tr("empty_active"):section==1?tr("empty_requests"):Component.translatable(data.getString("hint")),x,y,w,MUTED); }
+        if(q==null) {
+            int start=y;
+            if(data.contains("notice")) y=paragraph(g,Component.translatable(data.getString("notice")),x,y,w,ERROR);
+            y=paragraph(g,section==2?tr("empty_active"):section==1?tr("empty_requests"):Component.translatable(data.getString("hint")),x,y,w,INK);
+            detailHeight=y-start;
+        }
         else {
             int start=y;
             y=paragraph(g,questTitle(q).copy().withStyle(net.minecraft.ChatFormatting.BOLD),x,y,w,INK);
-            y=paragraph(g,state(q),x,y,w,q.getBoolean("claim")?SUCCESS:MUTED);
+            y=paragraph(g,tr("difficulty",Component.translatable(q.getString("difficulty")),q.getInt("level"))
+                    .append(" · ").append(tr(q.getString("category").equals("MAIN")?"main":"requests")),x,y,w,MUTED);
+            y=paragraph(g,state(q),x,y,w,q.getBoolean("claim")?SUCCESS:INK);
             if(data.contains("notice")) y=paragraph(g,Component.translatable(data.getString("notice")),x,y,w,ERROR);
-            y=paragraph(g,Component.translatable("ui.livingkingdoms.description."+q.getString("template")),x,y,w,MUTED);
-            y=paragraph(g,tr("difficulty",Component.translatable(q.getString("difficulty")),q.getInt("level")),x,y,w,INK);
-            y=paragraph(g,Component.translatable(q.getString("objective"),Component.translatable(q.getString("target"))),x,y,w,INK);
+            y=paragraph(g,Component.translatable("ui.livingkingdoms.description."+q.getString("template")),x,y,w,INK);
+            y=sectionHeader(g,tr("objectives"),x,y,w);
+            if(q.getList("requirements",10).isEmpty())
+                y=paragraph(g,Component.translatable(q.getString("objective"),Component.translatable(q.getString("target"))),x,y,w,INK);
             if(q.contains("target_x")) y=paragraph(g,Component.translatable("quest.livingkingdoms.party_location",q.getInt("target_x"),q.getInt("target_z")),x,y,w,MUTED);
             var items=q.getList("requirements",10);
             for(int i=0;i<items.size();i++) {
                 var item=items.getCompound(i); ItemStack stack=icon(item.getString("item"));
-                g.renderItem(stack,x,y);
-                g.drawString(font,tr("progress",item.getInt("count"),item.getInt("required")),x+21,y+4,INK,false);
-                y=paragraph(g,stack.getHoverName(),x+21,y+17,w-21,MUTED);
+                y=itemRow(g,stack,tr("progress",item.getInt("count"),item.getInt("required")).append(" ").append(stack.getHoverName()),x,y,w);
             }
             y+=3;
-            y=paragraph(g,tr("rewards"),x,y,w,INK);
-            g.renderItem(new ItemStack(Items.EMERALD),x,y);
-            y=paragraph(g,tr("reward_value",q.getInt("emeralds"),q.getInt("reward_reputation")),x+21,y+4,w-21,INK)+6;
+            y=sectionHeader(g,tr("rewards"),x,y,w);
+            y=itemRow(g,new ItemStack(Items.EMERALD),tr("emerald_reward",q.getInt("emeralds")),x,y,w);
+            y=paragraph(g,tr("reputation_reward",q.getInt("reward_reputation")),x+22,y,w-22,SUCCESS);
             if(q.getLong("expires")>=0) y=paragraph(g,tr("expires",(q.getLong("expires")+59)/60),x,y,w,MUTED);
 
             if(q.getString("state").equals("ACTIVE")&&!q.getBoolean("claim")) y=paragraph(g,tr("pending"),x,y,w,MUTED);
             detailHeight=y-start;
         }
         g.disableScissor();
+        detailScroll=Math.clamp(detailScroll,0,maxDetailScroll());
         int viewport=detailViewport();
         if(detailHeight>viewport) {
-            int track=panelHeight-114;
+            int track=viewport;
             int thumb=Math.max(12,track*viewport/detailHeight);
-            int at=top+58+Math.min(track-thumb,detailScroll*(track-thumb)/Math.max(1,detailHeight-viewport));
+            int at=layout.contentTop()+Math.min(track-thumb,detailScroll*(track-thumb)/Math.max(1,detailHeight-viewport));
             g.fill(left+panelWidth-5,at,left+panelWidth-3,at+thumb,0xFF927249);
         }
+    }
+
+    private int sectionHeader(GuiGraphics g,Component label,int x,int y,int w) {
+        Component heading=label.copy().withStyle(net.minecraft.ChatFormatting.BOLD);
+        int headingHeight=VillageTextFlow.height(VillageTextFlow.wrap(font.getSplitter(),heading,w-8).size())+6;
+        g.fill(x,y,x+w,y+headingHeight,INSET);
+        return paragraph(g,heading,x+4,y+3,w-8,INK)+3;
+    }
+
+    private int itemRow(GuiGraphics g,ItemStack stack,Component label,int x,int y,int w) {
+        g.fill(x,y,x+18,y+18,PARCHMENT);
+        g.renderItem(stack,x+1,y+1);
+        return Math.max(y+23,paragraph(g,label,x+22,y+4,w-22,INK));
     }
 
     private static ItemStack icon(String item) {
@@ -276,21 +291,23 @@ public final class VillageScreen extends Screen {
     }
 
     private void renderDialogue(GuiGraphics g,int mouseX,int mouseY) {
-        int x=left+listWidth+12,w=panelWidth-listWidth-24;
+        int x=layout.detailX(),w=layout.detailWidth();
         g.fill(left+9,top+35,left+listWidth,top+panelHeight-12,INSET);
         if(minecraft.level!=null&&minecraft.level.getEntity(data.getInt("entity")) instanceof LivingEntity npc)
-            InventoryScreen.renderEntityInInventoryFollowsMouse(g,left+10,top+40,left+listWidth-2,top+panelHeight-20,Math.min(65,(panelHeight-75)/2),0.0625F,mouseX,mouseY,npc);
+            InventoryScreen.renderEntityInInventoryFollowsMouse(g,left+10,top+40,left+listWidth-2,top+panelHeight-20,Math.min(55,(panelHeight-75)/2),0.0625F,mouseX,mouseY,npc);
         dialogueStart=paragraph(g,Component.translatable("npc.livingkingdoms."+data.getString("role")+".name",data.getString("name"))
                 .withStyle(net.minecraft.ChatFormatting.BOLD),x,top+37,w-24,INK);
         int y=dialogueStart-detailScroll;
-        g.enableScissor(x,dialogueStart,x+w-20,top+panelHeight-104);
-        int end=paragraph(g,Component.translatable(data.getString("dialogue"),data.getString("settlement"),data.getInt("level"),data.getInt("reputation")),x,y,w-24,MUTED);
+        g.enableScissor(x,dialogueStart,x+w-24,layout.dialogueActionsTop()-8);
+        int end=paragraph(g,Component.translatable(data.getString("dialogue"),data.getString("settlement"),data.getInt("level"),data.getInt("reputation")),x,y,w-24,INK);
+        end=paragraph(g,tr("dialogue_status",data.getInt("level"),data.getInt("reputation")),x,end+4,w-24,MUTED);
         detailHeight=end-y;
         g.disableScissor();
+        detailScroll=Math.clamp(detailScroll,0,maxDetailScroll());
     }
 
     private int detailViewport() {
-        return board() ? panelHeight-107 : Math.max(1, top+panelHeight-104-dialogueStart);
+        return board() ? layout.viewport() : Math.max(1, layout.dialogueActionsTop()-8-dialogueStart);
     }
 
     private int maxDetailScroll() { return Math.max(0, detailHeight-detailViewport()); }

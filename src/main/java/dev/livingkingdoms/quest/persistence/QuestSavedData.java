@@ -394,6 +394,11 @@ public final class QuestSavedData extends SavedData {
         return true;
     }
 
+    /** Roll back only the association written by a failed, synchronous establishment. */
+    public void rollbackMayorAssociation(UUID settlement, UUID entity) {
+        if (mayors.remove(settlement, entity)) setDirty();
+    }
+
     public static QuestSavedData load(CompoundTag tag, HolderLookup.Provider registries) {
         require(tag, "schema_version", Tag.TAG_INT);
         int version = tag.getInt("schema_version");

@@ -51,7 +51,7 @@ class SettlementNearestTest {
         assertEquals(original, migrated.get(original.id()).orElseThrow());
         assertEquals(original, migrated.nearestAllied(OVERWORLD, 10, 20, 0).orElseThrow());
         CompoundTag saved = migrated.save(new CompoundTag(), null);
-        assertEquals(1, saved.getInt("schema_version"));
+        assertEquals(2, saved.getInt("schema_version"));
         assertEquals("allied_kingdom", saved.getList("settlements", net.minecraft.nbt.Tag.TAG_COMPOUND)
                 .getCompound(0).getString("faction"));
     }

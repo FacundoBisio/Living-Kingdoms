@@ -63,9 +63,12 @@ public record BuildingTemplate(BuildingKind kind, ResourceLocation id, Structure
         BlockPos entrance = new BlockPos(size.getX() / 2, 0, size.getZ());
         if (kind != BuildingKind.CORE) {
             for (int y = 1; y <= 2; y++) {
-                BlockPos door = new BlockPos(size.getX() / 2, y, size.getZ() - 1);
+                // Walls are inset one block inside the reserved eave/doorstep row.
+                // Checking that outer row only checked exported air, allowing missing doors.
+                BlockPos door = new BlockPos(size.getX() / 2, y, size.getZ() - 2);
                 if (blocks.stream().noneMatch(block -> block.pos().equals(door)
-                        && (block.state().is(net.minecraft.tags.BlockTags.WOODEN_DOORS) || block.state().isAir())))
+                        && (kind == BuildingKind.WATCHTOWER ? block.state().isAir()
+                        : block.state().is(net.minecraft.tags.BlockTags.WOODEN_DOORS))))
                     throw new IllegalArgumentException("Module must expose its south-center entrance");
             }
         }
@@ -83,5 +86,9 @@ public record BuildingTemplate(BuildingKind kind, ResourceLocation id, Structure
 
     public BlockPos worldPosition(BlockPos local, BlockPos minimumCorner, Rotation rotation) {
         return StructureTemplate.transform(local, Mirror.NONE, rotation, BlockPos.ZERO).offset(nativeOrigin(minimumCorner, rotation));
+    }
+
+    public net.minecraft.world.level.levelgen.structure.BoundingBox worldBounds(BlockPos minimumCorner, Rotation rotation) {
+        return template.getBoundingBox(SettlementTemplate.settings().setRotation(rotation), nativeOrigin(minimumCorner, rotation));
     }
 }

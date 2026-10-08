@@ -27,6 +27,7 @@ public final class LivingKingdoms {
 
     public LivingKingdoms(IEventBus modBus, ModContainer container) {
         KingdomBlocks.register(modBus);
+        dev.livingkingdoms.item.KingdomItems.register(modBus);
         modBus.addListener(dev.livingkingdoms.ui.UiPayloads::register);
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.npc.MayorPresentation::onJoin);
         container.registerConfig(ModConfig.Type.SERVER, KingdomConfig.SPEC);

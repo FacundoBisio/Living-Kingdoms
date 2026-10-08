@@ -7,12 +7,18 @@ import java.util.UUID;
 
 /** Immutable aggregate: future changes must replace it through server-owned storage. */
 public record Settlement(UUID id, String name, Faction faction, int level, int population,
-                         Territory territory) {
+                         Territory territory, SettlementProvenance provenance) {
+    /** Source compatibility for old integrations and records with unknown provenance. */
+    public Settlement(UUID id, String name, Faction faction, int level, int population, Territory territory) {
+        this(id, name, faction, level, population, territory, SettlementProvenance.legacy());
+    }
+
     public Settlement {
         Objects.requireNonNull(id, "id");
         Objects.requireNonNull(name, "name");
         Objects.requireNonNull(faction, "faction");
         Objects.requireNonNull(territory, "territory");
+        Objects.requireNonNull(provenance, "provenance");
         if (name.isBlank() || name.length() > 128) {
             throw new IllegalArgumentException("Settlement name must contain 1 to 128 characters");
         }
@@ -22,6 +28,11 @@ public record Settlement(UUID id, String name, Faction faction, int level, int p
 
     public static Settlement founding(UUID id, Territory territory, int population) {
         return new Settlement(id, dev.livingkingdoms.ui.VillageNames.generated(id), Faction.ALLIED_KINGDOM, 1,
-                population, territory);
+                population, territory, SettlementProvenance.created(SettlementOrigin.GENERATED, null));
+    }
+
+    public static Settlement established(UUID id, Territory territory, int population, SettlementOrigin origin, UUID founder) {
+        return new Settlement(id, dev.livingkingdoms.ui.VillageNames.generated(id), Faction.ALLIED_KINGDOM, 1,
+                population, territory, SettlementProvenance.created(origin, Objects.requireNonNull(founder)));
     }
 }

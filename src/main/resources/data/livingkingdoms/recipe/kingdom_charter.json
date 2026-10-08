@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": ["EPE", "IBI", "SSS"],
+  "key": {
+    "E": {"item": "minecraft:emerald"},
+    "P": {"item": "minecraft:paper"},
+    "I": {"item": "minecraft:iron_ingot"},
+    "B": {"tag": "minecraft:banners"},
+    "S": {"item": "minecraft:stone_bricks"}
+  },
+  "result": {"id": "livingkingdoms:kingdom_charter", "count": 1}
+}

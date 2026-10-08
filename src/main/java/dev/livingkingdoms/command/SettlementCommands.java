@@ -34,6 +34,9 @@ public final class SettlementCommands {
                                 .then(Commands.literal("debug").executes(context -> generate(context, false, true)))
                                 .then(Commands.literal("here").executes(context -> generate(context, true, false))
                                         .then(Commands.literal("debug").executes(context -> generate(context, true, true)))))
+                        .then(Commands.literal("debug-layout").requires(source -> source.hasPermission(2))
+                                .executes(context -> dev.livingkingdoms.structure.SettlementLayoutDebug.show(context.getSource())))
+                        .then(Commands.literal("inspect").requires(source -> source.hasPermission(2)).executes(SettlementCommands::inspect))
                         .then(Commands.literal("info").executes(SettlementCommands::info)))
                 .then(Commands.literal("reputation").executes(SettlementCommands::reputation)));
     }
@@ -50,7 +53,7 @@ public final class SettlementCommands {
         }
         Settlement settlement = found.orElseThrow();
         int reputation = QuestSavedData.get(source.getServer()).reputation(player.getUUID(), settlement.id());
-        source.sendSuccess(() -> Component.translatable("quest.livingkingdoms.reputation", settlement.name(), reputation), false);
+        source.sendSuccess(() -> Component.translatable("quest.livingkingdoms.reputation", dev.livingkingdoms.ui.VillageNames.display(settlement), reputation), false);
         return Command.SINGLE_SUCCESS;
     }
 
@@ -77,6 +80,7 @@ public final class SettlementCommands {
                 case TEMPLATE_UNAVAILABLE -> "commands.livingkingdoms.settlement.template_unavailable";
                 case NO_SAFE_SITE -> result.diagnostics().feedbackKey();
                 case PLACEMENT_FAILED -> "commands.livingkingdoms.settlement.placement_failed";
+                case PROTECTED_AREA -> "charter.livingkingdoms.protected_area";
             };
             source.sendFailure(Component.translatable(key));
             return 0;
@@ -132,9 +136,24 @@ public final class SettlementCommands {
         }
         Settlement settlement = found.orElseThrow();
         source.sendSuccess(() -> Component.translatable("commands.livingkingdoms.settlement.info",
-                settlement.name(), settlement.id().toString(),
+                dev.livingkingdoms.ui.VillageNames.display(settlement),
                 Component.translatable("faction.livingkingdoms." + settlement.faction().id()),
                 settlement.level(), settlement.population()), false);
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int inspect(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        var source = context.getSource();
+        var player = source.getPlayerOrException();
+        var pos = player.blockPosition();
+        var found = SettlementSavedData.get(source.getServer()).at(player.serverLevel().dimension().location().toString(),pos.getX(),pos.getZ());
+        if (found.isEmpty()) { source.sendFailure(Component.translatable("commands.livingkingdoms.settlement.not_found")); return 0; }
+        var settlement = found.orElseThrow();
+        var provenance = settlement.provenance();
+        var territory = settlement.territory();
+        source.sendSuccess(() -> Component.translatable("commands.livingkingdoms.settlement.inspect",settlement.id().toString(),
+                provenance.origin().name(),provenance.founder().map(UUID::toString).orElse("unknown"),provenance.createdAtEpochMillis(),
+                provenance.kingdom().map(UUID::toString).orElse("none"),territory.x(),territory.y(),territory.z(),territory.radius()),false);
         return Command.SINGLE_SUCCESS;
     }
 }

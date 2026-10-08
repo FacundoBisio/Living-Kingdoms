@@ -89,9 +89,16 @@ public final class VillageUiGameTests {
         helper.assertTrue(receipt.getUUID("livingkingdoms:founding_resident_0").equals(a)
                 && receipt.getUUID("livingkingdoms:founding_resident_1").equals(b),"Founding receipts prevent duplicate residents");
         var reloaded=EntityType.VILLAGER.create(level);reloaded.load(mayor.saveWithoutId(new CompoundTag()));
+        MayorPresentation.apply(reloaded);
         helper.assertTrue(reloaded.getUUID().equals(mayor.getUUID())&&NpcIdentity.read(reloaded).equals(NpcIdentity.read(mayor))
                 &&reloaded.getPersistentData().getUUID("livingkingdoms:founding_resident_0").equals(a)
                 &&reloaded.getCustomName().equals(mayor.getCustomName()),"Identity, presentation and resident receipts survive entity NBT reload");
+        helper.assertTrue(reloaded.isNoAi() && reloaded.isPersistenceRequired()
+                && reloaded.getVillagerData().getProfession()==net.minecraft.world.entity.npc.VillagerProfession.CLERIC
+                && reloaded.getCustomName().getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents title
+                && title.getKey().equals("npc.livingkingdoms.mayor.name")
+                && !reloaded.getCustomName().getString().matches(".*[a-f0-9]{8}-[a-f0-9-]{27,}.*"),
+                "Reload retains ceremonial outfit and synced named circlet eligibility without technical IDs");
         helper.assertTrue(data.get(settlement.id()).orElseThrow().population()==5,"Visual residents do not change abstract population capacity");
         helper.succeed();
     }
