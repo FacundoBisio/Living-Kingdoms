@@ -35,7 +35,7 @@ class SettlementProvenanceTest {
         assertEquals(old,loaded.get(old.id()).orElseThrow());
         assertEquals(SettlementOrigin.GENERATED,loaded.get(old.id()).orElseThrow().provenance().origin());
         assertTrue(loaded.isDirty());
-        assertEquals(2,loaded.save(new CompoundTag(),null).getInt("schema_version"));
+        assertEquals(3,loaded.save(new CompoundTag(),null).getInt("schema_version"));
     }
     @Test void schemaTwoRejectsUnknownOriginMalformedUuidAndMissingProvenance() {
         var data = new SettlementSavedData(); data.add(create(SettlementProvenance.legacy()));

@@ -33,7 +33,7 @@ public final class SettlementPlacement implements AutoCloseable {
                     || !level.getBlockState(pos).equals(entry.getValue()) || level.getBlockEntity(pos) != null)
                 throw new IllegalStateException("Planned terrain changed or became unavailable at " + pos);
             if (!level.getEntities((Entity) null, new AABB(pos), entity -> !entity.isSpectator()).isEmpty())
-                throw new IllegalStateException("An entity entered planned placement at " + pos);
+                throw new Occupied(pos);
         }
         SettlementPlacement transaction = new SettlementPlacement(level, plan);
         try {
@@ -58,6 +58,11 @@ public final class SettlementPlacement implements AutoCloseable {
             transaction.close();
             throw failure;
         }
+    }
+
+    /** Temporary obstruction; delayed construction can retry without failing its resource receipt. */
+    public static final class Occupied extends IllegalStateException {
+        public Occupied(BlockPos position) { super("An entity entered planned placement at " + position); }
     }
 
     private void write(BlockPos pos, BlockState state) {

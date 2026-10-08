@@ -58,7 +58,9 @@ public final class SettlementGenerator {
             LOGGER.error("Could not load settlement modules", exception);
             return Result.failed(Failure.TEMPLATE_UNAVAILABLE, diagnostics);
         }
-        Optional<SettlementLayout> found = relaxed ? planner.findHere(level, data, catalog, position, KingdomConfig.SETTLEMENT_RADIUS.get(), diagnostics) : search
+        boolean progressive = founder != null && dev.livingkingdoms.config.ConstructionConfig.ENABLED.get();
+        Optional<SettlementLayout> found = progressive ? planner.findCampHere(level, data, catalog, position, KingdomConfig.SETTLEMENT_RADIUS.get(), diagnostics)
+                : relaxed ? planner.findHere(level, data, catalog, position, KingdomConfig.SETTLEMENT_RADIUS.get(), diagnostics) : search
                 ? planner.findNear(level, data, catalog, position, KingdomConfig.GENERATION_SEARCH_RANGE.get(),
                         KingdomConfig.SETTLEMENT_RADIUS.get(), diagnostics)
                 : planner.at(level, data, catalog, position, KingdomConfig.SETTLEMENT_RADIUS.get(), relaxed, diagnostics);
@@ -69,6 +71,7 @@ public final class SettlementGenerator {
         Settlement settlement = founder == null
                 ? Settlement.founding(UUID.randomUUID(), plan.territory(), KingdomConfig.INITIAL_POPULATION.get())
                 : Settlement.established(UUID.randomUUID(), plan.territory(), KingdomConfig.INITIAL_POPULATION.get(), SettlementOrigin.FOUNDED, founder.getUUID());
+        if (progressive) settlement = settlement.withLifecycle(dev.livingkingdoms.settlement.domain.SettlementLifecycle.FOUNDING);
         SettlementLayoutMetadata metadata = SettlementLayoutMetadata.from(plan);
         var before = founder == null ? java.util.List.<net.neoforged.neoforge.common.util.BlockSnapshot>of()
                 : EstablishmentPlacementEvents.capture(level,plan.before().keySet());
@@ -78,11 +81,14 @@ public final class SettlementGenerator {
                 EstablishmentPlacementEvents.validate(founder,before);
                 try (var npcs = NpcEstablishment.open(level, settlement, java.util.List.of())) {
                     npcs.requireInitialResidents();
+                    if (progressive && !dev.livingkingdoms.construction.ConstructionService.ensureNext(level,settlement.id(),founder))
+                        throw new IllegalStateException("No safe initial Town Hall plot");
                     npcs.commit();
                 }
             }
             transaction.commit();
         } catch (RuntimeException exception) {
+            if (progressive) dev.livingkingdoms.construction.ConstructionService.rollbackFounding(level,settlement.id());
             if (data.get(settlement.id()).isPresent()) data.rollbackEstablishment(settlement);
             if (exception instanceof EstablishmentPlacementEvents.Rejected) return Result.failed(Failure.PROTECTED_AREA,diagnostics);
             LOGGER.error("Settlement placement failed at {}; transaction rolled back", position, exception);
@@ -106,15 +112,22 @@ public final class SettlementGenerator {
             throw new IllegalArgumentException("Building additions require an allied settlement in this dimension");
         Map<BlockPos, BlockState> paths = new LinkedHashMap<>();
         metadata.paths().forEach(pos -> paths.put(pos, Blocks.DIRT_PATH.defaultBlockState()));
+        var occupied = new java.util.ArrayList<>(metadata.buildings().stream().map(SettlementLayoutMetadata.Building::bounds).toList());
+        var construction = dev.livingkingdoms.construction.persistence.ConstructionSavedData.get(level.getServer());
+        occupied.addAll(construction.reservations(settlementId));
+        construction.projects(settlementId).stream().filter(e -> e.project().state() != dev.livingkingdoms.construction.domain.ConstructionState.COMPLETED)
+                .forEach(e -> paths.putAll(e.plan().pathBlocks()));
         return planner.planAddition(level, settlement.territory(), BuildingCatalog.load(level, metadata.style()), kind,
-                metadata.buildings().stream().map(SettlementLayoutMetadata.Building::bounds).toList(), metadata.ports(), paths, diagnostics);
+                occupied, metadata.ports(), paths, diagnostics);
     }
 
     public void applyBuildingAddition(ServerLevel level, UUID settlementId, SettlementLayout addition) {
         SettlementSavedData data = SettlementSavedData.get(level.getServer());
         Settlement settlement = data.get(settlementId).orElseThrow();
         if (!settlement.faction().isAllied() || !addition.territory().equals(settlement.territory()) || addition.buildings().size() != 1
-                || addition.buildings().getFirst().module().kind() == BuildingKind.CORE)
+                || SettlementLayoutMetadata.anchor(addition.buildings().getFirst().module().kind())
+                || dev.livingkingdoms.construction.persistence.ConstructionSavedData.get(level.getServer()).reservations(settlementId).stream()
+                    .anyMatch(bounds -> addition.buildings().getFirst().bounds().conflicts(bounds,0)))
             throw new IllegalArgumentException("Invalid addition plan");
         var updated = data.layout(settlementId).orElseThrow().append(addition);
         updated.validate(settlement.territory());

@@ -16,7 +16,7 @@ import java.util.function.Consumer;
 public final class UiPayloads {
     private UiPayloads() {}
     public static Consumer<Snapshot> clientReceiver = ignored -> {};
-    public enum Action { ACCEPT, CLAIM, TALK, BOARD, INFO, CLOSE, REFRESH }
+    public enum Action { ACCEPT, CLAIM, TALK, BOARD, INFO, CLOSE, REFRESH, CONSTRUCTION, DEPOSIT, RETRY, PLAN }
 
     public record Snapshot(CompoundTag data) implements CustomPacketPayload {
         public static final Type<Snapshot> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(LivingKingdoms.MOD_ID, "village_ui"));
@@ -34,7 +34,7 @@ public final class UiPayloads {
     }
 
     public static void register(RegisterPayloadHandlersEvent event) {
-        var registrar = event.registrar("1");
+        var registrar = event.registrar("2");
         registrar.playToClient(Snapshot.TYPE, Snapshot.CODEC, (payload, context) -> clientReceiver.accept(payload));
         registrar.playToServer(Request.TYPE, Request.CODEC, (payload, context) -> {
             if (context.player() instanceof ServerPlayer player) VillageUiService.handle(player, payload);

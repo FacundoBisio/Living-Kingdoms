@@ -19,6 +19,7 @@ final class SettlementNbt {
         tag.putString("faction", settlement.faction().id());
         tag.putInt("level", settlement.level());
         tag.putInt("population", settlement.population());
+        tag.putString("lifecycle", settlement.lifecycle().name());
         CompoundTag provenance = new CompoundTag();
         provenance.putString("origin", settlement.provenance().origin().name());
         provenance.putLong("created_at_epoch_millis", settlement.provenance().createdAtEpochMillis());
@@ -36,7 +37,7 @@ final class SettlementNbt {
         return tag;
     }
 
-    static Settlement read(CompoundTag tag, boolean legacy) {
+    static Settlement read(CompoundTag tag, int schema) {
         if (!tag.hasUUID("id")) throw new IllegalArgumentException("Missing settlement UUID");
         require(tag, "name", Tag.TAG_STRING);
         require(tag, "faction", Tag.TAG_STRING);
@@ -51,7 +52,7 @@ final class SettlementNbt {
         Territory territory = new Territory(location.getString("dimension"), location.getInt("x"),
                 location.getInt("y"), location.getInt("z"), location.getInt("radius"));
         SettlementProvenance provenance = SettlementProvenance.legacy();
-        if (!legacy) {
+        if (schema >= 2) {
             require(tag, "provenance", Tag.TAG_COMPOUND);
             CompoundTag history = tag.getCompound("provenance");
             require(history, "origin", Tag.TAG_STRING);
@@ -61,7 +62,13 @@ final class SettlementNbt {
         }
         return new Settlement(tag.getUUID("id"), tag.getString("name"),
                 Faction.fromId(tag.getString("faction")), tag.getInt("level"),
-                tag.getInt("population"), territory, provenance);
+                tag.getInt("population"), territory, provenance, lifecycle(tag, schema));
+    }
+
+    private static dev.livingkingdoms.settlement.domain.SettlementLifecycle lifecycle(CompoundTag tag, int schema) {
+        if (schema < 3) return dev.livingkingdoms.settlement.domain.SettlementLifecycle.ESTABLISHED;
+        require(tag, "lifecycle", Tag.TAG_STRING);
+        return dev.livingkingdoms.settlement.domain.SettlementLifecycle.valueOf(tag.getString("lifecycle"));
     }
 
     private static java.util.Optional<java.util.UUID> optionalUuid(CompoundTag tag, String key) {

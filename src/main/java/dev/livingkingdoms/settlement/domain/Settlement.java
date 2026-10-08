@@ -7,7 +7,15 @@ import java.util.UUID;
 
 /** Immutable aggregate: future changes must replace it through server-owned storage. */
 public record Settlement(UUID id, String name, Faction faction, int level, int population,
-                         Territory territory, SettlementProvenance provenance) {
+                         Territory territory, SettlementProvenance provenance, SettlementLifecycle lifecycle) {
+    public Settlement(UUID id, String name, Faction faction, int level, int population,
+                      Territory territory, SettlementProvenance provenance) {
+        this(id, name, faction, level, population, territory, provenance, SettlementLifecycle.ESTABLISHED);
+    }
+
+    public Settlement withLifecycle(SettlementLifecycle next) {
+        return new Settlement(id, name, faction, level, population, territory, provenance, next);
+    }
     /** Source compatibility for old integrations and records with unknown provenance. */
     public Settlement(UUID id, String name, Faction faction, int level, int population, Territory territory) {
         this(id, name, faction, level, population, territory, SettlementProvenance.legacy());
@@ -19,6 +27,7 @@ public record Settlement(UUID id, String name, Faction faction, int level, int p
         Objects.requireNonNull(faction, "faction");
         Objects.requireNonNull(territory, "territory");
         Objects.requireNonNull(provenance, "provenance");
+        Objects.requireNonNull(lifecycle, "lifecycle");
         if (name.isBlank() || name.length() > 128) {
             throw new IllegalArgumentException("Settlement name must contain 1 to 128 characters");
         }

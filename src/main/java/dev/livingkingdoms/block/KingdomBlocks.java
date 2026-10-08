@@ -20,10 +20,13 @@ public final class KingdomBlocks {
             DeferredRegister.create(BuiltInRegistries.BLOCK_TYPE, LivingKingdoms.MOD_ID);
     public static final DeferredBlock<QuestBoardBlock> QUEST_BOARD = BLOCKS.registerBlock("quest_board",
             QuestBoardBlock::new, BlockBehaviour.Properties.of().strength(2.0F).sound(SoundType.WOOD).noOcclusion());
+    public static final DeferredBlock<ConstructionMarkerBlock> CONSTRUCTION_MARKER = BLOCKS.registerBlock("construction_marker",
+            ConstructionMarkerBlock::new, BlockBehaviour.Properties.of().strength(1.5F).sound(SoundType.WOOD).noLootTable());
 
     static {
         ITEMS.registerSimpleBlockItem(QUEST_BOARD);
         BLOCK_TYPES.register("quest_board", () -> QuestBoardBlock.CODEC);
+        BLOCK_TYPES.register("construction_marker", () -> ConstructionMarkerBlock.CODEC);
     }
 
     public static void register(IEventBus bus) {

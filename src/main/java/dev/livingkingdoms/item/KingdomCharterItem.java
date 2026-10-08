@@ -23,7 +23,7 @@ public final class KingdomCharterItem extends Item {
         if (!(context.getPlayer() instanceof ServerPlayer player)) return InteractionResult.FAIL;
         var result = SettlementEstablishmentService.useCharter(player,context.getHand(),context.getClickedPos(),
                 context.isSecondaryUseActive() ? SettlementEstablishmentService.Mode.CONVERT_ONLY : SettlementEstablishmentService.Mode.AUTO);
-        player.displayClientMessage(result.message(),false);
+        player.displayClientMessage(result.message(),result.successful());
         // A short cooldown bounds repeated surveys, including unsuccessful attempts.
         player.getCooldowns().addCooldown(this,20);
         return result.successful() ? InteractionResult.CONSUME : InteractionResult.FAIL;

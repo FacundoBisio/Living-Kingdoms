@@ -45,7 +45,7 @@ class SettlementLayoutPersistenceTest {
         assertEquals(List.of(settlement), loaded.settlements());
         assertTrue(loaded.layout(settlement.id()).isEmpty());
         assertTrue(loaded.isDirty());
-        assertEquals(2, loaded.save(new CompoundTag(), null).getInt("schema_version"));
+        assertEquals(3, loaded.save(new CompoundTag(), null).getInt("schema_version"));
     }
 
     @Test void optionalMetadataRoundTripsRotationsElevationsPathsAndBiomeStyle() {

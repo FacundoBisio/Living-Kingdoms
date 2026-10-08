@@ -4,14 +4,14 @@ license="All Rights Reserved"
 
 [[mods]]
 modId="livingkingdoms_tests"
-version="0.9.0"
+version="0.10.0"
 displayName="Living Kingdoms Game Tests"
 description='''Development-only server command and persistence smoke tests.'''
 
 [[dependencies.livingkingdoms_tests]]
 modId="livingkingdoms"
 type="required"
-versionRange="[0.9.0,)"
+versionRange="[0.10.0,)"
 ordering="AFTER"
 side="BOTH"
 

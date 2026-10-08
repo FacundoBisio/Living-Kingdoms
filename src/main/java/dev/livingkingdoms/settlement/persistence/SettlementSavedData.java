@@ -27,7 +27,7 @@ import java.util.UUID;
 public final class SettlementSavedData extends SavedData {
     public static final String DATA_NAME = "livingkingdoms_settlements";
     public static final int MAX_NEAREST_DISTANCE = 4096;
-    private static final int SCHEMA_VERSION = 2;
+    private static final int SCHEMA_VERSION = 3;
     private static final int INDEX_BUCKET_SIZE = 256;
     private final Map<UUID, Settlement> settlements = new LinkedHashMap<>();
     private final Map<UUID, SettlementLayoutMetadata> layouts = new HashMap<>();
@@ -64,6 +64,14 @@ public final class SettlementSavedData extends SavedData {
     }
 
     public Optional<SettlementLayoutMetadata> layout(UUID id) { return Optional.ofNullable(layouts.get(id)); }
+
+    public boolean replace(Settlement expected, Settlement replacement) {
+        if (!expected.id().equals(replacement.id()) || !expected.territory().equals(replacement.territory()))
+            throw new IllegalArgumentException("Settlement identity and territory cannot change");
+        if (!settlements.replace(expected.id(), expected, replacement)) return false;
+        setDirty();
+        return true;
+    }
 
     public void add(Settlement settlement, SettlementLayoutMetadata layout) {
         layout.validate(settlement.territory());
@@ -198,7 +206,7 @@ public final class SettlementSavedData extends SavedData {
     public static SettlementSavedData load(CompoundTag tag, HolderLookup.Provider registries) {
         SettlementNbt.require(tag, "schema_version", Tag.TAG_INT);
         int schema = tag.getInt("schema_version");
-        if (schema != 1 && schema != SCHEMA_VERSION) {
+        if (schema < 1 || schema > SCHEMA_VERSION) {
             throw new IllegalArgumentException("Unsupported Living Kingdoms settlement schema: "
                     + tag.getInt("schema_version"));
         }
@@ -210,13 +218,13 @@ public final class SettlementSavedData extends SavedData {
         SettlementSavedData data = new SettlementSavedData();
         for (int i = 0; i < entries.size(); i++) {
             CompoundTag entry = entries.getCompound(i);
-            Settlement settlement = SettlementNbt.read(entry, schema == 1);
+            Settlement settlement = SettlementNbt.read(entry, schema);
             if (entry.contains("layout")) {
                 SettlementNbt.require(entry, "layout", Tag.TAG_COMPOUND);
                 data.add(settlement, SettlementLayoutNbt.read(entry.getCompound("layout")));
             } else data.add(settlement);
         }
-        data.setDirty(schema == 1);
+        data.setDirty(schema < SCHEMA_VERSION);
         return data;
     }
 

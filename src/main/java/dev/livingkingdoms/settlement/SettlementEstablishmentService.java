@@ -39,6 +39,7 @@ public final class SettlementEstablishmentService {
             return Result.failed("charter.livingkingdoms.failed");
         }
         if (result.successful() && !player.getAbilities().instabuild) stack.shrink(1);
+        if (result.successful()) dev.livingkingdoms.advancement.KingdomMilestone.awardFirstKingdom(player);
         return result;
     }
 
@@ -113,7 +114,7 @@ public final class SettlementEstablishmentService {
         public boolean successful() { return settlement != null; }
         static Result failed(String key, Object... args) { return new Result(null,Component.translatable(key,args),new GenerationDiagnostics().summary()); }
         static Result success(Settlement settlement, GenerationDiagnostics.Summary diagnostics) {
-            String key = settlement.provenance().origin() == SettlementOrigin.CONVERTED ? "charter.livingkingdoms.converted" : "charter.livingkingdoms.founded";
+            String key = settlement.provenance().origin() == SettlementOrigin.CONVERTED ? "charter.livingkingdoms.converted" : "charter.livingkingdoms.celebration";
             return new Result(settlement,Component.translatable(key,dev.livingkingdoms.ui.VillageNames.display(settlement),
                     settlement.territory().x(),settlement.territory().y(),settlement.territory().z()),diagnostics);
         }

@@ -1,4 +1,5 @@
 # Village Conversion + Founding Kingdom — 0.9.0
+> Historical 0.9.0 report. New wilderness foundations now use the [0.10.0 progressive camp and construction flow](progressive-kingdom-founding.md).
 
 Branch: `codex/village-conversion-founding-kingdom`. It started at the same `004afff` commit as main and the QA branch; switching carried all uncommitted QA fixes forward. No reset, rebase, commit or push was needed. The previous blurred GUI, wrapping/layout and structure support/rotation fixes are preserved.
 

@@ -138,7 +138,8 @@ public final class SettlementCommands {
         source.sendSuccess(() -> Component.translatable("commands.livingkingdoms.settlement.info",
                 dev.livingkingdoms.ui.VillageNames.display(settlement),
                 Component.translatable("faction.livingkingdoms." + settlement.faction().id()),
-                settlement.level(), settlement.population()), false);
+                settlement.level(), settlement.population()).append(" · ").append(Component.translatable(
+                        "construction.livingkingdoms.lifecycle."+settlement.lifecycle().name().toLowerCase(java.util.Locale.ROOT))), false);
         return Command.SINGLE_SUCCESS;
     }
 

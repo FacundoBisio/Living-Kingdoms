@@ -25,7 +25,26 @@ import java.util.WeakHashMap;
 public final class VillageUiService {
     private static final Map<ServerPlayer, Session> SESSIONS = new WeakHashMap<>();
     private VillageUiService() {}
-    private record Session(UUID token, UUID settlement, String dimension, BlockPos board, UUID npc, long opened) {}
+    private record Session(UUID token, UUID settlement, String dimension, BlockPos board, UUID npc, long opened,
+                           BlockPos marker, boolean construction) {
+        Session(UUID token, UUID settlement, String dimension, BlockPos board, UUID npc, long opened) {
+            this(token,settlement,dimension,board,npc,opened,null,false);
+        }
+        Session constructionView() { return new Session(token,settlement,dimension,board,npc,opened,marker,true); }
+    }
+
+    public static boolean openConstructionMarker(ServerPlayer player,BlockPos marker) {
+        if(player.isSpectator() || !player.isAlive() || player.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(marker))>64
+                || !player.serverLevel().getChunkSource().hasChunk(marker.getX()>>4,marker.getZ()>>4)
+                || !player.serverLevel().getBlockState(marker).is(dev.livingkingdoms.block.KingdomBlocks.CONSTRUCTION_MARKER)) return false;
+        var storage=dev.livingkingdoms.construction.persistence.ConstructionSavedData.get(player.server);
+        var project=storage.marker(player.level().dimension().location().toString(),marker).flatMap(storage::get);
+        if(project.isEmpty()) return false;
+        var settlement=SettlementSavedData.get(player.server).get(project.get().project().settlementId()).orElse(null);
+        if(settlement==null || !settlement.faction().isAllied() || !inside(player,settlement)) return false;
+        Session session=new Session(UUID.randomUUID(),settlement.id(),player.level().dimension().location().toString(),null,null,now(player),marker.immutable(),true);
+        SESSIONS.put(player,session); sendConstruction(player,session,settlement,false); return true;
+    }
 
     public static boolean openBoard(ServerPlayer player, BlockPos board) {
         var found = ExpandedQuestService.boardSettlement(player, board);
@@ -65,6 +84,31 @@ public final class VillageUiService {
                 || !session.dimension.equals(player.level().dimension().location().toString())) return invalidate(player);
         var settlement = SettlementSavedData.get(player.server).get(session.settlement).orElse(null);
         if (settlement == null || !settlement.faction().isAllied() || !inside(player, settlement)) return invalidate(player);
+        if (session.marker != null && (player.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(session.marker)) > 64
+                || !player.serverLevel().getChunkSource().hasChunk(session.marker.getX()>>4,session.marker.getZ()>>4)
+                || !player.serverLevel().getBlockState(session.marker).is(dev.livingkingdoms.block.KingdomBlocks.CONSTRUCTION_MARKER)
+                || dev.livingkingdoms.construction.persistence.ConstructionSavedData.get(player.server)
+                    .marker(session.dimension,session.marker).flatMap(id -> dev.livingkingdoms.construction.persistence.ConstructionSavedData.get(player.server).get(id))
+                    .filter(e -> e.project().settlementId().equals(session.settlement)).isEmpty())) return invalidate(player);
+        // A construction view retains its original physical anchor and all reach/ownership checks.
+        if (session.npc != null && !validMayor(player,session)) return invalidate(player);
+        if (session.board != null && ExpandedQuestService.boardSettlement(player,session.board).filter(s -> s.id().equals(session.settlement)).isEmpty()) return invalidate(player);
+        if (request.action() == UiPayloads.Action.CONSTRUCTION || session.construction) {
+            Session construction=session.constructionView(); SESSIONS.put(player,construction);
+            boolean result;
+            try { result=switch(request.action()) {
+                case CONSTRUCTION, REFRESH -> true;
+                case DEPOSIT -> dev.livingkingdoms.construction.ConstructionService.deposit(player,settlement.id(),request.quest());
+                case RETRY -> dev.livingkingdoms.construction.ConstructionService.retry(player,settlement.id(),request.quest());
+                case PLAN -> dev.livingkingdoms.construction.ConstructionService.ensureNext(player.serverLevel(),settlement.id(),player);
+                default -> false;
+            }; } catch (RuntimeException failure) {
+                com.mojang.logging.LogUtils.getLogger().warn("Construction interaction rejected for {}: {}",settlement.id(),failure.toString());
+                result=false;
+            }
+            sendConstruction(player,construction,SettlementSavedData.get(player.server).get(settlement.id()).orElseThrow(),!result);
+            return result;
+        }
         if (session.board != null) {
             if (ExpandedQuestService.boardSettlement(player, session.board).filter(s -> s.id().equals(session.settlement)).isEmpty()) return invalidate(player);
             boolean result = switch (request.action()) {
@@ -100,11 +144,21 @@ public final class VillageUiService {
         return false;
     }
 
+    private static boolean validMayor(ServerPlayer player,Session session) {
+        var entity=player.serverLevel().getEntity(session.npc);
+        return entity instanceof Villager npc && npc.isAlive() && player.distanceToSqr(npc)<=64
+                && NpcIdentity.read(npc).filter(id -> id.role()==NpcRole.MAYOR && id.settlementId().equals(session.settlement)).isPresent()
+                && QuestSavedData.get(player.server).mayor(session.settlement).filter(npc.getUUID()::equals).isPresent();
+    }
+
     private static CompoundTag base(ServerPlayer player, Session session, Settlement settlement, String screen) {
         CompoundTag tag = new CompoundTag();
         tag.putUUID("session", session.token); tag.putString("screen", screen);
         tag.putString("settlement", VillageNames.display(settlement));
         tag.putInt("reputation", QuestSavedData.get(player.server).reputation(player.getUUID(), settlement.id()));
+        tag.putString("lifecycle",settlement.lifecycle().name());
+        tag.putBoolean("construction",settlement.lifecycle()==dev.livingkingdoms.settlement.domain.SettlementLifecycle.FOUNDING
+                || !dev.livingkingdoms.construction.persistence.ConstructionSavedData.get(player.server).projects(settlement.id()).isEmpty());
         return tag;
     }
 
@@ -113,10 +167,36 @@ public final class VillageUiService {
         tag.putInt("entity", npc.getId());
         tag.putString("name", MayorPresentation.name(npc));
         tag.putString("role", "mayor");
-        tag.putString("dialogue", info ? "ui.livingkingdoms.dialogue.info" : QuestSavedData.get(player.server).progress(player.getUUID(), settlement.id()).state() == QuestState.COMPLETED
+        tag.putString("dialogue", settlement.lifecycle()==dev.livingkingdoms.settlement.domain.SettlementLifecycle.FOUNDING ? "ui.livingkingdoms.dialogue.founding"
+                : info ? "ui.livingkingdoms.dialogue.info" : QuestSavedData.get(player.server).progress(player.getUUID(), settlement.id()).state() == QuestState.COMPLETED
                 ? "npc.livingkingdoms.mayor.after" : "npc.livingkingdoms.mayor.before");
         tag.putInt("level", settlement.level());
         PacketDistributor.sendToPlayer(player, new UiPayloads.Snapshot(tag));
+    }
+
+    private static void sendConstruction(ServerPlayer player,Session session,Settlement settlement,boolean rejected) {
+        CompoundTag tag=base(player,session,settlement,"construction");
+        if(rejected) tag.putString("notice","construction.livingkingdoms.rejected");
+        ListTag projects=new ListTag();
+        var entries=dev.livingkingdoms.construction.persistence.ConstructionSavedData.get(player.server).projects(settlement.id());
+        for(var entry:entries) {
+            var p=entry.project(); CompoundTag view=new CompoundTag(); view.putUUID("id",p.id());
+            view.putString("building",p.building().name().toLowerCase(java.util.Locale.ROOT)); view.putString("state",p.state().name());
+            view.putInt("x",p.plot().x()); view.putInt("y",p.plot().y()); view.putInt("z",p.plot().z());
+            view.putDouble("progress",p.progress(now(player))); view.putBoolean("awaiting_chunks",p.awaitingChunks());
+            view.putLong("duration",p.durationTicks());
+            view.putBoolean("waiting_site",dev.livingkingdoms.construction.persistence.ConstructionSavedData.get(player.server).waitingForClearSite(p.id()));
+            view.putLong("remaining",p.startedAt()<0 ? p.durationTicks()/20 : Math.max(0,(p.deadline()-now(player)+19)/20));
+            ListTag costs=new ListTag();
+            for(var kind:ResourceKind.values()) if(p.required().containsKey(kind)) {
+                CompoundTag cost=new CompoundTag(); cost.putString("item",kind.id()); cost.putInt("required",p.required().get(kind));
+                cost.putInt("count",p.supplied().getOrDefault(kind,0)); cost.putInt("carried",DeliveryInventory.count(player.getInventory(),kind)); costs.add(cost);
+            }
+            view.put("requirements",costs); projects.add(view);
+        }
+        tag.put("projects",projects); tag.putBoolean("plan",settlement.lifecycle()==dev.livingkingdoms.settlement.domain.SettlementLifecycle.FOUNDING
+                && entries.stream().noneMatch(e -> e.project().state()!=dev.livingkingdoms.construction.domain.ConstructionState.COMPLETED));
+        PacketDistributor.sendToPlayer(player,new UiPayloads.Snapshot(tag));
     }
 
     private static void sendBoard(ServerPlayer player, Session session, Settlement settlement) {

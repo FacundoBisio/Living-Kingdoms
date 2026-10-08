@@ -35,6 +35,7 @@ public final class LivingKingdoms {
         NeoForge.EVENT_BUS.addListener(EncounterCommands::register);
         NeoForge.EVENT_BUS.addListener(ProgressionCommands::register);
         NeoForge.EVENT_BUS.addListener(QuestCommands::register);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.command.ConstructionCommands::register);
         NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, false, EncounterEvents::onDeath);
         NeoForge.EVENT_BUS.addListener(EncounterEvents::onConversion);
         NeoForge.EVENT_BUS.addListener(EncounterEvents::onDamage);
@@ -43,6 +44,8 @@ public final class LivingKingdoms {
         NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, false, FactionCombat::onChangeTarget);
         NeoForge.EVENT_BUS.addListener(NaturalEncounterSpawner::onLevelTick);
         NeoForge.EVENT_BUS.addListener(EncounterMaintenance::onServerTick);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.construction.ConstructionEvents::onTick);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.construction.ConstructionEvents::onChunkLoad);
         NeoForge.EVENT_BUS.addListener(QuestInteractions::onRightClickBlock);
         NeoForge.EVENT_BUS.addListener(NpcInteractions::onInteract);
         NeoForge.EVENT_BUS.addListener(NpcInteractions::onInteractSpecific);

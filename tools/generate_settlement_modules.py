@@ -117,6 +117,23 @@ def module(kind, width, depth, height):
         put(b,8,1,2,"bookshelf")
         put(b,3,1,2,"crafting_table")
         lantern(b,6,2,3)
+    elif kind == "founding_camp":
+        for x in range(width):
+            for z in range(depth): put(b, x, 0, z, "spruce_planks")
+        b.put(4, 1, 4, "minecraft:lodestone")
+        b.put(7, 1, 4, "livingkingdoms:quest_board", facing="west")
+        # A canvas shelter, two beds, and supplies; plaza NPC positions stay clear.
+        for x in (0, 3):
+            for z in (0, 3):
+                for y in (1, 2): put(b, x, y, z, "spruce_fence")
+        for x in range(0, 4):
+            for z in range(0, 4): put(b, x, 3, z, "white_wool")
+        bed(b, 1, 1)
+        bed(b, 2, 1, "light_blue")
+        put(b, 1, 1, 6, "barrel", facing="up", open="false")
+        put(b, 2, 1, 6, "crafting_table")
+        put(b, 7, 1, 1, "campfire", facing="south", lit="true", signal_fire="false", waterlogged="false")
+        lantern(b, 7, 1, 7)
     elif kind == "watchtower":
         # One accessible lookout, continuous corner posts and a compact gable.
         for x in (1,5):
@@ -191,7 +208,8 @@ def main():
     root = Path(__file__).resolve().parents[1] / "src/main/resources/data/livingkingdoms/structure/allied/plains"
     for kind, width, depth, height in (("core", 13, 13, 11), ("town_hall", 11, 9, 11), ("house", 7, 7, 9),
                                        ("house_variant", 7, 9, 10), ("house_third", 9, 7, 10),
-                                       ("blacksmith", 7, 7, 10), ("barracks", 9, 9, 10), ("watchtower", 7, 7, 12)):
+                                       ("blacksmith", 7, 7, 10), ("barracks", 9, 9, 10), ("watchtower", 7, 7, 12),
+                                       ("founding_camp", 9, 9, 5)):
         result = module(kind, width, depth, height)
         path = root / f"{kind}.nbt"
         if args.check:

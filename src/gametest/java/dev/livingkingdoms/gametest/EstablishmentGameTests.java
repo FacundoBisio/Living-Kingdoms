@@ -78,13 +78,21 @@ public final class EstablishmentGameTests {
         // A real inventory-bearing vanilla house is outside the minimal plaza and must survive intact.
         var chest = center.offset(12,0,0); level.setBlock(chest,Blocks.CHEST.defaultBlockState(),18);
         ((net.minecraft.world.level.block.entity.ChestBlockEntity)level.getBlockEntity(chest)).setItem(0,new ItemStack(Items.DIAMOND,3));
-        var player = player(level,center,2);
+        var player = new UiTestPlayer(level) { @Override public boolean isFakePlayer() { return false; } };
+        player.getAbilities().mayBuild=true;
+        player.setPos(center.getX()+0.5,center.getY(),center.getZ()+2.5);
+        player.setItemInHand(InteractionHand.MAIN_HAND,new ItemStack(KingdomItems.KINGDOM_CHARTER.get(),2));
         helper.runAfterDelay(2,()-> {
             var survey = VillageSurvey.detect(level,center);
             helper.assertTrue(survey.valid() && survey.beds().size()==2 && survey.bells().size()==1,"Villagers + complete HOME POIs + optional bell: "+survey);
             var result = SettlementEstablishmentService.useCharter(player,InteractionHand.MAIN_HAND,center.below(),SettlementEstablishmentService.Mode.AUTO);
             helper.assertTrue(result.successful(),"A valid village converts: "+result.message().getString());
             var settlement = result.settlement();
+            helper.assertTrue(settlement.lifecycle()==dev.livingkingdoms.settlement.domain.SettlementLifecycle.ESTABLISHED
+                    && dev.livingkingdoms.construction.persistence.ConstructionSavedData.get(level.getServer()).projects(settlement.id()).isEmpty(),"Converted villages bypass the wilderness chain");
+            var advancement=level.getServer().getAdvancements().get(dev.livingkingdoms.advancement.KingdomMilestone.FIRST_KINGDOM.id());
+            helper.assertTrue(player.getAdvancements().getOrStartProgress(advancement).isDone()
+                    && !dev.livingkingdoms.advancement.KingdomMilestone.awardFirstKingdom(player),"First conversion qualifies for the same one-time advancement");
             helper.assertTrue(settlement.provenance().origin()==SettlementOrigin.CONVERTED
                     && settlement.provenance().founder().orElseThrow().equals(player.getUUID())
                     && settlement.provenance().createdAtEpochMillis()>0 && settlement.provenance().kingdom().isEmpty(),"Founder, origin, time and empty future kingdom are stored");
@@ -167,6 +175,9 @@ public final class EstablishmentGameTests {
 
     @GameTest(template="empty",timeoutTicks=600)
     public static void realItemHookFoundsAndConsumesOnlyOnce(GameTestHelper helper) {
+        boolean progressive=dev.livingkingdoms.config.ConstructionConfig.ENABLED.get();
+        dev.livingkingdoms.config.ConstructionConfig.ENABLED.set(false);
+        try {
         var level=helper.getLevel(); var center=fixture(helper,125120); var player=player(level,center,2);
         helper.assertTrue(!VillageSurvey.detect(level,center).hasSignals(),"Wilderness has no village signals");
         var context=new UseOnContext(player,InteractionHand.MAIN_HAND,new BlockHitResult(Vec3.atCenterOf(center.below()),Direction.UP,center.below(),false));
@@ -185,6 +196,7 @@ public final class EstablishmentGameTests {
         player.setPos(center.getX()+0.5,center.getY(),center.getZ()+2.5);
         helper.assertTrue(player.getMainHandItem().onItemUseFirst(context)==InteractionResult.FAIL && player.getMainHandItem().getCount()==1,"Repeated item hook cannot spend or create twice");
         helper.succeed();
+        } finally { dev.livingkingdoms.config.ConstructionConfig.ENABLED.set(progressive); }
     }
 
     @GameTest(template="empty",timeoutTicks=600)

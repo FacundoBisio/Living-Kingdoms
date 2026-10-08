@@ -58,10 +58,14 @@ public record BuildingTemplate(BuildingKind kind, ResourceLocation id, Structure
             if ((size.getX() != 13 || size.getZ() != 13) || markers != 1 || boards != 1
                     || !blocks.stream().anyMatch(block -> block.pos().equals(new BlockPos(6, 1, 9)) && block.state().is(Blocks.LODESTONE)))
                 throw new IllegalArgumentException("Core requires 13xHx13, marker (6,1,9), and one Quest Board");
+        } else if (kind == BuildingKind.FOUNDING_CAMP) {
+            if (size.getX() != 9 || size.getZ() != 9 || markers != 1 || boards != 1
+                    || blocks.stream().noneMatch(block -> block.pos().equals(new BlockPos(4, 1, 4)) && block.state().is(Blocks.LODESTONE)))
+                throw new IllegalArgumentException("Camp requires 9xHx9, marker (4,1,4), and one Quest Board");
         } else if (markers != 0 || boards != 0) throw new IllegalArgumentException("Only the core owns the marker and Quest Board");
         // South-facing export convention. The exterior doorstep stays outside the module footprint.
         BlockPos entrance = new BlockPos(size.getX() / 2, 0, size.getZ());
-        if (kind != BuildingKind.CORE) {
+        if (kind != BuildingKind.CORE && kind != BuildingKind.FOUNDING_CAMP) {
             for (int y = 1; y <= 2; y++) {
                 // Walls are inset one block inside the reserved eave/doorstep row.
                 // Checking that outer row only checked exported air, allowing missing doors.

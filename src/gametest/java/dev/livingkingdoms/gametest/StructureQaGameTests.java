@@ -52,11 +52,15 @@ public final class StructureQaGameTests {
                 BlockPos at=minimum.offset(x,y,z);
                 if(!module.worldBounds(minimum,rotation).isInside(at))helper.assertTrue(level.getBlockState(at).isAir(),"No stray roof or duplicated plane at "+at);
             }
-            if(kind!=BuildingKind.CORE && kind!=BuildingKind.WATCHTOWER) {
+            if(kind!=BuildingKind.CORE && kind!=BuildingKind.WATCHTOWER && kind!=BuildingKind.FOUNDING_CAMP) {
                 BlockPos door=building.position(new BlockPos(module.size().getX()/2,1,module.size().getZ()-2));
                 BlockPos threshold=building.position(new BlockPos(module.size().getX()/2,0,module.size().getZ()-1));
                 helper.assertTrue(level.getBlockState(door).is(net.minecraft.tags.BlockTags.WOODEN_DOORS)
                         &&threshold.distManhattan(building.entrance())==1,"Actual door, reserved doorstep and path entrance are contiguous");
+            }
+            if(kind==BuildingKind.FOUNDING_CAMP) {
+                BlockPos opening=building.position(new BlockPos(4,1,7));
+                helper.assertTrue(level.getBlockState(opening).isAir() && level.getBlockState(opening.above()).isAir(),"Temporary camp has an open south entrance");
             }
         }
         helper.succeed();

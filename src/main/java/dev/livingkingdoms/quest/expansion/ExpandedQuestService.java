@@ -153,7 +153,10 @@ public final class ExpandedQuestService {
                 ^ data.boardGeneration(player.getUUID(), settlement.id());
         var offers = QuestGenerator.generate(settlement.id(), regional, targets, Map.of(), rules, new Random(seed), now);
         int slots = Math.max(0, rules.dynamicCount() - (int) active);
-        data.rotateBoard(player.getUUID(), settlement.id(), now, rules.refreshTicks(), offers.stream().limit(slots).toList());
+        data.rotateBoard(player.getUUID(), settlement.id(), now, rules.refreshTicks(), offers.stream()
+                .filter(quest -> settlement.lifecycle() != dev.livingkingdoms.settlement.domain.SettlementLifecycle.FOUNDING
+                        || quest.template() == QuestTemplate.FOOD_REQUEST || quest.template() == QuestTemplate.BUILDING_REQUEST)
+                .limit(slots).toList());
     }
 
     private static void ensureMain(ServerPlayer player, Settlement settlement) {
@@ -170,6 +173,7 @@ public final class ExpandedQuestService {
             var next = QuestCatalog.nextMain(completed);
             if (next.isEmpty()) return;
             QuestTemplate template = next.orElseThrow();
+            if (settlement.lifecycle() == dev.livingkingdoms.settlement.domain.SettlementLifecycle.FOUNDING && template != QuestTemplate.FIRST_MEETING) return;
             QuestInstance existing = main(data, owner, settlement.id(), template).orElse(null);
             if (existing == null || (template == QuestTemplate.MAIN_PATROL && existing.state() == QuestState.FAILED)) {
                 QuestObjective objective;

@@ -107,12 +107,45 @@ public final class SettlementLayoutPlanner {
         }
     }
 
+    public Optional<SettlementLayout> findCampHere(ServerLevel level, SettlementSavedData data, BuildingCatalog catalog,
+            BlockPos player, int radius, GenerationDiagnostics diagnostics) {
+        for (int distance : new int[]{0, 8, 16, 24}) {
+            for (int[] direction : DIRECTIONS) {
+                if (distance == 0 && direction != DIRECTIONS[0]) continue;
+                BlockPos center = player.north(6).offset(direction[0] * distance, 0, direction[1] * distance);
+                diagnostics.centerChecked();
+                Territory territory = new Territory(level.dimension().location().toString(), center.getX(), center.getY(), center.getZ(), radius);
+                if (data.overlaps(territory)) { diagnostics.rejectCenter(SETTLEMENT_OVERLAP); continue; }
+                if (!level.getWorldBorder().isWithinBounds(center.offset(-radius, 0, -radius))
+                        || !level.getWorldBorder().isWithinBounds(center.offset(radius, 0, radius))) {
+                    diagnostics.rejectCenter(WORLD_BORDER); continue;
+                }
+                var priorFailures = diagnostics.summary().plotFailures();
+                var plot = planPlot(level, territory, catalog.get(BuildingKind.FOUNDING_CAMP), center.offset(-4, 0, -4),
+                        Rotation.NONE, SettlementGenerationConfig.tolerance(BuildingKind.FOUNDING_CAMP, true), diagnostics);
+                if (plot.isPresent()) {
+                    var plan = plot.orElseThrow();
+                    var marker = plan.buildings().getFirst().position(new BlockPos(4, 1, 4));
+                    return Optional.of(new SettlementLayout(new Territory(territory.dimension(), marker.getX(), marker.getY(), marker.getZ(), radius),
+                            plan.style(), plan.buildings(), plan.pathBlocks(), plan.before()));
+                }
+                // planPlot reports its precise reason as a plot rejection. The founding
+                // interaction also needs center diagnostics, just like the full-core path.
+                var failures = diagnostics.summary().plotFailures();
+                var reason = java.util.Arrays.stream(GenerationDiagnostics.Rejection.values())
+                        .filter(value -> failures.getOrDefault(value,0) > priorFailures.getOrDefault(value,0)).findFirst().orElse(INSUFFICIENT_CORE_AREA);
+                diagnostics.rejectCenter(reason);
+            }
+        }
+        return Optional.empty();
+    }
+
     /** Reusable for future growth. Caller supplies persisted occupied footprints and reachable plaza ports.
      * The returned single-building plan uses the same atomic applicator as initial generation. */
     public Optional<SettlementLayout> planAddition(ServerLevel level, Territory territory, BuildingCatalog catalog,
             BuildingKind kind, List<PlotBounds> occupied, List<BlockPos> plazaPorts,
             Map<BlockPos, BlockState> existingPaths, GenerationDiagnostics diagnostics) {
-        if (kind == BuildingKind.CORE || !territory.dimension().equals(level.dimension().location().toString())
+        if (SettlementLayoutMetadata.anchor(kind) || !territory.dimension().equals(level.dimension().location().toString())
                 || plazaPorts.isEmpty() || plazaPorts.stream().anyMatch(port -> !territory.contains(territory.dimension(), port.getX(), port.getZ())))
             throw new IllegalArgumentException("Invalid expansion context");
         return searchAddition(level, new SettlementTerrain(level), territory, catalog.get(kind), List.copyOf(occupied),
