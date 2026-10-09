@@ -163,6 +163,7 @@ public final class VillageUiService {
                         ? dev.livingkingdoms.construction.ConstructionService.ensureNext(player.serverLevel(),settlement.id(),player)
                         : dev.livingkingdoms.construction.ConstructionService.planHouse(player.serverLevel(),settlement.id(),player);
                 case PLAN_BARRACKS -> dev.livingkingdoms.construction.ConstructionService.planBarracks(player.serverLevel(),settlement.id(),player);
+                case PLAN_WATCHTOWER -> dev.livingkingdoms.construction.ConstructionService.planWatchtower(player.serverLevel(),settlement.id(),player);
                 case PLAN_FARM -> dev.livingkingdoms.construction.ConstructionService.planFarm(player.serverLevel(),settlement.id(),player);
                 default -> false;
             }; } catch (RuntimeException failure) {
@@ -216,6 +217,7 @@ public final class VillageUiService {
     }
 
     private static CompoundTag base(ServerPlayer player, Session session, Settlement settlement, String screen) {
+        dev.livingkingdoms.defense.DefenseService.awardPending(player);
         dev.livingkingdoms.profession.ProfessionService.ensure(player.serverLevel(),settlement);
         var candidates=ImmigrationService.candidates(player.serverLevel(),settlement);
         var citizens=CitizenSavedData.get(player.server);
@@ -230,7 +232,10 @@ public final class VillageUiService {
         tag.putInt("housing_total",housing.total()); tag.putInt("housing_occupied",housing.occupied()); tag.putInt("housing_free",housing.free());
         tag.putInt("immigration_pending",candidates.size());
         tag.putInt("security",dev.livingkingdoms.profession.SecurityService.score(player.server,settlement.id()));
+        tag.putString("safety",dev.livingkingdoms.defense.DefenseService.status(player.server,settlement.id()).name().toLowerCase(java.util.Locale.ROOT));
         tag.putBoolean("barracks_plan",dev.livingkingdoms.profession.persistence.ProfessionSavedData.get(player.server).buildings(settlement.id()).stream().noneMatch(b -> b.kind()==dev.livingkingdoms.structure.BuildingKind.BARRACKS));
+        tag.putBoolean("watchtower_plan",dev.livingkingdoms.profession.persistence.ProfessionSavedData.get(player.server).buildings(settlement.id()).stream().noneMatch(b -> b.kind()==dev.livingkingdoms.structure.BuildingKind.WATCHTOWER));
+        dev.livingkingdoms.defense.DefenseService.current(player.server,settlement.id()).ifPresent(event -> DefenseUiState.write(tag,event,player.getUUID()));
         var food=dev.livingkingdoms.profession.ProfessionService.food(player.server,settlement.id());
         tag.putInt("food_stock",food.stock()); tag.putInt("food_capacity",food.capacity()); tag.putLong("food_produced",food.produced());
         return tag;
@@ -246,6 +251,9 @@ public final class VillageUiService {
                 : settlement.lifecycle()==dev.livingkingdoms.settlement.domain.SettlementLifecycle.FOUNDING ? "ui.livingkingdoms.dialogue.founding"
                 : QuestSavedData.get(player.server).progress(player.getUUID(), settlement.id()).state() == QuestState.COMPLETED
                 ? "npc.livingkingdoms.mayor.after" : "npc.livingkingdoms.mayor.before");
+        if(!info) dev.livingkingdoms.defense.DefenseService.current(player.server,settlement.id())
+                .or(() -> dev.livingkingdoms.defense.DefenseService.latest(player.server,settlement.id()))
+                .ifPresent(event -> tag.putString("dialogue",DefenseUiState.dialogue(event,player.getUUID())));
         tag.putInt("level", settlement.level());
         PacketDistributor.sendToPlayer(player, new UiPayloads.Snapshot(tag));
     }
@@ -374,6 +382,14 @@ public final class VillageUiService {
                 dev.livingkingdoms.encounter.persistence.EncounterSavedData.get(player.server).get(party.partyId()).ifPresent(target -> {
                     tag.putInt("target_x", target.origin().x()); tag.putInt("target_z", target.origin().z());
                 });
+                if(quest.template()==QuestTemplate.LOCAL_DEFENSE) {
+                    tag.putString("settlement",SettlementSavedData.get(player.server).get(quest.source().settlementId())
+                            .map(VillageNames::display).orElse(""));
+                    var event=dev.livingkingdoms.defense.DefenseService.eventForParty(player.server,party.partyId());
+                    event.ifPresent(value -> DefenseUiState.write(tag,value,player.getUUID()));
+                    if(event.isEmpty()) tag.putString("defense_note","ui.livingkingdoms.defense.missing");
+                    tag.putString("objective","quest.livingkingdoms.local_defense.objective");
+                }
             }
             case QuestObjective.Meet ignored -> tag.putString("objective", "quest.livingkingdoms.meet_mayor");
             case QuestObjective.Return ignored -> tag.putString("objective", "quest.livingkingdoms.return_objective");

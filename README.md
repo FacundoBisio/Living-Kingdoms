@@ -1,8 +1,10 @@
 # Living Kingdoms
 
-Minecraft Java **1.21.1**, **Java 21**, **NeoForge 21.1.252**. Version 0.13.0 adds citizen Guards, functional and constructible Barracks, bounded local faction defense, persistent combat careers/equipment and derived settlement Security. Housing, Citizens, Immigration, Farmers/Farms/Food, progressive founding, conversion, quests, reputation, factions, encounters and progression remain compatible with 0.12.0 saves. Builder/Blacksmith gameplay, raids, diplomacy, economy and conquest remain future milestones.
+Minecraft Java **1.21.1**, **Java 21**, **NeoForge 21.1.252**. Version 0.14.0 adds persistent local threat events, contextual defense quests, settlement alerts, Watchtower detection and meaningful participation rewards. Guards, Barracks, Security, Housing, Citizens, Immigration, Farmers/Farms/Food, founding, conversion, quests, reputation, factions, encounters and progression remain compatible with 0.13.0 saves. Builder/Blacksmith gameplay, raids, diplomacy, economy and conquest remain future milestones.
 
 Living Kingdoms focuses on exploring, discovering settlements, gaining reputation and protecting the region. Registered citizens now help their settlement through explicit, shared profession assignments.
+
+When a real hostile party approaches an allied settlement, one local warning marks it **THREATENED**. Accept **Local Defense** at the Quest Board, fight the linked group alongside Guards, and claim your reward after victory. Standing nearby grants no credit; a Guard-only victory still returns the settlement to **SAFE**. Meaningful successful participation grants **Hold the Line / Mantener la línea** once. Build a Watchtower through Mayor → Construction for earlier detection. See [architecture, rewards, development commands, compatibility and the 16-step gamer QA](docs/local-defense-quests.md).
 
 ## Build and run
 
@@ -24,7 +26,7 @@ bash ./gradlew runGameTestServer
 bash ./gradlew runClient
 ```
 
-The client opens the Minecraft development environment. Survival establishment requires no cheats; enable them only for optional debug commands. The mod JAR is `build/libs/livingkingdoms-0.13.0.jar`; the `-sources.jar` is for developers, not installation. Use the same mod version on clients and dedicated servers. Python and development mods are not required for the ordinary Java build or runtime.
+The client opens the Minecraft development environment. Survival establishment requires no cheats; enable them only for optional debug commands. The mod JAR is `build/libs/livingkingdoms-0.14.0.jar`; the `-sources.jar` is for developers, not installation. Use the same mod version on clients and dedicated servers. Python and development mods are not required for the ordinary Java build or runtime.
 
 The QA bugfix fixes an overlay that blurred the Quest Board/dialogue and a disconnected watchtower roof strip, adds responsive readers and validates every template at all four rotations. This session's client attempts crashed in the AMD OpenGL driver before gameplay; screenshot acceptance and Save & Quit/reopen remain pending. See the [QA findings and exact manual checklist](docs/qa-ui-structure-bugfix.md).
 
@@ -298,6 +300,8 @@ Quest policies reuse party levels and the existing `RegionalDifficulty` service;
 | `encounter.domain` | Immutable faction/type/origin/roster/state/threat metadata |
 | `encounter.persistence` | Guarded party storage, UUID/spatial indexes, contributions, lifecycle and cooldowns |
 | `encounter` | Natural/debug vanilla spawning, damage/death/conversion events, bounded cleanup and regional query API |
+| `defense.domain` / `defense.persistence` | Shared local threat lifecycle, exact party linkage, frozen eligibility and additive bounded storage |
+| `defense` | Loaded-member detection, contextual existing quests, success/failure, Watchtower range and advancement receipts |
 | `progression.domain` | Shared levels, party snapshots, pure regional/stat/equipment rules and bounded distribution |
 | `progression` | On-demand regional inputs, spawn progression, persistent modifiers, equipment and projectile join hooks |
 
@@ -319,9 +323,9 @@ Regional difficulty now has a configurable pure calculation of distance, world a
 
 ## Tests and community workflow
 
-`test` uses JUnit 5 with ModDevGradle's NeoForge test environment. All **190 unit tests** pass, retaining previous settlement/quest/faction/encounter/progression coverage, main ordering, dynamic quests, reward deduplication and layout geometry. Provenance tests verify every origin, founder/kingdom/time fields, safe schema-1 migration, corruption guards and derived-index rollback. Real `DimensionDataStorage` save/reopen tests verify persistence and that corrupt/future-schema files remain unchanged after rejected loads.
+`test` uses JUnit 5 with ModDevGradle's NeoForge test environment. The current suite has **289 unit tests**, retaining all previous settlement/quest/faction/encounter/progression, housing/citizen/profession, construction, UI and reward coverage. Defense tests verify exact party/event/player linkage, strict additive serialization, bounded maintenance, same-tick ordering, one-time claims, Guard-only/debug restrictions and frozen multiplayer credit. Real `DimensionDataStorage` save/reopen tests verify persistence and that corrupt/future-schema files remain unchanged after rejected loads.
 
-`runGameTestServer` starts a headless Minecraft world and loads a separate test mod from `src/gametest`. All **77 GameTests** pass, retaining previous physical/quest/Mayor/encounter/natural/faction/progression and QA coverage. Thirteen establishment tests add actual recipe crafting, POI detection, conversion/founding, exact consumption, multiplayer duplicate refusal, NPC promotion/fallback, immediate UI/quest integration, persistence and full rollback after protection cancellation or refused Mayor creation. All test-only terrain preparation, chunk tickets/loading, classes and test-mod resources are excluded from the production JAR and normal client/server runs. Its world lives in `runs/gametest`, separate from normal dev worlds. GitHub Actions runs `test build runGameTestServer` on Java 21 and uploads the JARs. The graphical Save and Quit/reopen check remains manual. Progressive-founding coverage adds 12 unit tests and 9 GameTests for lifecycle, shared resources, native blueprint/file persistence, stable reservations, timers, obstruction/protection retry, chunk wakeup, House metadata and one-time advancements. See [the current report and exact QA](docs/progressive-kingdom-founding.md).
+`runGameTestServer` starts a headless Minecraft world and loads a separate test mod from `src/gametest`. The current suite has **115 GameTests**, including all 105 previous tests and ten local-defense/Watchtower tests for real combat, physical Board actions, multiplayer, missing links, native entity persistence and guarded building placement. All test-only terrain preparation, chunk tickets/loading, classes and test-mod resources are excluded from the production JAR and normal client/server runs. Its world lives in `runs/gametest`, separate from normal dev worlds. GitHub Actions runs `test build runGameTestServer` on Java 21 and uploads the JARs. The graphical Save and Quit/reopen check remains manual. See [the current report and exact QA](docs/local-defense-quests.md).
 
 Open an issue with Minecraft/NeoForge/mod versions, reproduction steps, and a relevant log excerpt. Keep contributions scoped and run `test build runGameTestServer` before submitting a pull request. The GitHub workflow is configured for pushes and pull requests. The mod currently reserves all rights; a community distribution license must be selected by the project owner before public release.
 
@@ -335,6 +339,6 @@ Local results and known runtime limits: [Milestone 0](docs/validation.md), [Mile
 
 ## Next milestone
 
-Progressive Kingdom Founding is implemented. Complete the [new survival, multiplayer and reload checklist](docs/progressive-kingdom-founding.md) and the [remaining screenshot acceptance checklist](docs/qa-ui-structure-bugfix.md), then design Housing/Citizens around completed building metadata, converted-village surveys and persistent identity. Housing, immigration, profession systems, settlement levels, raids, conquest, liberation and bosses have not been started.
+Local Defense is implemented on the existing Guard, encounter and quest systems. Complete the [survival, multiplayer, balance and reload checklist](docs/local-defense-quests.md) and the [remaining screenshot acceptance checklist](docs/qa-ui-structure-bugfix.md). Tune travel encounter difficulty, Watchtower warning distance and modest participation rewards on a real client before adding a small Bandit roaming-party definition. Full raids, siege/destruction, occupation, conquest, liberation and bosses remain future work.
 
 Guard assignment, Barracks construction, configuration, security rules and the 15-step PC checklist: [Guards and settlement defense](docs/guards-settlement-defense.md).

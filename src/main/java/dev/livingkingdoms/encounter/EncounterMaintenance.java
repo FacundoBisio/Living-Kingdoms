@@ -25,6 +25,7 @@ public final class EncounterMaintenance {
         var removed = data.cleanup(server.overworld().getGameTime(),
                 KingdomConfig.ENCOUNTER_COMPLETED_RETENTION.get(), KingdomConfig.ENCOUNTER_ACTIVE_LIFETIME.get());
         for (var party : removed) {
+            dev.livingkingdoms.defense.DefenseService.onPartyRemoved(server, party.id());
             // Direct UUID lookup in currently loaded dimensions. No chunks or entity lists are fetched.
             for (var level : server.getAllLevels()) {
                 for (var member : party.remainingMembers()) {

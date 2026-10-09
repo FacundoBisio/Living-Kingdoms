@@ -36,7 +36,7 @@ public record QuestInstance(UUID id, QuestTemplate template, QuestSource source,
         if (!matches) throw new IllegalArgumentException("Quest type and objective disagree");
         if (objective instanceof QuestObjective.Meet meet && meet.role() != QuestSourceRole.MAYOR)
             throw new IllegalArgumentException("First meeting requires the Mayor");
-        if (objective instanceof QuestObjective.Party party) {
+        if (objective instanceof QuestObjective.Party party && template != QuestTemplate.LOCAL_DEFENSE) {
             PartyType expected = template == QuestTemplate.UNDEAD_REQUEST ? PartyType.UNDEAD_HORDE : PartyType.PILLAGER_PATROL;
             if (party.partyType() != expected) throw new IllegalArgumentException("Quest template and target party disagree");
         }

@@ -146,7 +146,7 @@ public final class GuardWork {
                 target=level.getEntitiesOfClass(Mob.class,v.getBoundingBox().inflate(GuardConfig.SEARCH_RANGE.get(),6,GuardConfig.SEARCH_RANGE.get()),
                         e -> e!=v && hostile(e) && inside(s,e,defense) && v.hasLineOfSight(e)).stream().min(Comparator.comparingDouble(v::distanceToSqr)).orElse(null);
                 v.setTarget(target);
-                if(target!=null && EncounterMember.read(target).isPresent()) SecurityService.alert(level,s);
+                if(target!=null && EncounterMember.read(target).isPresent()) dev.livingkingdoms.defense.DefenseService.detectMember(level,target);
             }
             if(target!=null) {
                 if(v.isSleeping()) v.stopSleeping(); state(WorkState.ENGAGING);

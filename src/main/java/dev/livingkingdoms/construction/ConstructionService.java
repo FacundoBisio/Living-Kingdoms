@@ -46,11 +46,15 @@ public final class ConstructionService {
     public static boolean planBarracks(ServerLevel level,UUID settlementId,ServerPlayer actor) {
         return planFunctional(level,settlementId,actor,BuildingKind.BARRACKS);
     }
+    public static boolean planWatchtower(ServerLevel level,UUID settlementId,ServerPlayer actor) {
+        return planFunctional(level,settlementId,actor,BuildingKind.WATCHTOWER);
+    }
     private static boolean planFunctional(ServerLevel level,UUID settlementId,ServerPlayer actor,BuildingKind kind) {
         var data=SettlementSavedData.get(level.getServer()); var settlement=data.get(settlementId).orElse(null);
         if(actor==null || !canContribute(actor,settlement) || settlement.lifecycle()!=SettlementLifecycle.ESTABLISHED
                 || current(level.getServer(),settlementId).isPresent()) return false;
-        if(kind==BuildingKind.BARRACKS && data.layout(settlementId).stream().flatMap(l -> l.buildings().stream()).anyMatch(b -> b.kind()==BuildingKind.BARRACKS)) return false;
+        if((kind==BuildingKind.BARRACKS || kind==BuildingKind.WATCHTOWER)
+                && data.layout(settlementId).stream().flatMap(l -> l.buildings().stream()).anyMatch(b -> b.kind()==kind)) return false;
         if(data.layout(settlementId).isEmpty()) {
             if(settlement.provenance().origin()!=SettlementOrigin.CONVERTED) return false;
             var marker=new BlockPos(settlement.territory().x(),settlement.territory().y(),settlement.territory().z());

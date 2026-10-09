@@ -10,6 +10,16 @@ import net.minecraft.network.chat.Component;
 import static org.junit.jupiter.api.Assertions.*;
 
 class VillageUiLayoutTest {
+    @Test void fourBuildingChoicesFitInTwoReadableColumnsAboveTheFooter() {
+        for(int[] size:new int[][]{{320,240},{427,240},{640,360},{854,480},{1920,1080}}) {
+            var layout=VillageUiLayout.fit(size[0],size[1],true);
+            int width=(layout.detailWidth()-28)/2;
+            assertTrue(width>=77,"Native ellipsis and full tooltips keep translated labels usable");
+            assertTrue(layout.detailX()+width*2+4<=layout.left()+layout.width()-24);
+            assertTrue(layout.contentTop()+50+20<layout.contentBottom());
+            assertTrue(layout.contentTop()+76<layout.contentBottom(),"Tower purpose has room below choices");
+        }
+    }
     @Test void fourMayorRowsAndThreeManagementActionsFitSupportedScales() {
         for(int[] size:new int[][]{{320,240},{427,240},{640,360},{854,480},{1920,1080}}) {
             var dialogue=VillageUiLayout.fit(size[0],size[1],false);

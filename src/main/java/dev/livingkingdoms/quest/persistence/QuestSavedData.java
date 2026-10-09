@@ -42,6 +42,8 @@ public final class QuestSavedData extends SavedData {
     private final Map<UUID, ExpandedProgress> expandedPlayers = new LinkedHashMap<>();
     /** Only accepted, unresolved combat quests are indexed. No scan of all players on a death. */
     private final Map<UUID, Set<QuestReference>> partyQuests = new LinkedHashMap<>();
+    /** Contextual offers and accepted defenses, including ready rewards, stay linked to their exact event party. */
+    private final Map<UUID, Set<QuestReference>> defenseQuests = new LinkedHashMap<>();
 
     public static QuestSavedData get(MinecraftServer server) {
         if (!server.isSameThread()) {
@@ -171,6 +173,7 @@ public final class QuestSavedData extends SavedData {
             progress.quests.remove(replacement.id());
         }
         progress.quests.put(quest.id(), quest);
+        index(player, quest);
         setDirty();
         return true;
     }
@@ -190,8 +193,10 @@ public final class QuestSavedData extends SavedData {
     public boolean markObjective(UUID player, UUID id) {
         QuestInstance quest = quest(player, id).orElse(null);
         if (quest == null || quest.state() != QuestState.ACTIVE || quest.objectiveSatisfied()) return false;
-        expandedPlayers.get(player).quests.put(id, quest.ready());
+        QuestInstance ready = quest.ready();
+        expandedPlayers.get(player).quests.put(id, ready);
         unindex(player, quest);
+        index(player, ready);
         setDirty();
         return true;
     }
@@ -250,6 +255,7 @@ public final class QuestSavedData extends SavedData {
         Set<UUID> ids = new HashSet<>();
         for (QuestInstance quest : checked) {
             if (quest.template().category() != QuestCategory.DYNAMIC || quest.state() != QuestState.AVAILABLE
+                    || quest.template() == QuestTemplate.LOCAL_DEFENSE
                     || !quest.source().settlementId().equals(settlement) || !ids.add(quest.id())
                     || (progress != null && progress.quests.containsKey(quest.id()))) return false;
         }
@@ -272,6 +278,7 @@ public final class QuestSavedData extends SavedData {
         for (Map.Entry<UUID, QuestInstance> entry : progress.quests.entrySet()) {
             QuestInstance quest = entry.getValue();
             if (quest.template().category() == QuestCategory.DYNAMIC && quest.state() == QuestState.AVAILABLE
+                    && quest.template() != QuestTemplate.LOCAL_DEFENSE
                     && quest.source().settlementId().equals(settlement) && quest.expiresAt() <= now) {
                 entry.setValue(quest.withState(QuestState.EXPIRED));
                 changed = true;
@@ -292,6 +299,45 @@ public final class QuestSavedData extends SavedData {
         }
     }
 
+    /** Guard kills progress the shared event; only accepted quests of qualified players become claimable. */
+    public void resolveDefenseParty(UUID party, UUID settlement, Set<UUID> participants) {
+        settleDefenseParty(party, settlement, Set.copyOf(participants), true);
+    }
+
+    /** A timeout, vanished party or debug cancellation never produces a personal reward. */
+    public void failDefenseParty(UUID party, UUID settlement) {
+        settleDefenseParty(party, settlement, Set.of(), false);
+    }
+
+    public boolean hasDefenseQuest(UUID party) {
+        return defenseQuests.containsKey(Objects.requireNonNull(party, "party"));
+    }
+
+    private void settleDefenseParty(UUID party, UUID settlement, Set<UUID> participants, boolean victory) {
+        Objects.requireNonNull(party, "party");
+        Objects.requireNonNull(settlement, "settlement");
+        Set<QuestReference> references = defenseQuests.get(party);
+        if (references == null) return;
+        // State transitions update the index, so iterate a stable, bounded snapshot.
+        for (QuestReference reference : Set.copyOf(references)) {
+            QuestInstance quest = quest(reference.player, reference.quest).orElse(null);
+            if (quest == null || !quest.source().settlementId().equals(settlement)) continue;
+            if (victory && quest.state() == QuestState.ACTIVE && participants.contains(reference.player)) {
+                markObjective(reference.player, reference.quest);
+            } else {
+                terminateDefense(reference.player, quest, victory ? QuestState.EXPIRED : QuestState.FAILED);
+            }
+        }
+    }
+
+    private void terminateDefense(UUID player, QuestInstance quest, QuestState terminal) {
+        if (quest.template() != QuestTemplate.LOCAL_DEFENSE
+                || (quest.state() != QuestState.AVAILABLE && quest.state() != QuestState.ACTIVE)) return;
+        expandedPlayers.get(player).quests.put(quest.id(), quest.withState(terminal));
+        unindex(player, quest);
+        setDirty();
+    }
+
     private static boolean priorMainCompleted(ExpandedProgress progress, QuestTemplate template) {
         for (QuestTemplate prerequisite : QuestTemplate.values()) {
             if (prerequisite.category() != QuestCategory.MAIN || prerequisite.order() >= template.order()) continue;
@@ -304,10 +350,19 @@ public final class QuestSavedData extends SavedData {
 
     private static boolean rotatable(QuestInstance quest, UUID settlement) {
         return quest.template().category() == QuestCategory.DYNAMIC && quest.state() != QuestState.ACTIVE
+                && !(quest.template() == QuestTemplate.LOCAL_DEFENSE && quest.state() == QuestState.AVAILABLE)
                 && quest.source().settlementId().equals(settlement);
     }
 
     private void index(UUID player, QuestInstance quest) {
+        if (quest.template() == QuestTemplate.LOCAL_DEFENSE) {
+            if ((quest.state() == QuestState.AVAILABLE || quest.state() == QuestState.ACTIVE)
+                    && quest.objective() instanceof QuestObjective.Party party) {
+                defenseQuests.computeIfAbsent(party.partyId(), ignored -> new LinkedHashSet<>())
+                        .add(new QuestReference(player, quest.id()));
+            }
+            return;
+        }
         if (quest.state() == QuestState.ACTIVE && !quest.objectiveSatisfied() && quest.objective() instanceof QuestObjective.Party party) {
             partyQuests.computeIfAbsent(party.partyId(), ignored -> new LinkedHashSet<>()).add(new QuestReference(player, quest.id()));
         }
@@ -315,10 +370,11 @@ public final class QuestSavedData extends SavedData {
 
     private void unindex(UUID player, QuestInstance quest) {
         if (quest.objective() instanceof QuestObjective.Party party) {
-            Set<QuestReference> references = partyQuests.get(party.partyId());
+            Map<UUID, Set<QuestReference>> targetIndex = quest.template() == QuestTemplate.LOCAL_DEFENSE ? defenseQuests : partyQuests;
+            Set<QuestReference> references = targetIndex.get(party.partyId());
             if (references != null) {
                 references.remove(new QuestReference(player, quest.id()));
-                if (references.isEmpty()) partyQuests.remove(party.partyId());
+                if (references.isEmpty()) targetIndex.remove(party.partyId());
             }
         }
     }

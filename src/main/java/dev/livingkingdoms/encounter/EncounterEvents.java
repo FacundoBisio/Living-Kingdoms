@@ -54,7 +54,10 @@ public final class EncounterEvents {
         if (tracked.isEmpty() || !tracked.get().id().equals(identity.get().partyId())
                 || tracked.get().faction() != identity.get().faction()) return;
         long now = level.getServer().overworld().getGameTime();
+        dev.livingkingdoms.defense.DefenseService.detect(level, tracked.get(), event.getEntity().blockPosition());
         var defeated = parties.recordDeath(event.getEntity().getUUID(), now);
+        dev.livingkingdoms.defense.DefenseService.onPartyChanged(level, tracked.get().id(),
+                event.getSource().getEntity() instanceof ServerPlayer killer ? killer : null);
         if (defeated.isEmpty()) return;
         HostileParty party = defeated.orElseThrow();
         Set<UUID> participants = parties.eligibleParticipants(party.id(), now,

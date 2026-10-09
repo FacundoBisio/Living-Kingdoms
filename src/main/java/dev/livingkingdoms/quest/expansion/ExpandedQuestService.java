@@ -86,6 +86,8 @@ public final class ExpandedQuestService {
         }
         boolean success;
         if (action.equals("accept")) {
+            if (quest.template() == QuestTemplate.LOCAL_DEFENSE
+                    && !dev.livingkingdoms.defense.DefenseQuestService.canAccept(player, quest)) return false;
             success = data.acceptExpanded(player.getUUID(), questId);
             if (success && quest.objective() instanceof QuestObjective.Return) data.markObjective(player.getUUID(), questId);
             if (success) message(player, "quest.livingkingdoms.accepted", Component.translatable(quest.template().titleKey()));
@@ -99,6 +101,10 @@ public final class ExpandedQuestService {
 
     private static boolean claim(ServerPlayer player, QuestSavedData data, QuestInstance quest) {
         if (quest.state() != QuestState.ACTIVE) return false;
+        if (quest.template() == QuestTemplate.LOCAL_DEFENSE
+                && !dev.livingkingdoms.defense.DefenseQuestService.canClaim(player, quest)) {
+            message(player, "quest.livingkingdoms.objective_pending"); return false;
+        }
         List<ResourceRequirement> requirements = List.of();
         if (quest.objective() instanceof QuestObjective.Resource resource) {
             requirements = resource.requirements();
@@ -133,10 +139,12 @@ public final class ExpandedQuestService {
     public static void prepare(ServerPlayer player, Settlement settlement) {
         var data = QuestSavedData.get(player.server);
         long now = now(player);
+        dev.livingkingdoms.defense.DefenseQuestService.prepare(player, settlement);
         data.expireOffers(player.getUUID(), settlement.id(), now);
         var encounters = EncounterSavedData.get(player.server);
         for (QuestInstance quest : data.quests(player.getUUID(), settlement.id())) {
-            if (quest.objective() instanceof QuestObjective.Party target && !quest.objectiveSatisfied()
+            if (quest.template() != QuestTemplate.LOCAL_DEFENSE
+                    && quest.objective() instanceof QuestObjective.Party target && !quest.objectiveSatisfied()
                     && (quest.state() == QuestState.AVAILABLE || quest.state() == QuestState.ACTIVE)) {
                 var party = encounters.get(target.partyId());
                 if (party.isEmpty() || party.get().state() != PartyState.ALIVE || party.get().debug()
@@ -150,9 +158,12 @@ public final class ExpandedQuestService {
         long refreshed = data.boardRefreshAt(player.getUUID(), settlement.id());
         if (refreshed >= 0 && (now < refreshed || now - refreshed < rules.refreshTicks())) return;
         List<QuestInstance> current = data.quests(player.getUUID(), settlement.id());
-        long active = current.stream().filter(quest -> quest.template().category() == QuestCategory.DYNAMIC && quest.state() == QuestState.ACTIVE).count();
+        long active = current.stream().filter(quest -> quest.template().category() == QuestCategory.DYNAMIC
+                && quest.template() != QuestTemplate.LOCAL_DEFENSE && quest.state() == QuestState.ACTIVE).count();
         Set<UUID> alreadyTargeted = current.stream().filter(quest -> quest.template().category() == QuestCategory.DYNAMIC
-                && quest.state() == QuestState.ACTIVE && quest.objective() instanceof QuestObjective.Party)
+                && (quest.state() == QuestState.ACTIVE
+                    || quest.template() == QuestTemplate.LOCAL_DEFENSE && quest.state() == QuestState.AVAILABLE)
+                && quest.objective() instanceof QuestObjective.Party)
                 .map(quest -> ((QuestObjective.Party) quest.objective()).partyId()).collect(Collectors.toSet());
         var targets = nearby(player, settlement).stream().filter(party -> !alreadyTargeted.contains(party.id()))
                 .map(party -> new QuestGenerator.PartyTarget(party.id(), party.faction(), party.type(), party.levels())).toList();
