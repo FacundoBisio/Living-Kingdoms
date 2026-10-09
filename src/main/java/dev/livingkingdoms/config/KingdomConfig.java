@@ -105,6 +105,7 @@ public final class KingdomConfig {
         QuestExpansionConfig.define(builder);
         ConstructionConfig.define(builder);
         CitizenConfig.define(builder);
+        ProfessionConfig.define(builder);
         SPEC = builder.build();
     }
 

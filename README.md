@@ -1,8 +1,8 @@
 # Living Kingdoms
 
-Minecraft Java **1.21.1**, **Java 21**, **NeoForge 21.1.252**. Version 0.11.0 adds registered housing, persistent citizens and shared immigration approval through the native Mayor/Quest Board UI. Established kingdoms can construct additional Houses using the existing materials/timer system. It preserves progressive founding, Charter conversion, Mayor/residents, quests, reputation, factions, encounters, progression and saved worlds. All gameplay state is owned by the server. Profession work loops, diplomacy, economy, conquest, armies and external AI services remain outside the current scope.
+Minecraft Java **1.21.1**, **Java 21**, **NeoForge 21.1.252**. Version 0.12.0 adds persistent citizen professions, functional building capabilities, constructible Farms and Farmers who harvest bounded native crop fields into settlement Food. Citizens, Housing, Immigration, progressive founding, conversion, quests, factions, natural encounters and progression remain server-owned and compatible with 0.11.0 saves. Guard/Builder/Blacksmith gameplay, diplomacy, economy and conquest remain future milestones.
 
-Living Kingdoms focuses on exploring, discovering settlements, gaining reputation, fighting and liberating hostile territory. Its settlements are RPG/strategy hubs; the buildings in this milestone do not automate workers or manage colonies.
+Living Kingdoms focuses on exploring, discovering settlements, gaining reputation and protecting the region. Registered citizens now help their settlement through explicit, shared profession assignments.
 
 ## Build and run
 
@@ -24,7 +24,7 @@ bash ./gradlew runGameTestServer
 bash ./gradlew runClient
 ```
 
-The client opens the Minecraft development environment. Survival establishment requires no cheats; enable them only for optional debug commands. The mod JAR is `build/libs/livingkingdoms-0.11.0.jar`; the `-sources.jar` is for developers, not installation. Use the same mod version on clients and dedicated servers. Python and development mods are not required for the ordinary Java build or runtime.
+The client opens the Minecraft development environment. Survival establishment requires no cheats; enable them only for optional debug commands. The mod JAR is `build/libs/livingkingdoms-0.12.0.jar`; the `-sources.jar` is for developers, not installation. Use the same mod version on clients and dedicated servers. Python and development mods are not required for the ordinary Java build or runtime.
 
 The QA bugfix fixes an overlay that blurred the Quest Board/dialogue and a disconnected watchtower roof strip, adds responsive readers and validates every template at all four rotations. This session's client attempts crashed in the AMD OpenGL driver before gameplay; screenshot acceptance and Save & Quit/reopen remain pending. See the [QA findings and exact manual checklist](docs/qa-ui-structure-bugfix.md).
 
@@ -61,6 +61,16 @@ After establishment, select **Mayor > Construction > Plan House** to reserve ano
 An eligible settlement may receive a traveler request. Open **Mayor > Immigration** or the board shortcut, inspect their name/level and current housing, and choose Accept or Decline. Acceptance rechecks shared housing, spawns one persistent vanilla villager and grants the accepting player the one-time **Growing Community** advancement. Death frees the citizen's home, while unloaded chunks preserve identity/population. Operator QA can trigger a request with `/kingdom immigration candidate`; lifecycle and housing requirements still apply.
 
 Read [architecture, configuration, compatibility, automated validation and the 15-step manual QA](docs/housing-citizens-immigration.md).
+
+## Give citizens a job
+
+In an established settlement, open **Mayor > Construction > Plan Farm**. Defaults: 32 logs, 16 stone, 2 iron ingots, then two minutes of server time after funding. The adaptive planner reserves a loaded, safe plot and places the native irrigated crop field and small shelter through the existing ConstructionProject system.
+
+Open **Mayor > Citizens**, select an active citizen with a home, and choose **Assign Farmer**. A basic Farm has two shared worker slots. New immigrants remain unassigned; the Mayor keeps the special Mayor profession. The citizen detail reader shows name, citizen level, profession level/XP, home, workplace occupancy and work status. Remove job frees the slot while retaining identity, home and Farmer progress. The first assignment grants **A Job to Do / Manos a la obra**.
+
+Farmers work roughly from daytime 1000 to 11000, navigate using Minecraft's local navigation, harvest mature wheat/carrots/potatoes only inside their assigned Farm, and replant at age zero. Each harvest produces 2 abstract Food and 5 profession XP by default, without item drops. Food is capped at 500; full storage pauses harvesting. Level cap 5 provides a modest cooldown reduction. Low food multiplies immigration chance by 0.1 below 20 stock, gradually returning to normal at 80; free housing is always mandatory. Existing food delivery quests replenish stock and receive shortage weighting.
+
+Read-only operator diagnostics: `/kingdom settlement food`, `/kingdom citizen info`, `/kingdom farm debug`. All ordinary assignment and construction actions use the native UI. See [professions, functional buildings, defaults, limitations and the 15-step manual QA](docs/professions-functional-buildings.md).
 
 ## Generate and inspect a settlement with debug commands
 

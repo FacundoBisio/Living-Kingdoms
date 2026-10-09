@@ -236,7 +236,7 @@ public final class CitizenService {
     }
 
     /** Loaded entities with reserved/conflicting identities are left untouched while saved history remains intact. */
-    static boolean canApply(Citizen citizen, Villager villager) {
+    public static boolean canApply(Citizen citizen, Villager villager) {
         if (!(villager.level() instanceof ServerLevel level) || !level.getServer().isSameThread()
                 || !villager.isAlive() || citizen.state()!=CitizenState.ACTIVE || !citizen.entityId().equals(villager.getUUID())) return false;
         var settlement = SettlementSavedData.get(level.getServer()).get(citizen.settlementId());

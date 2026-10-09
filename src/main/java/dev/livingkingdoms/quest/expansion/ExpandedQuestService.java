@@ -110,10 +110,19 @@ public final class ExpandedQuestService {
         }
         var exchange = DeliveryInventory.plan(player.getInventory(), requirements, quest.rewards().emeralds());
         if (exchange.isEmpty()) { message(player, "quest.livingkingdoms.inventory_full"); return false; }
+        // Load/validate the new resource store before consuming the existing quest receipt or items.
+        var stock=quest.template()==QuestTemplate.FOOD_REQUEST
+                ? dev.livingkingdoms.profession.persistence.ProfessionSavedData.get(player.server) : null;
+        if(stock!=null) stock.ensureFood(quest.source().settlementId(),dev.livingkingdoms.config.ProfessionConfig.FOOD_CAPACITY.get());
         // The full inventory exchange is preflighted before the one-time state/reputation transition.
         data.markObjective(player.getUUID(), quest.id());
         if (!data.completeExpanded(player.getUUID(), quest.id())) return false;
         exchange.orElseThrow().apply(player.getInventory());
+        if(quest.template()==QuestTemplate.FOOD_REQUEST) {
+            int units=requirements.stream().filter(r -> r.resource()==ResourceKind.WHEAT).mapToInt(r -> r.count()).sum()
+                    *dev.livingkingdoms.config.ProfessionConfig.WHEAT_FOOD.get();
+            stock.addFood(quest.source().settlementId(),units);
+        }
         player.inventoryMenu.broadcastChanges();
         if (player.containerMenu != player.inventoryMenu) player.containerMenu.broadcastChanges();
         message(player, "quest.livingkingdoms.request_claimed", Component.translatable(quest.template().titleKey()),
@@ -151,7 +160,8 @@ public final class ExpandedQuestService {
         long seed = player.getUUID().getMostSignificantBits() ^ player.getUUID().getLeastSignificantBits()
                 ^ settlement.id().getMostSignificantBits() ^ Long.rotateLeft(settlement.id().getLeastSignificantBits(), 19)
                 ^ data.boardGeneration(player.getUUID(), settlement.id());
-        var offers = QuestGenerator.generate(settlement.id(), regional, targets, Map.of(), rules, new Random(seed), now);
+        var offers = QuestGenerator.generate(settlement.id(), regional, targets,
+                dev.livingkingdoms.profession.ProfessionService.shortageWeights(player.server,settlement.id()),rules, new Random(seed), now);
         int slots = Math.max(0, rules.dynamicCount() - (int) active);
         data.rotateBoard(player.getUUID(), settlement.id(), now, rules.refreshTicks(), offers.stream()
                 .filter(quest -> settlement.lifecycle() != dev.livingkingdoms.settlement.domain.SettlementLifecycle.FOUNDING

@@ -40,6 +40,8 @@ neoForge {
         }
         gameTestServer {
             type = 'gameTestServer'
+            // The full physical suite keeps many fixture chunks loaded and serializes them at shutdown.
+            jvmArgument '-Xmx3G'
             sourceSet = sourceSets.gameTest
             loadedMods = [mods.livingkingdoms, mods.livingkingdoms_tests]
             systemProperty 'neoforge.enabledGameTestNamespaces', 'livingkingdoms_tests'

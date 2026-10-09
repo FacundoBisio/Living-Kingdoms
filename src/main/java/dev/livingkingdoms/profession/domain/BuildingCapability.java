@@ -1,0 +1,3 @@
+package dev.livingkingdoms.profession.domain;
+
+public enum BuildingCapability { HOUSING, FARMER_WORKPLACE, FOOD_PRODUCTION, ADMINISTRATION, GUARD_WORKPLACE, BLACKSMITH_WORKPLACE, STORAGE }

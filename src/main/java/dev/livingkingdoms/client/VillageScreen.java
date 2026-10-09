@@ -82,7 +82,7 @@ public final class VillageScreen extends Screen {
     }
 
     @Override public Component getNarrationMessage() {
-        Component context = immigration() ? tr("immigration") : construction() ? tr("construction") : board() ? tr("board") : Component.translatable(
+        Component context = citizens() ? tr("citizens") : immigration() ? tr("immigration") : construction() ? tr("construction") : board() ? tr("board") : Component.translatable(
                 "npc.livingkingdoms." + data.getString("role") + ".name", data.getString("name"));
         var message = context.copy().append(". ").append(data.getString("settlement"));
         var quest = selectedQuest();
@@ -96,6 +96,10 @@ public final class VillageScreen extends Screen {
                 message.append(". ").append(icon(item.getString("item")).getHoverName())
                         .append(" ").append(tr("progress", item.getInt("count"), item.getInt("required")));
             }
+        } else if (citizens()) {
+            narrateSettlementMetrics(message);
+            if(quest!=null) for(Component detail:citizenDetails(quest)) message.append(". ").append(detail);
+            else message.append(". ").append(tr("citizens.empty"));
         } else if (immigration()) {
             narrateSettlementMetrics(message);
             if(quest!=null) message.append(". ").append(questTitle(quest)).append(". ").append(state(quest))
@@ -124,12 +128,14 @@ public final class VillageScreen extends Screen {
         message.append(". ").append(tr("population",data.getInt("population")))
                 .append(". ").append(tr("housing",data.getInt("housing_occupied"),data.getInt("housing_total")))
                 .append(". ").append(tr("housing_free",data.getInt("housing_free")))
-                .append(". ").append(tr("immigration_pending",data.getInt("immigration_pending")));
+                .append(". ").append(tr("immigration_pending",data.getInt("immigration_pending")))
+                .append(". ").append(tr("food",data.getInt("food_stock"),data.getInt("food_capacity")));
     }
     private boolean board() { return data.getString("screen").equals("board"); }
     private boolean construction() { return data.getString("screen").equals("construction"); }
     private boolean immigration() { return data.getString("screen").equals("immigration"); }
-    private boolean wide() { return board() || construction() || immigration(); }
+    private boolean citizens() { return data.getString("screen").equals("citizens"); }
+    private boolean wide() { return board() || construction() || immigration() || citizens(); }
     @Override public void tick() { if(construction()) constructionTicks++; }
     private static net.minecraft.network.chat.MutableComponent tr(String key, Object... args) { return Component.translatable("ui.livingkingdoms." + key, args); }
 
@@ -186,6 +192,24 @@ public final class VillageScreen extends Screen {
         }
         CompoundTag q=selectedQuest();
         int x=left+listWidth+8, available=panelWidth-listWidth-20;
+        if(citizens()) {
+            int actionWidth=(available-8)/3;
+            var assign=button("farmer_assign",tr(pending?"working":"citizens.assign"),x,layout.footerTop(),actionWidth,
+                    ()->{if(q!=null) send(UiPayloads.Action.ASSIGN_FARMER,q.getUUID("id"));});
+            assign.primary(); assign.active=!pending && q!=null && q.getBoolean("assign");
+            if(!assign.active && !pending) assign.setTooltip(Tooltip.create(tr("citizens.requirement")));
+            button("farmer_remove",tr("citizens.remove"),x+actionWidth+4,layout.footerTop(),actionWidth,
+                    ()->{if(q!=null) send(UiPayloads.Action.REMOVE_PROFESSION,q.getUUID("id"));}).active=!pending && q!=null && q.getBoolean("remove");
+            button(tr("back"),x+(actionWidth+4)*2,layout.footerTop(),actionWidth,()->send(returnAction(),null)).active=!pending;
+            return;
+        }
+        if(construction() && data.getBoolean("plan") && data.getString("lifecycle").equals("ESTABLISHED")) {
+            int actionWidth=(available-8)/3;
+            button("plan_house",tr("plan_house"),x,layout.footerTop(),actionWidth,()->send(UiPayloads.Action.PLAN,null)).active=!pending;
+            button("plan_farm",tr("plan_farm"),x+actionWidth+4,layout.footerTop(),actionWidth,()->send(UiPayloads.Action.PLAN_FARM,null)).active=!pending;
+            button(tr("leave"),x+(actionWidth+4)*2,layout.footerTop(),actionWidth,this::onClose);
+            return;
+        }
         if(immigration()) {
             int actionWidth=(available-8)/3;
             var accept=button("citizen_accept",tr(pending?"working":"immigration.accept"),x,layout.footerTop(),actionWidth,
@@ -222,7 +246,9 @@ public final class VillageScreen extends Screen {
         button(tr("info"),x,y+24,w,()->send(UiPayloads.Action.INFO,null)).active=!pending;
         button(tr("construction"),x+w+4,y+24,w,()->send(UiPayloads.Action.CONSTRUCTION,null)).active=!pending;
         button(tr("immigration"),x,y+48,w,()->send(UiPayloads.Action.IMMIGRATION,null)).active=!pending;
-        button(tr("leave"),x+w+4,y+48,w,this::onClose);
+        button(tr("citizens"),x+w+4,y+48,w,()->send(UiPayloads.Action.CITIZENS,null)).active=!pending;
+        button(tr("refresh"),x,y+72,w,()->send(UiPayloads.Action.REFRESH,null)).active=!pending;
+        button(tr("leave"),x+w+4,y+72,w,this::onClose);
     }
 
     private void send(UiPayloads.Action action, UUID quest) {
@@ -238,7 +264,18 @@ public final class VillageScreen extends Screen {
     }
     @Override public boolean isPauseScreen() { return false; }
 
+    private UiPayloads.Action returnAction() {
+        return switch(data.getString("return_action")) {
+            case "BOARD" -> UiPayloads.Action.BOARD;
+            case "CONSTRUCTION" -> UiPayloads.Action.CONSTRUCTION;
+            default -> UiPayloads.Action.INFO;
+        };
+    }
     private List<CompoundTag> visibleQuests() {
+        if(citizens()) {
+            var list=data.getList("citizens",10); var people=new java.util.ArrayList<CompoundTag>();
+            for(int i=0;i<list.size();i++) people.add(list.getCompound(i)); return people;
+        }
         if(immigration()) {
             var list=data.getList("candidates",10); var candidates=new java.util.ArrayList<CompoundTag>();
             for(int i=0;i<list.size();i++) candidates.add(list.getCompound(i)); return candidates;
@@ -250,9 +287,9 @@ public final class VillageScreen extends Screen {
         return QuestBoardState.visible(data, section);
     }
     private CompoundTag selectedQuest() { return visibleQuests().stream().filter(q->q.getUUID("id").equals(selected)).findFirst().orElse(null); }
-    private Component questTitle(CompoundTag q) { return immigration()?Component.literal(q.getString("name")):Component.translatable(construction()?"construction.livingkingdoms.building."+q.getString("building"):
+    private Component questTitle(CompoundTag q) { return (immigration() || citizens())?Component.literal(q.getString("name")):Component.translatable(construction()?"construction.livingkingdoms.building."+q.getString("building"):
             "quest.livingkingdoms."+q.getString("template")+".title"); }
-    private Component state(CompoundTag q) { return immigration()?tr("citizen_level",q.getInt("level")):Component.translatable((construction()?"construction.livingkingdoms.state.":"quest.livingkingdoms.state.")+
+    private Component state(CompoundTag q) { return citizens()?tr("citizens.summary",profession(q),q.getInt("profession_level")):immigration()?tr("citizen_level",q.getInt("level")):Component.translatable((construction()?"construction.livingkingdoms.state.":"quest.livingkingdoms.state.")+
             q.getString("state").toLowerCase(java.util.Locale.ROOT)); }
 
     // Screen.render invokes this before its widgets. Drawing a menu background at
@@ -267,7 +304,7 @@ public final class VillageScreen extends Screen {
         g.drawString(font,font.plainSubstrByWidth(data.getString("settlement"),panelWidth-24),left+11,top+11,ON_BLUE,false);
         Component rep=tr("reputation",data.getInt("reputation"));
         if(font.width(data.getString("settlement"))+font.width(rep)<panelWidth-30) g.drawString(font,rep,left+panelWidth-12-font.width(rep),top+11,GOLD,false);
-        if(immigration()) renderImmigration(g); else if(construction()) renderConstruction(g); else if(board()) renderBoard(g); else renderDialogue(g,mouseX,mouseY);
+        if(citizens()) renderCitizens(g); else if(immigration()) renderImmigration(g); else if(construction()) renderConstruction(g); else if(board()) renderBoard(g); else renderDialogue(g,mouseX,mouseY);
         scrollUp.active = detailScroll > 0;
         scrollDown.active = detailScroll < maxDetailScroll();
         scrollUp.visible = scrollDown.visible = maxDetailScroll() > 0;
@@ -427,6 +464,45 @@ public final class VillageScreen extends Screen {
         detailHeight=y-start; g.disableScissor(); detailScroll=Math.clamp(detailScroll,0,maxDetailScroll());
     }
 
+    private Component profession(CompoundTag person) {
+        return Component.translatable("profession.livingkingdoms."+person.getString("profession"));
+    }
+    private List<Component> citizenDetails(CompoundTag p) {
+        var details=new java.util.ArrayList<Component>();
+        details.add(Component.literal(p.getString("name")).withStyle(net.minecraft.ChatFormatting.BOLD));
+        details.add(tr("citizen_level",p.getInt("level")));
+        details.add(tr("citizens.profession",profession(p),p.getInt("profession_level"),p.getLong("xp")));
+        details.add(p.getBoolean("home")?tr("citizens.home",p.getInt("home_x"),p.getInt("home_z")):tr("citizens.no_home"));
+        details.add(p.getBoolean("workplace")?tr("citizens.workplace",p.getInt("work_x"),p.getInt("work_z"),p.getInt("workers"),p.getInt("slots")):tr("citizens.no_workplace"));
+        details.add(tr("citizens.status",Component.translatable("citizen.livingkingdoms.state."+p.getString("status")),
+                Component.translatable("work.livingkingdoms."+p.getString("work_state")),tr(p.getBoolean("active")?"citizens.active":"citizens.inactive")));
+        return details;
+    }
+    private void renderCitizens(GuiGraphics g) {
+        g.drawString(font,ellipsize(tr("citizens"),panelWidth-20),left+10,top+38,INK,false);
+        int divider=left+listWidth;
+        g.fill(divider,top+56,divider+1,layout.contentBottom(),WOOD);
+        g.fill(divider+4,top+56,left+panelWidth-5,layout.contentBottom(),PAPER);
+        var people=visibleQuests();
+        for(int i=offset;i<Math.min(people.size(),offset+layout.rows());i++)
+            g.drawString(font,ellipsize(state(people.get(i)),listWidth-20),left+11,layout.contentTop()+23+(i-offset)*34,MUTED,false);
+        int x=layout.detailX(),y=layout.contentTop()-detailScroll,w=layout.detailWidth()-24,start=y;
+        g.enableScissor(x,layout.contentTop(),x+w,layout.contentBottom());
+        if(data.contains("notice")) y=paragraph(g,Component.translatable(data.getString("notice")),x,y,w,
+                data.getString("notice").endsWith("rejected")?ERROR:SUCCESS);
+        y=paragraph(g,tr("food",data.getInt("food_stock"),data.getInt("food_capacity")),x,y,w,INK);
+        y=paragraph(g,tr("food_produced",data.getLong("food_produced")),x,y,w,MUTED);
+        var person=selectedQuest();
+        if(person==null) y=paragraph(g,tr("citizens.empty"),x,y,w,INK);
+        else {
+            for(Component detail:citizenDetails(person)) y=paragraph(g,detail,x,y,w,INK);
+            if(!person.getBoolean("assign") && !person.getBoolean("remove")) y=paragraph(g,tr("citizens.requirement"),x,y,w,MUTED);
+        }
+        if(data.getInt("roster_total")>people.size()) y=paragraph(g,tr("citizens.truncated",people.size(),data.getInt("roster_total")),x,y,w,MUTED);
+        y=paragraph(g,tr("citizens.shared"),x,y,w,MUTED);
+        detailHeight=y-start; g.disableScissor(); detailScroll=Math.clamp(detailScroll,0,maxDetailScroll());
+    }
+
     private static ItemStack icon(String item) {
         return new ItemStack(switch(item) {case "iron_ingot"->Items.IRON_INGOT;case "wheat"->Items.WHEAT;case "logs"->Items.OAK_LOG;default->Items.STONE;});
     }
@@ -460,14 +536,15 @@ public final class VillageScreen extends Screen {
         y=paragraph(g,tr("population",data.getInt("population")),x,y,w,INK);
         y=paragraph(g,tr("housing",data.getInt("housing_occupied"),data.getInt("housing_total")),x,y,w,INK);
         y=paragraph(g,tr("housing_free",data.getInt("housing_free")),x,y,w,MUTED);
-        return paragraph(g,tr("immigration_pending",data.getInt("immigration_pending")),x,y,w,MUTED);
+        y=paragraph(g,tr("immigration_pending",data.getInt("immigration_pending")),x,y,w,MUTED);
+        return paragraph(g,tr("food",data.getInt("food_stock"),data.getInt("food_capacity")),x,y,w,INK);
     }
 
     private int detailViewport() {
         return wide() ? layout.viewport() : Math.max(1, dialogueActionsTop()-8-dialogueStart);
     }
 
-    private int dialogueActionsTop() { return layout.dialogueActionsTop(3); }
+    private int dialogueActionsTop() { return layout.dialogueActionsTop(4); }
 
     private int maxDetailScroll() { return Math.max(0, detailHeight-detailViewport()); }
 

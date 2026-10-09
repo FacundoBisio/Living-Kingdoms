@@ -10,6 +10,15 @@ import net.minecraft.network.chat.Component;
 import static org.junit.jupiter.api.Assertions.*;
 
 class VillageUiLayoutTest {
+    @Test void fourMayorRowsAndThreeManagementActionsFitSupportedScales() {
+        for(int[] size:new int[][]{{320,240},{427,240},{640,360},{854,480},{1920,1080}}) {
+            var dialogue=VillageUiLayout.fit(size[0],size[1],false);
+            assertTrue(dialogue.dialogueActionsTop(4)>=dialogue.contentTop()+64);
+            assertTrue(dialogue.dialogueActionsTop(4)+72+20<=dialogue.top()+dialogue.height()-8);
+            var management=VillageUiLayout.fit(size[0],size[1],true); int available=management.width()-management.listWidth()-20;
+            assertTrue((available-8)/3>=58); assertTrue(management.detailX()+management.detailWidth()<=management.left()+management.width());
+        }
+    }
     @Test void boardAndDialogueFitMinecraftScaledResolutions() {
         // 854x480, 1280x720 and 1920x1080 windows at legal GUI scales.
         for (int[] resolution : new int[][]{{320,240},{427,240},{640,360},{854,480},{960,540},{1920,1080}}) {

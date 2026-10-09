@@ -38,6 +38,12 @@ public final class ConstructionService {
     }
     /** Small survival expansion using the existing materials, timer and protected-placement system. */
     public static boolean planHouse(ServerLevel level,UUID settlementId,ServerPlayer actor) {
+        return planFunctional(level,settlementId,actor,BuildingKind.HOUSE);
+    }
+    public static boolean planFarm(ServerLevel level,UUID settlementId,ServerPlayer actor) {
+        return planFunctional(level,settlementId,actor,BuildingKind.FARM);
+    }
+    private static boolean planFunctional(ServerLevel level,UUID settlementId,ServerPlayer actor,BuildingKind kind) {
         var data=SettlementSavedData.get(level.getServer()); var settlement=data.get(settlementId).orElse(null);
         if(actor==null || !canContribute(actor,settlement) || settlement.lifecycle()!=SettlementLifecycle.ESTABLISHED
                 || current(level.getServer(),settlementId).isPresent()) return false;
@@ -51,7 +57,7 @@ public final class ConstructionService {
             if(ports.isEmpty()) return false;
             data.updateLayout(settlementId,new SettlementLayoutMetadata(ArchitectureStyle.at(level,marker),List.of(),ports,List.of()));
         }
-        var plan=new SettlementGenerator().planBuildingAddition(level,settlementId,BuildingKind.HOUSE,new GenerationDiagnostics());
+        var plan=new SettlementGenerator().planBuildingAddition(level,settlementId,kind,new GenerationDiagnostics());
         if(plan.isEmpty()) return false;
         reserve(level,settlementId,plan.orElseThrow(),actor); return true;
     }
@@ -153,6 +159,7 @@ public final class ConstructionService {
         try { ensureNext(level,settlement.id(),actor); }
         catch(RuntimeException failure) { LogUtils.getLogger().warn("Next construction plot unavailable for {}; inspect construction to retry",settlement.id(),failure); }
         dev.livingkingdoms.citizen.CitizenService.ensureInitialized(level,settlements.get(settlement.id()).orElseThrow());
+        dev.livingkingdoms.profession.ProfessionService.ensure(level,settlements.get(settlement.id()).orElseThrow());
         for(ServerPlayer player:level.players()) if(canContribute(player,settlement))
             player.displayClientMessage(Component.translatable("construction.livingkingdoms.completed",Component.translatable("construction.livingkingdoms.building."+entry.project().building().name().toLowerCase(Locale.ROOT))),true);
         return true;

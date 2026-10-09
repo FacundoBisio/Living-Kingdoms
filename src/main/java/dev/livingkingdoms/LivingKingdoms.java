@@ -42,6 +42,11 @@ public final class LivingKingdoms {
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.citizen.CitizenEvents::onConversion);
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.citizen.CitizenEvents::onTick);
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.citizen.ImmigrationService::onServerTick);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.profession.FarmerWork::onJoin);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.profession.FarmerWork::onTick);
+        NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, false, dev.livingkingdoms.profession.FarmerWork::onDeath);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.profession.FarmerWork::onConversion);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.command.FarmCommands::register);
         NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, false, EncounterEvents::onDeath);
         NeoForge.EVENT_BUS.addListener(EncounterEvents::onConversion);
         NeoForge.EVENT_BUS.addListener(EncounterEvents::onDamage);

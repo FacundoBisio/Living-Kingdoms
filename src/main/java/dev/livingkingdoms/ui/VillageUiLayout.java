@@ -20,7 +20,7 @@ public record VillageUiLayout(int left, int top, int width, int height, int list
     public int detailWidth() { return width - listWidth - 24; }
     public int dialogueActionsTop() { return dialogueActionsTop(2); }
     public int dialogueActionsTop(int actionRows) {
-        if(actionRows<1 || actionRows>3) throw new IllegalArgumentException("Dialogue requires one to three action rows");
+        if(actionRows<1 || actionRows>4) throw new IllegalArgumentException("Dialogue requires one to four action rows");
         return top + height - 8 - actionRows * 24;
     }
 }

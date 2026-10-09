@@ -162,6 +162,24 @@ def module(kind, width, depth, height):
         put(b,2,8,4,"lantern",hanging="true",waterlogged="false")
         for x in (1,5):
             for z in (2,3,4): put(b,x,2,z,"cobblestone_wall",up="true",north="low",south="low",east="none",west="none",waterlogged="false")
+    elif kind == "farm":
+        # An irrigated crop field with a small gated equipment shelter. Solid base keeps water contained.
+        for x in range(1, 8):
+            for z in range(1, 6):
+                put(b, x, 1, z, "farmland", moisture="7")
+                crop = ("wheat", "carrots", "potatoes")[(x + z) % 3]
+                put(b, x, 2, z, crop, age="0")
+        put(b, 4, 1, 3, "water", level="0")
+        put(b, 4, 2, 3, "air")
+        for x in range(2, 7):
+            put(b, x, 1, 6, "spruce_planks")
+            for y in (1, 2):
+                if x in (2, 6): put(b, x, y, 7, "stripped_oak_log", axis="y")
+            for z in (6, 7, 8): put(b, x, 3, z, "spruce_planks")
+        for y, half in ((1, "lower"), (2, "upper")):
+            put(b, 4, y, 7, "spruce_door", facing="south", half=half, hinge="left", open="false", powered="false")
+        put(b, 5, 1, 7, "barrel", facing="up", open="false")
+        lantern(b, 3, 1, 7)
     else:
         frame(b,1,1,width-2,depth-2,stone=kind=="blacksmith",cross=kind=="house_variant",tall=kind=="town_hall")
         put(b,width-3,1,2,"barrel",facing="up",open="false")
@@ -209,7 +227,7 @@ def main():
     for kind, width, depth, height in (("core", 13, 13, 11), ("town_hall", 11, 9, 11), ("house", 7, 7, 9),
                                        ("house_variant", 7, 9, 10), ("house_third", 9, 7, 10),
                                        ("blacksmith", 7, 7, 10), ("barracks", 9, 9, 10), ("watchtower", 7, 7, 12),
-                                       ("founding_camp", 9, 9, 5)):
+                                       ("founding_camp", 9, 9, 5), ("farm", 9, 9, 5)):
         result = module(kind, width, depth, height)
         path = root / f"{kind}.nbt"
         if args.check:

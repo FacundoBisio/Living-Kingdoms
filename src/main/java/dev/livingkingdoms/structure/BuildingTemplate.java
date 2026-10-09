@@ -44,7 +44,10 @@ public record BuildingTemplate(BuildingKind kind, ResourceLocation id, Structure
             BlockPos pos = info.pos();
             if (pos.getX() < 0 || pos.getX() >= size.getX() || pos.getZ() < 0 || pos.getZ() >= size.getZ()
                     || pos.getY() < 0 || pos.getY() >= size.getY() || !positions.add(pos)
-                    || !info.state().getFluidState().isEmpty()) throw new IllegalArgumentException("Invalid module block");
+                    || !info.state().getFluidState().isEmpty() && !(kind==BuildingKind.FARM
+                        && info.state().is(Blocks.WATER) && info.state().getFluidState().isSource()
+                        && pos.getY()==1 && pos.getX()>0 && pos.getX()<size.getX()-1
+                        && pos.getZ()>0 && pos.getZ()<size.getZ()-1)) throw new IllegalArgumentException("Invalid module block");
             if (pos.getY() == 0) {
                 if (info.state().hasBlockEntity() || !Block.isShapeFullBlock(info.state().getCollisionShape(EmptyBlockGetter.INSTANCE, pos)))
                     throw new IllegalArgumentException("Modules need solid floors at Y=0");

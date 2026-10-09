@@ -1,0 +1,11 @@
+{
+  "parent": "livingkingdoms:first_kingdom",
+  "display": {
+    "icon": { "id": "minecraft:iron_hoe" },
+    "title": { "translate": "advancement.livingkingdoms.first_profession.title" },
+    "description": { "translate": "advancement.livingkingdoms.first_profession.description" },
+    "frame": "task", "show_toast": true, "announce_to_chat": false, "hidden": false
+  },
+  "criteria": { "assigned": { "trigger": "minecraft:impossible" } },
+  "requirements": [["assigned"]]
+}
