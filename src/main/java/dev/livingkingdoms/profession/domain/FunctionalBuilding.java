@@ -26,7 +26,8 @@ public record FunctionalBuilding(UUID id,UUID settlementId,String dimension,Buil
             case HOUSE,HOUSE_VARIANT,HOUSE_THIRD -> Set.of(BuildingCapability.HOUSING);
             case CORE,TOWN_HALL -> Set.of(BuildingCapability.ADMINISTRATION);
             case FARM -> Set.of(BuildingCapability.FARMER_WORKPLACE,BuildingCapability.FOOD_PRODUCTION);
-            case BARRACKS -> Set.of(BuildingCapability.GUARD_WORKPLACE);
+            case BARRACKS -> Set.of(BuildingCapability.GUARD_WORKPLACE,BuildingCapability.DEFENSE_SUPPORT);
+            case WATCHTOWER -> Set.of(BuildingCapability.DEFENSE_SUPPORT);
             case BLACKSMITH -> Set.of(BuildingCapability.BLACKSMITH_WORKPLACE);
             default -> Set.of();
         };

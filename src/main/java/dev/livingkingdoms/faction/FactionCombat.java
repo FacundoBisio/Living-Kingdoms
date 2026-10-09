@@ -48,6 +48,7 @@ public final class FactionCombat {
     public static void install(Mob mob) {
         if (!(mob.level() instanceof ServerLevel level)) return;
         if (!level.getServer().isSameThread()) throw new IllegalStateException("Faction AI must be installed on the server thread");
+        if (mob instanceof net.minecraft.world.entity.npc.Villager v && dev.livingkingdoms.profession.GuardWork.assigned(v)) return;
         if (FactionEntityResolver.combatFaction(mob).isEmpty()) return;
         if (mob.targetSelector.getAvailableGoals().stream().anyMatch(goal -> goal.getGoal() instanceof HostileFactionTargetGoal)) return;
         // Retaliation (1) and ordinary player targets (2) keep their vanilla priorities.

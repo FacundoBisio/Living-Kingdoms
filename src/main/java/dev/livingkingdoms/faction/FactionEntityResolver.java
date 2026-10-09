@@ -25,6 +25,7 @@ public final class FactionEntityResolver {
                             && party.remainingMembers().contains(entity.getUUID()))
                     .map(party -> party.faction());
         }
+        if(entity instanceof net.minecraft.world.entity.npc.Villager v && dev.livingkingdoms.profession.GuardWork.assigned(v)) return Optional.of(Faction.ALLIED_KINGDOM);
         return NpcIdentity.read(entity).filter(identity -> identity.role() == NpcRole.GUARD)
                 .flatMap(identity -> SettlementSavedData.get(level.getServer()).get(identity.settlementId()))
                 .filter(settlement -> settlement.faction().isAllied())

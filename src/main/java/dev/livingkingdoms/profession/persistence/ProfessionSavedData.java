@@ -23,6 +23,11 @@ public final class ProfessionSavedData extends SavedData {
     private final Map<UUID,Set<UUID>> settlementBuildings=new HashMap<>(),settlementWorkers=new HashMap<>();
     private final Map<UUID,Set<UUID>> workplaceWorkers=new HashMap<>();
     private final Map<UUID,FoodStock> food=new LinkedHashMap<>();
+    private record Career(int level,long xp) {
+        Career { if(level<1 || level>100 || xp<0 || xp>1_000_000_000L) throw new IllegalArgumentException("Invalid career"); }
+    }
+    private final Map<UUID,Map<ProfessionType,Career>> careers=new LinkedHashMap<>();
+    private final Map<UUID,Long> employmentRevisions=new HashMap<>();
     private Thread owner;
 
     public ProfessionSavedData() {}
@@ -42,6 +47,7 @@ public final class ProfessionSavedData extends SavedData {
         return data;
     }
     private void authority() { if(owner!=null && owner!=Thread.currentThread()) throw new IllegalStateException("Professions require server thread"); }
+    public long employmentRevision(UUID citizen) { authority(); return employmentRevisions.getOrDefault(citizen,0L); }
     public Optional<Profession> profession(UUID citizen) { authority(); return Optional.ofNullable(professions.get(citizen)); }
     public Optional<FunctionalBuilding> building(UUID id) { authority(); return Optional.ofNullable(buildings.get(id)); }
     public List<FunctionalBuilding> buildings(UUID settlement) { authority(); return settlementBuildings.getOrDefault(settlement,Set.of()).stream().map(buildings::get).toList(); }
@@ -68,6 +74,10 @@ public final class ProfessionSavedData extends SavedData {
     }
     private void put(Profession p) {
         var old=professions.put(p.citizenId(),p);
+        if(old!=null && (old.type()!=p.type() || old.active()!=p.active() || !Objects.equals(old.workplaceId(),p.workplaceId())))
+            employmentRevisions.put(p.citizenId(),Math.addExact(employmentRevision(p.citizenId()),1));
+        if(p.type()==ProfessionType.FARMER || p.type()==ProfessionType.GUARD)
+            careers.computeIfAbsent(p.citizenId(),key -> new EnumMap<>(ProfessionType.class)).put(p.type(),new Career(p.level().value(),p.experience()));
         if(old!=null && old.active() && old.workplaceId()!=null) {
             var members=workplaceWorkers.get(old.workplaceId());
             if(members!=null) { members.remove(old.citizenId()); if(members.isEmpty()) workplaceWorkers.remove(old.workplaceId()); }
@@ -76,9 +86,12 @@ public final class ProfessionSavedData extends SavedData {
         settlementWorkers.computeIfAbsent(p.settlementId(),key -> new LinkedHashSet<>()).add(p.citizenId()); setDirty();
     }
     public void synchronize(Settlement settlement,SettlementLayoutMetadata layout,int farmSlots,List<Citizen> citizens) {
+        synchronize(settlement,layout,farmSlots,0,citizens);
+    }
+    public void synchronize(Settlement settlement,SettlementLayoutMetadata layout,int farmSlots,int guardSlots,List<Citizen> citizens) {
         authority(); var desired=new LinkedHashMap<UUID,FunctionalBuilding>();
         if(layout!=null) for(var b:layout.buildings()) {
-            var functional=FunctionalBuilding.from(settlement.id(),settlement.territory().dimension(),b,b.kind()==BuildingKind.FARM?farmSlots:0);
+            var functional=FunctionalBuilding.from(settlement.id(),settlement.territory().dimension(),b,b.kind()==BuildingKind.FARM?farmSlots:b.kind()==BuildingKind.BARRACKS?guardSlots:0);
             if(desired.put(functional.id(),functional)!=null) throw new IllegalArgumentException("Duplicate functional building");
         }
         if(!buildings(settlement.id()).equals(List.copyOf(desired.values()))) {
@@ -88,24 +101,36 @@ public final class ProfessionSavedData extends SavedData {
         }
         var people=new HashMap<UUID,Citizen>(); citizens.forEach(c -> {initialize(c); people.put(c.id(),c);});
         var used=new HashMap<UUID,Integer>();
-        for(var p:professions(settlement.id())) if(p.active() && p.type()==ProfessionType.FARMER) {
+        for(var p:professions(settlement.id())) if(p.active() && (p.type()==ProfessionType.FARMER || p.type()==ProfessionType.GUARD)) {
             var citizen=people.get(p.citizenId()); var b=buildings.get(p.workplaceId()); int count=used.getOrDefault(p.workplaceId(),0);
             if(citizen==null || citizen.state()!=CitizenState.ACTIVE || citizen.homeId()==null || b==null || !b.active()
-                    || count>=b.workplaceSlots()) put(p.retired()); else used.put(b.id(),count+1);
+                    || b.kind()!=(p.type()==ProfessionType.FARMER?BuildingKind.FARM:BuildingKind.BARRACKS) || count>=b.workplaceSlots()) put(p.retired()); else used.put(b.id(),count+1);
         }
     }
     public boolean assignFarmer(Citizen citizen,UUID workplace,long now) {
+        return assign(citizen,workplace,now,ProfessionType.FARMER);
+    }
+    public boolean assignGuard(Citizen citizen,UUID workplace,long now) {
+        return assign(citizen,workplace,now,ProfessionType.GUARD);
+    }
+    private boolean assign(Citizen citizen,UUID workplace,long now,ProfessionType type) {
         authority(); initialize(citizen); var old=profession(citizen.id()).orElseThrow(); var b=buildings.get(workplace);
         if(now<0 || citizen.state()!=CitizenState.ACTIVE || citizen.homeId()==null || citizen.role()==CitizenRole.MAYOR
-                || old.type()==ProfessionType.MAYOR || old.active() && old.type()!=ProfessionType.UNASSIGNED
-                || b==null || !b.active() || b.kind()!=BuildingKind.FARM || !b.settlementId().equals(citizen.settlementId())
+                || type==ProfessionType.GUARD && old.type()!=ProfessionType.UNASSIGNED || old.type()==ProfessionType.MAYOR || old.active() && old.type()!=ProfessionType.UNASSIGNED
+                || b==null || !b.active() || b.kind()!=(type==ProfessionType.FARMER?BuildingKind.FARM:BuildingKind.BARRACKS) || !b.settlementId().equals(citizen.settlementId())
                 || workers(workplace)>=b.workplaceSlots()) return false;
-        put(new Profession(citizen.id(),citizen.settlementId(),ProfessionType.FARMER,old.level(),old.experience(),workplace,true,
+        var progress=careers.getOrDefault(citizen.id(),Map.of()).getOrDefault(type,
+                new Career(1,0));
+        put(new Profession(citizen.id(),citizen.settlementId(),type,new LevelValue(progress.level()),progress.xp(),workplace,true,
                 WorkState.IDLE,now,0,0,old.traits())); return true;
     }
     public boolean removeFarmer(UUID citizen) {
+        return remove(citizen,ProfessionType.FARMER);
+    }
+    public boolean removeGuard(UUID citizen) { return remove(citizen,ProfessionType.GUARD); }
+    private boolean remove(UUID citizen,ProfessionType type) {
         authority(); var old=professions.get(citizen);
-        if(old==null || old.type()!=ProfessionType.FARMER) return false;
+        if(old==null || old.type()!=type) return false;
         put(new Profession(old.citizenId(),old.settlementId(),ProfessionType.UNASSIGNED,old.level(),old.experience(),null,false,
                 WorkState.IDLE,old.nextWorkAt(),0,0,old.traits())); return true;
     }
@@ -125,8 +150,14 @@ public final class ProfessionSavedData extends SavedData {
                 experience,expected.workplaceId(),true,WorkState.WORKING,expected.nextWorkAt(),expected.cropCursor(),0,expected.traits());
         addFood(expected.settlementId(),units); put(next); return true;
     }
+    public boolean guardExperience(Profession expected,int xp,int cap,int step) {
+        authority(); if(expected.type()!=ProfessionType.GUARD || !expected.active() || xp<1 || !expected.equals(professions.get(expected.citizenId()))) return false;
+        long total=Math.min(1_000_000_000L,expected.experience()+xp);
+        put(new Profession(expected.citizenId(),expected.settlementId(),expected.type(),new LevelValue(GuardPolicy.level(total,cap,step)),total,
+                expected.workplaceId(),true,expected.workState(),expected.nextWorkAt(),expected.cropCursor(),expected.navigationFailures(),expected.traits())); return true;
+    }
     public static ProfessionSavedData load(CompoundTag tag,HolderLookup.Provider registries) {
-        require(tag,"schema_version",Tag.TAG_INT); if(tag.getInt("schema_version")!=1) throw new IllegalArgumentException("Unsupported profession schema");
+        require(tag,"schema_version",Tag.TAG_INT); int version=tag.getInt("schema_version"); if(version!=1 && version!=2) throw new IllegalArgumentException("Unsupported profession schema");
         var data=new ProfessionSavedData();
         for(var element:list(tag,"buildings",65536)) {
             var e=(CompoundTag)element; var origin=pos(e,"origin");
@@ -143,29 +174,44 @@ public final class ProfessionSavedData extends SavedData {
             if(data.professions.containsKey(p.citizenId())) throw new IllegalArgumentException("Duplicate profession");
             if(p.active() && p.workplaceId()!=null) {
                 var b=data.buildings.get(p.workplaceId());
-                if(b==null || !b.active() || !b.settlementId().equals(p.settlementId()) || p.type()!=ProfessionType.FARMER
-                        || b.kind()!=BuildingKind.FARM || data.workers(b.id())>=b.workplaceSlots()) throw new IllegalArgumentException("Invalid workplace assignment");
+                if(b==null || !b.active() || !b.settlementId().equals(p.settlementId()) || (p.type()!=ProfessionType.FARMER && p.type()!=ProfessionType.GUARD)
+                        || b.kind()!=(p.type()==ProfessionType.FARMER?BuildingKind.FARM:BuildingKind.BARRACKS) || data.workers(b.id())>=b.workplaceSlots()) throw new IllegalArgumentException("Invalid workplace assignment");
             }
             data.put(p);
+            if(version==2) { long revision=number(e,"employment_revision"); if(revision<0) throw new IllegalArgumentException("Invalid employment revision"); data.employmentRevisions.put(p.citizenId(),revision); }
         }
         for(var element:list(tag,"food",65536)) {
             var e=(CompoundTag)element;
             if(data.food.putIfAbsent(uuid(e,"settlement"),new FoodStock(integer(e,"stock"),integer(e,"capacity"),number(e,"produced")))!=null) throw new IllegalArgumentException("Duplicate food stock");
         }
+        if(version==2) {
+            var seen=new HashSet<String>();
+            for(var element:list(tag,"careers",200000)) {
+                var e=(CompoundTag)element; UUID id=uuid(e,"citizen"); var type=ProfessionType.valueOf(string(e,"type"));
+                if(!data.professions.containsKey(id) || type!=ProfessionType.FARMER && type!=ProfessionType.GUARD || !seen.add(id+"/"+type)) throw new IllegalArgumentException("Invalid career owner");
+                var progress=new Career(integer(e,"level"),number(e,"xp")); var current=data.professions.get(id);
+                if(current.type()==type && (current.level().value()!=progress.level() || current.experience()!=progress.xp())) throw new IllegalArgumentException("Conflicting career progress");
+                data.careers.computeIfAbsent(id,key -> new EnumMap<>(ProfessionType.class)).put(type,progress);
+            }
+        } else for(var current:data.professions.values()) if(current.type()==ProfessionType.UNASSIGNED && current.experience()>0)
+            data.careers.computeIfAbsent(current.citizenId(),key -> new EnumMap<>(ProfessionType.class)).put(ProfessionType.FARMER,new Career(current.level().value(),current.experience()));
         data.setDirty(false); return data;
     }
     @Override public CompoundTag save(CompoundTag tag,HolderLookup.Provider registries) {
-        authority(); tag.putInt("schema_version",1); var bs=new ListTag(); var ps=new ListTag(); var fs=new ListTag();
+        authority(); tag.putInt("schema_version",2); var bs=new ListTag(); var ps=new ListTag(); var fs=new ListTag();
         for(var b:buildings.values()) {
             var e=new CompoundTag(); e.putUUID("id",b.id()); e.putUUID("settlement",b.settlementId()); e.putString("dimension",b.dimension()); e.putString("kind",b.kind().name()); e.putString("template",b.template().toString());
             putPos(e,"origin",b.origin()); putPos(e,"entrance",b.entrance()); e.putString("rotation",b.rotation().name()); e.putInt("max_x",b.bounds().maxX()); e.putInt("max_z",b.bounds().maxZ()); e.putInt("slots",b.workplaceSlots()); e.putBoolean("active",b.active()); bs.add(e);
         }
         for(var p:professions.values()) {
-            var e=new CompoundTag(); e.putUUID("citizen",p.citizenId()); e.putUUID("settlement",p.settlementId()); e.putString("type",p.type().name()); e.putInt("level",p.level().value()); e.putLong("xp",p.experience());
+            var e=new CompoundTag(); e.putLong("employment_revision",employmentRevision(p.citizenId())); e.putUUID("citizen",p.citizenId()); e.putUUID("settlement",p.settlementId()); e.putString("type",p.type().name()); e.putInt("level",p.level().value()); e.putLong("xp",p.experience());
             if(p.workplaceId()!=null) e.putUUID("workplace",p.workplaceId()); e.putBoolean("active",p.active()); e.putString("work_state",p.workState().name()); e.putLong("next_work",p.nextWorkAt()); e.putInt("cursor",p.cropCursor()); e.putInt("failures",p.navigationFailures());
             var traits=new ListTag(); for(var t:p.traits()) { var v=new CompoundTag(); v.putString("trait",t.name()); traits.add(v); } e.put("traits",traits); ps.add(e);
         }
         food.forEach((id,f) -> {var e=new CompoundTag(); e.putUUID("settlement",id); e.putInt("stock",f.stock()); e.putInt("capacity",f.capacity()); e.putLong("produced",f.produced()); fs.add(e);});
+        var cs=new ListTag(); careers.forEach((id,history) -> history.forEach((type,c) -> {
+            var e=new CompoundTag(); e.putUUID("citizen",id); e.putString("type",type.name()); e.putInt("level",c.level()); e.putLong("xp",c.xp()); cs.add(e);
+        })); tag.put("careers",cs);
         tag.put("buildings",bs); tag.put("professions",ps); tag.put("food",fs); return tag;
     }
     private static void require(CompoundTag e,String key,int type) { if(!e.contains(key,type)) throw new IllegalArgumentException("Invalid profession field: "+key); }

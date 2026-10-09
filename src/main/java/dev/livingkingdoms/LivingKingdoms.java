@@ -47,8 +47,17 @@ public final class LivingKingdoms {
         NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, false, dev.livingkingdoms.profession.FarmerWork::onDeath);
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.profession.FarmerWork::onConversion);
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.command.FarmCommands::register);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.profession.GuardWork::onJoin);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.profession.GuardWork::onLeave);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.profession.GuardWork::onTick);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.profession.SecurityService::onEncounterTick);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.profession.GuardWork::onDamage);
+        NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST,false,dev.livingkingdoms.profession.GuardWork::beforeDamage);
+        NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST,false,dev.livingkingdoms.profession.GuardWork::onDeath);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.command.GuardCommands::register);
         NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, false, EncounterEvents::onDeath);
         NeoForge.EVENT_BUS.addListener(EncounterEvents::onConversion);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.profession.GuardWork::onConversion);
         NeoForge.EVENT_BUS.addListener(EncounterEvents::onDamage);
         NeoForge.EVENT_BUS.addListener(FactionCombat::onJoin);
         NeoForge.EVENT_BUS.addListener(ProgressionEvents::onJoin);

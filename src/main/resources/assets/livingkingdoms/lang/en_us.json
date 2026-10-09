@@ -301,5 +301,19 @@
   "work.livingkingdoms.sleeping": "Sleeping",
   "work.livingkingdoms.blocked": "Path blocked",
   "work.livingkingdoms.unloaded": "Farm unloaded",
-  "work.livingkingdoms.storage_full": "Food storage full"
+  "work.livingkingdoms.storage_full": "Food storage full",
+  "ui.livingkingdoms.citizens.assign_guard": "Assign Guard",
+  "ui.livingkingdoms.citizens.guard_requirement": "An unassigned citizen with a home and an available Barracks slot is required.",
+  "ui.livingkingdoms.citizens.workplace_kind": "%s: %s, %s | Workers: %s/%s",
+  "ui.livingkingdoms.plan_barracks": "Plan Barracks",
+  "ui.livingkingdoms.security": "Security: %s/100",
+  "guard.livingkingdoms.alert": "Hostile forces spotted near %s.",
+  "guard.livingkingdoms.debug_security": "%s: Security %s/100",
+  "guard.livingkingdoms.debug_barracks": "Barracks at %s, %s: %s/%s Guards",
+  "advancement.livingkingdoms.first_guard.title": "Defender of the Realm",
+  "advancement.livingkingdoms.first_guard.description": "Assign your first citizen to defend a settlement.",
+  "work.livingkingdoms.patrolling": "Patrolling",
+  "work.livingkingdoms.engaging": "Engaging hostiles",
+  "work.livingkingdoms.returning": "Returning to settlement",
+  "construction.livingkingdoms.building.barracks": "Barracks"
 }

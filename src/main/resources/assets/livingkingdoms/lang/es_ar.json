@@ -301,5 +301,19 @@
   "work.livingkingdoms.sleeping": "Durmiendo",
   "work.livingkingdoms.blocked": "Camino bloqueado",
   "work.livingkingdoms.unloaded": "Granja descargada",
-  "work.livingkingdoms.storage_full": "Almacén lleno"
+  "work.livingkingdoms.storage_full": "Almacén lleno",
+  "ui.livingkingdoms.citizens.assign_guard": "Asignar guardia",
+  "ui.livingkingdoms.citizens.guard_requirement": "Requiere un ciudadano sin trabajo, con hogar y una plaza libre en los cuarteles.",
+  "ui.livingkingdoms.citizens.workplace_kind": "%s: %s, %s | Trabajadores: %s/%s",
+  "ui.livingkingdoms.plan_barracks": "Planear cuarteles",
+  "ui.livingkingdoms.security": "Seguridad: %s/100",
+  "guard.livingkingdoms.alert": "Fuerzas hostiles avistadas cerca de %s.",
+  "guard.livingkingdoms.debug_security": "%s: Seguridad %s/100",
+  "guard.livingkingdoms.debug_barracks": "Cuarteles en %s, %s: %s/%s guardias",
+  "advancement.livingkingdoms.first_guard.title": "Defensor del reino",
+  "advancement.livingkingdoms.first_guard.description": "Asigna tu primer ciudadano a la defensa de un asentamiento.",
+  "work.livingkingdoms.patrolling": "Patrullando",
+  "work.livingkingdoms.engaging": "En combate",
+  "work.livingkingdoms.returning": "Regresando al asentamiento",
+  "construction.livingkingdoms.building.barracks": "Cuarteles"
 }

@@ -1,6 +1,6 @@
 # Living Kingdoms
 
-Minecraft Java **1.21.1**, **Java 21**, **NeoForge 21.1.252**. Version 0.12.0 adds persistent citizen professions, functional building capabilities, constructible Farms and Farmers who harvest bounded native crop fields into settlement Food. Citizens, Housing, Immigration, progressive founding, conversion, quests, factions, natural encounters and progression remain server-owned and compatible with 0.11.0 saves. Guard/Builder/Blacksmith gameplay, diplomacy, economy and conquest remain future milestones.
+Minecraft Java **1.21.1**, **Java 21**, **NeoForge 21.1.252**. Version 0.13.0 adds citizen Guards, functional and constructible Barracks, bounded local faction defense, persistent combat careers/equipment and derived settlement Security. Housing, Citizens, Immigration, Farmers/Farms/Food, progressive founding, conversion, quests, reputation, factions, encounters and progression remain compatible with 0.12.0 saves. Builder/Blacksmith gameplay, raids, diplomacy, economy and conquest remain future milestones.
 
 Living Kingdoms focuses on exploring, discovering settlements, gaining reputation and protecting the region. Registered citizens now help their settlement through explicit, shared profession assignments.
 
@@ -24,7 +24,7 @@ bash ./gradlew runGameTestServer
 bash ./gradlew runClient
 ```
 
-The client opens the Minecraft development environment. Survival establishment requires no cheats; enable them only for optional debug commands. The mod JAR is `build/libs/livingkingdoms-0.12.0.jar`; the `-sources.jar` is for developers, not installation. Use the same mod version on clients and dedicated servers. Python and development mods are not required for the ordinary Java build or runtime.
+The client opens the Minecraft development environment. Survival establishment requires no cheats; enable them only for optional debug commands. The mod JAR is `build/libs/livingkingdoms-0.13.0.jar`; the `-sources.jar` is for developers, not installation. Use the same mod version on clients and dedicated servers. Python and development mods are not required for the ordinary Java build or runtime.
 
 The QA bugfix fixes an overlay that blurred the Quest Board/dialogue and a disconnected watchtower roof strip, adds responsive readers and validates every template at all four rotations. This session's client attempts crashed in the AMD OpenGL driver before gameplay; screenshot acceptance and Save & Quit/reopen remain pending. See the [QA findings and exact manual checklist](docs/qa-ui-structure-bugfix.md).
 
@@ -336,3 +336,5 @@ Local results and known runtime limits: [Milestone 0](docs/validation.md), [Mile
 ## Next milestone
 
 Progressive Kingdom Founding is implemented. Complete the [new survival, multiplayer and reload checklist](docs/progressive-kingdom-founding.md) and the [remaining screenshot acceptance checklist](docs/qa-ui-structure-bugfix.md), then design Housing/Citizens around completed building metadata, converted-village surveys and persistent identity. Housing, immigration, profession systems, settlement levels, raids, conquest, liberation and bosses have not been started.
+
+Guard assignment, Barracks construction, configuration, security rules and the 15-step PC checklist: [Guards and settlement defense](docs/guards-settlement-defense.md).

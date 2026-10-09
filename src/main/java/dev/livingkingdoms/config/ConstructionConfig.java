@@ -21,6 +21,7 @@ public final class ConstructionConfig {
         defineBuilding(builder, BuildingKind.TOWN_HALL, 3600, 64, 32, 4);
         defineBuilding(builder, BuildingKind.HOUSE, 1800, 32, 16, 0);
         defineBuilding(builder, BuildingKind.FARM, 2400, 32, 16, 2);
+        defineBuilding(builder, BuildingKind.BARRACKS, 3600, 48, 32, 8);
         builder.pop();
     }
     private static void defineBuilding(ModConfigSpec.Builder b, BuildingKind kind, int ticks, int logs, int stone, int iron) {

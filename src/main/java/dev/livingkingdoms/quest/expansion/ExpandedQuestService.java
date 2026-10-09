@@ -161,7 +161,7 @@ public final class ExpandedQuestService {
                 ^ settlement.id().getMostSignificantBits() ^ Long.rotateLeft(settlement.id().getLeastSignificantBits(), 19)
                 ^ data.boardGeneration(player.getUUID(), settlement.id());
         var offers = QuestGenerator.generate(settlement.id(), regional, targets,
-                dev.livingkingdoms.profession.ProfessionService.shortageWeights(player.server,settlement.id()),rules, new Random(seed), now);
+                dev.livingkingdoms.profession.SecurityService.questWeights(player.server,settlement.id()),rules, new Random(seed), now);
         int slots = Math.max(0, rules.dynamicCount() - (int) active);
         data.rotateBoard(player.getUUID(), settlement.id(), now, rules.refreshTicks(), offers.stream()
                 .filter(quest -> settlement.lifecycle() != dev.livingkingdoms.settlement.domain.SettlementLifecycle.FOUNDING

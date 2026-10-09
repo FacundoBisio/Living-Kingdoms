@@ -20,7 +20,7 @@ public final class ProfessionService {
         CitizenService.ensureInitialized(level,settlement);
         var data=ProfessionSavedData.get(level.getServer()); var citizens=CitizenSavedData.get(level.getServer());
         data.synchronize(settlement,SettlementSavedData.get(level.getServer()).layout(settlement.id()).orElse(null),
-                ProfessionConfig.FARM_SLOTS.get(),citizens.citizens(settlement.id()));
+                ProfessionConfig.FARM_SLOTS.get(),dev.livingkingdoms.config.GuardConfig.SLOTS.get(),citizens.citizens(settlement.id()));
         data.ensureFood(settlement.id(),ProfessionConfig.FOOD_CAPACITY.get());
     }
     public static FoodStock food(net.minecraft.server.MinecraftServer server,UUID settlement) {
@@ -36,7 +36,9 @@ public final class ProfessionService {
         return !data.buildings(settlement).isEmpty() && food(server,settlement).stock()<ProfessionConfig.LOW_FOOD.get()
                 ? Map.of(ResourceKind.WHEAT,12) : Map.of();
     }
-    public static boolean assign(ServerPlayer player,UUID settlementId,UUID citizenId) {
+    public static boolean assign(ServerPlayer player,UUID settlementId,UUID citizenId) { return assign(player,settlementId,citizenId,ProfessionType.FARMER); }
+    public static boolean assignGuard(ServerPlayer player,UUID settlementId,UUID citizenId) { return assign(player,settlementId,citizenId,ProfessionType.GUARD); }
+    private static boolean assign(ServerPlayer player,UUID settlementId,UUID citizenId,ProfessionType type) {
         var settlement=authorized(player,settlementId); if(settlement==null) return false;
         ensure(player.serverLevel(),settlement);
         var people=CitizenSavedData.get(player.server); var citizen=people.citizen(citizenId).filter(c -> c.settlementId().equals(settlementId)).orElse(null);
@@ -44,9 +46,12 @@ public final class ProfessionService {
         var loaded=player.serverLevel().getEntity(citizen.entityId());
         if(loaded!=null && (!(loaded instanceof Villager v) || !CitizenService.canApply(citizen,v))) return false;
         var data=ProfessionSavedData.get(player.server);
-        for(var b:data.buildings(settlementId)) if(b.kind()==dev.livingkingdoms.structure.BuildingKind.FARM
-                && data.assignFarmer(citizen,b.id(),ImmigrationService.now(player.server))) {
-            if(player.serverLevel().getEntity(citizen.entityId()) instanceof Villager villager) FarmerWork.control(villager);
+        for(var b:data.buildings(settlementId)) if(b.kind()==(type==ProfessionType.FARMER?dev.livingkingdoms.structure.BuildingKind.FARM:dev.livingkingdoms.structure.BuildingKind.BARRACKS)
+                && (type==ProfessionType.FARMER?data.assignFarmer(citizen,b.id(),ImmigrationService.now(player.server)):data.assignGuard(citizen,b.id(),ImmigrationService.now(player.server)))) {
+            if(player.serverLevel().getEntity(citizen.entityId()) instanceof Villager villager) {
+                if(type==ProfessionType.FARMER) FarmerWork.control(villager); else GuardWork.control(villager);
+            }
+            if(type==ProfessionType.GUARD) dev.livingkingdoms.advancement.KingdomMilestone.awardFirstGuard(player);
             dev.livingkingdoms.advancement.KingdomMilestone.awardFirstProfession(player); return true;
         }
         return false;
@@ -54,16 +59,20 @@ public final class ProfessionService {
     public static boolean remove(ServerPlayer player,UUID settlementId,UUID citizenId) {
         if(authorized(player,settlementId)==null) return false;
         var citizen=CitizenSavedData.get(player.server).citizen(citizenId).filter(c -> c.settlementId().equals(settlementId) && c.state()==CitizenState.ACTIVE).orElse(null);
-        if(citizen==null || !ProfessionSavedData.get(player.server).removeFarmer(citizenId)) return false;
+        if(citizen==null || !(ProfessionSavedData.get(player.server).removeFarmer(citizenId) || ProfessionSavedData.get(player.server).removeGuard(citizenId))) return false;
         if(player.serverLevel().getEntity(citizen.entityId()) instanceof Villager villager) {
-            FarmerWork.release(villager); CitizenService.apply(citizen,villager);
+            FarmerWork.release(villager); GuardWork.release(villager); CitizenService.apply(citizen,villager);
         }
         return true;
     }
     public static boolean canAssign(Citizen citizen,Profession p,List<FunctionalBuilding> buildings,ProfessionSavedData data) {
+        return canAssign(citizen,p,buildings,data,ProfessionType.FARMER);
+    }
+    public static boolean canAssign(Citizen citizen,Profession p,List<FunctionalBuilding> buildings,ProfessionSavedData data,ProfessionType type) {
         return citizen.state()==CitizenState.ACTIVE && citizen.homeId()!=null && citizen.role()!=CitizenRole.MAYOR
+                && (type!=ProfessionType.GUARD || p.type()==ProfessionType.UNASSIGNED)
                 && !(p.active() && p.type()!=ProfessionType.UNASSIGNED) && buildings.stream().anyMatch(b ->
-                b.active() && b.kind()==dev.livingkingdoms.structure.BuildingKind.FARM && data.workers(b.id())<b.workplaceSlots());
+                b.active() && b.kind()==(type==ProfessionType.FARMER?dev.livingkingdoms.structure.BuildingKind.FARM:dev.livingkingdoms.structure.BuildingKind.BARRACKS) && data.workers(b.id())<b.workplaceSlots());
     }
     private static Settlement authorized(ServerPlayer player,UUID id) {
         if(!player.server.isSameThread()) throw new IllegalStateException("Assignment requires server thread");

@@ -46,7 +46,8 @@ public final class ImmigrationService {
     /** Debug bypasses chance and waiting only; housing, lifecycle and shared pending limits still apply. */
     public static Optional<ImmigrationCandidate> attempt(ServerLevel level, Settlement settlement, boolean debug) {
         return attempt(level,settlement,debug,(chance,factors) -> chance*
-                dev.livingkingdoms.profession.ProfessionService.immigrationModifier(level.getServer(),settlement.id()));
+                dev.livingkingdoms.profession.ProfessionService.immigrationModifier(level.getServer(),settlement.id())
+                * dev.livingkingdoms.profession.SecurityService.immigrationModifier(level.getServer(),settlement.id()));
     }
 
     public static Optional<ImmigrationCandidate> attempt(ServerLevel level, Settlement settlement, boolean debug,

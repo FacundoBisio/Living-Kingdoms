@@ -129,7 +129,8 @@ public final class VillageScreen extends Screen {
                 .append(". ").append(tr("housing",data.getInt("housing_occupied"),data.getInt("housing_total")))
                 .append(". ").append(tr("housing_free",data.getInt("housing_free")))
                 .append(". ").append(tr("immigration_pending",data.getInt("immigration_pending")))
-                .append(". ").append(tr("food",data.getInt("food_stock"),data.getInt("food_capacity")));
+                .append(". ").append(tr("food",data.getInt("food_stock"),data.getInt("food_capacity")))
+                .append(". ").append(tr("security",data.getInt("security")));
     }
     private boolean board() { return data.getString("screen").equals("board"); }
     private boolean construction() { return data.getString("screen").equals("construction"); }
@@ -194,12 +195,14 @@ public final class VillageScreen extends Screen {
         int x=left+listWidth+8, available=panelWidth-listWidth-20;
         if(citizens()) {
             int actionWidth=(available-8)/3;
-            var assign=button("farmer_assign",tr(pending?"working":"citizens.assign"),x,layout.footerTop(),actionWidth,
-                    ()->{if(q!=null) send(UiPayloads.Action.ASSIGN_FARMER,q.getUUID("id"));});
-            assign.primary(); assign.active=!pending && q!=null && q.getBoolean("assign");
+            var assign=button("farmer_assign",tr(pending?"working":q!=null && q.getBoolean("remove")?"citizens.remove":"citizens.assign"),x,layout.footerTop(),actionWidth,
+                    ()->{if(q!=null) send(q.getBoolean("remove")?UiPayloads.Action.REMOVE_PROFESSION:UiPayloads.Action.ASSIGN_FARMER,q.getUUID("id"));});
+            assign.primary(); assign.active=!pending && q!=null && (q.getBoolean("assign") || q.getBoolean("remove"));
             if(!assign.active && !pending) assign.setTooltip(Tooltip.create(tr("citizens.requirement")));
-            button("farmer_remove",tr("citizens.remove"),x+actionWidth+4,layout.footerTop(),actionWidth,
-                    ()->{if(q!=null) send(UiPayloads.Action.REMOVE_PROFESSION,q.getUUID("id"));}).active=!pending && q!=null && q.getBoolean("remove");
+            var guard=button("guard_assign",tr("citizens.assign_guard"),x+actionWidth+4,layout.footerTop(),actionWidth,
+                    ()->{if(q!=null) send(UiPayloads.Action.ASSIGN_GUARD,q.getUUID("id"));});
+            guard.active=!pending && q!=null && q.getBoolean("assign_guard");
+            if(!guard.active && !pending) guard.setTooltip(Tooltip.create(tr("citizens.guard_requirement")));
             button(tr("back"),x+(actionWidth+4)*2,layout.footerTop(),actionWidth,()->send(returnAction(),null)).active=!pending;
             return;
         }
@@ -207,7 +210,7 @@ public final class VillageScreen extends Screen {
             int actionWidth=(available-8)/3;
             button("plan_house",tr("plan_house"),x,layout.footerTop(),actionWidth,()->send(UiPayloads.Action.PLAN,null)).active=!pending;
             button("plan_farm",tr("plan_farm"),x+actionWidth+4,layout.footerTop(),actionWidth,()->send(UiPayloads.Action.PLAN_FARM,null)).active=!pending;
-            button(tr("leave"),x+(actionWidth+4)*2,layout.footerTop(),actionWidth,this::onClose);
+            button("plan_barracks",tr("plan_barracks"),x+(actionWidth+4)*2,layout.footerTop(),actionWidth,()->send(UiPayloads.Action.PLAN_BARRACKS,null)).active=!pending && data.getBoolean("barracks_plan");
             return;
         }
         if(immigration()) {
@@ -473,7 +476,7 @@ public final class VillageScreen extends Screen {
         details.add(tr("citizen_level",p.getInt("level")));
         details.add(tr("citizens.profession",profession(p),p.getInt("profession_level"),p.getLong("xp")));
         details.add(p.getBoolean("home")?tr("citizens.home",p.getInt("home_x"),p.getInt("home_z")):tr("citizens.no_home"));
-        details.add(p.getBoolean("workplace")?tr("citizens.workplace",p.getInt("work_x"),p.getInt("work_z"),p.getInt("workers"),p.getInt("slots")):tr("citizens.no_workplace"));
+        details.add(p.getBoolean("workplace")?tr("citizens.workplace_kind",Component.translatable("construction.livingkingdoms.building."+p.getString("workplace_kind")),p.getInt("work_x"),p.getInt("work_z"),p.getInt("workers"),p.getInt("slots")):tr("citizens.no_workplace"));
         details.add(tr("citizens.status",Component.translatable("citizen.livingkingdoms.state."+p.getString("status")),
                 Component.translatable("work.livingkingdoms."+p.getString("work_state")),tr(p.getBoolean("active")?"citizens.active":"citizens.inactive")));
         return details;
@@ -492,11 +495,12 @@ public final class VillageScreen extends Screen {
                 data.getString("notice").endsWith("rejected")?ERROR:SUCCESS);
         y=paragraph(g,tr("food",data.getInt("food_stock"),data.getInt("food_capacity")),x,y,w,INK);
         y=paragraph(g,tr("food_produced",data.getLong("food_produced")),x,y,w,MUTED);
+        y=paragraph(g,tr("security",data.getInt("security")),x,y,w,INK);
         var person=selectedQuest();
         if(person==null) y=paragraph(g,tr("citizens.empty"),x,y,w,INK);
         else {
             for(Component detail:citizenDetails(person)) y=paragraph(g,detail,x,y,w,INK);
-            if(!person.getBoolean("assign") && !person.getBoolean("remove")) y=paragraph(g,tr("citizens.requirement"),x,y,w,MUTED);
+            if(!person.getBoolean("assign") && !person.getBoolean("assign_guard") && !person.getBoolean("remove")) y=paragraph(g,tr("citizens.requirement"),x,y,w,MUTED);
         }
         if(data.getInt("roster_total")>people.size()) y=paragraph(g,tr("citizens.truncated",people.size(),data.getInt("roster_total")),x,y,w,MUTED);
         y=paragraph(g,tr("citizens.shared"),x,y,w,MUTED);
@@ -537,7 +541,8 @@ public final class VillageScreen extends Screen {
         y=paragraph(g,tr("housing",data.getInt("housing_occupied"),data.getInt("housing_total")),x,y,w,INK);
         y=paragraph(g,tr("housing_free",data.getInt("housing_free")),x,y,w,MUTED);
         y=paragraph(g,tr("immigration_pending",data.getInt("immigration_pending")),x,y,w,MUTED);
-        return paragraph(g,tr("food",data.getInt("food_stock"),data.getInt("food_capacity")),x,y,w,INK);
+        y=paragraph(g,tr("food",data.getInt("food_stock"),data.getInt("food_capacity")),x,y,w,INK);
+        return paragraph(g,tr("security",data.getInt("security")),x,y,w,INK);
     }
 
     private int detailViewport() {
