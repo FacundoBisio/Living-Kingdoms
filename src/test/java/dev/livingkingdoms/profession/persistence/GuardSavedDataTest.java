@@ -76,7 +76,7 @@ class GuardSavedDataTest {
     @Test void malformedAndFutureCareerRecordsFailClosed() {
         var c=citizen(); var d=data(c); d.assignGuard(c,workplace(d,BuildingKind.BARRACKS),0); var tag=d.save(new CompoundTag(),null);
         tag.getList("careers",10).getCompound(0).putLong("xp",-1); assertThrows(IllegalArgumentException.class,()->ProfessionSavedData.load(tag,null));
-        var future=d.save(new CompoundTag(),null); future.putInt("schema_version",3); assertThrows(IllegalArgumentException.class,()->ProfessionSavedData.load(future,null));
+        var future=d.save(new CompoundTag(),null); future.putInt("schema_version",4); assertThrows(IllegalArgumentException.class,()->ProfessionSavedData.load(future,null));
     }
     @Test void hostilityUsesCentralRelationsAndAvoidsAlliedOrNeutralPairs() {
         assertTrue(GuardPolicy.hostile(Faction.PILLAGER)); assertTrue(GuardPolicy.hostile(Faction.BANDIT)); assertTrue(GuardPolicy.hostile(Faction.UNDEAD)); assertFalse(GuardPolicy.hostile(Faction.ALLIED_KINGDOM));

@@ -7,6 +7,7 @@ import dev.livingkingdoms.citizen.domain.*;
 import dev.livingkingdoms.citizen.persistence.CitizenSavedData;
 import dev.livingkingdoms.config.ProfessionConfig;
 import dev.livingkingdoms.construction.ConstructionService;
+import dev.livingkingdoms.construction.domain.ConstructionState;
 import dev.livingkingdoms.construction.persistence.ConstructionSavedData;
 import dev.livingkingdoms.npc.NpcService;
 import dev.livingkingdoms.profession.*;
@@ -120,15 +121,26 @@ public final class ProfessionGameTests {
         h.assertTrue(VillageUiService.handle(f.player(),new UiPayloads.Request(token,new UUID(0,0),UiPayloads.Action.PLAN_FARM)),"Plan Farm from existing construction UI");
         var entry=ConstructionService.current(server,f.settlement().id()).orElseThrow(); var project=entry.project();
         h.assertTrue(project.building()==BuildingKind.FARM && project.durationTicks()>0 && !project.required().isEmpty(),"Farm requires resources and time");
-        h.assertTrue(!ConstructionService.planFarm(h.getLevel(),f.settlement().id(),f.player()),"One current shared project prevents competing plans");
+        var storage=ConstructionSavedData.get(server); var farmPlot=entry.plan().buildings().getFirst().bounds();
+        int previousLimit=dev.livingkingdoms.config.ConstructionConfig.QUEUE_LIMIT.get();
+        try {
+            dev.livingkingdoms.config.ConstructionConfig.QUEUE_LIMIT.set(2);
+            h.assertTrue(ConstructionService.planHouse(h.getLevel(),f.settlement().id(),f.player()),"A second safe House joins the shared construction queue");
+            var plots=storage.reservations(f.settlement().id());
+            h.assertTrue(plots.size()==2 && !plots.get(0).conflicts(plots.get(1),0),"Queued projects own two distinct nonoverlapping reserved footprints");
+            h.assertTrue(!ConstructionService.planFarm(h.getLevel(),f.settlement().id(),f.player()),"The configured shared queue limit rejects a competing third plan");
+        } finally { dev.livingkingdoms.config.ConstructionConfig.QUEUE_LIMIT.set(previousLimit); }
         f.player().getInventory().items.set(0,new ItemStack(Items.OAK_LOG,64)); f.player().getInventory().items.set(1,new ItemStack(Items.STONE,64)); f.player().getInventory().items.set(2,new ItemStack(Items.IRON_INGOT,64));
         h.assertTrue(ConstructionService.deposit(f.player(),f.settlement().id(),project.id()),"Normal delivery funds the Farm");
-        h.assertTrue(!ConstructionService.resolve(server,project.id(),f.player()),"Time gates normal completion");
+        h.assertTrue(storage.get(project.id()).orElseThrow().project().state()==ConstructionState.READY
+                && storage.get(project.id()).orElseThrow().project().builderId()==null,"Funded Farm waits for an available Builder");
+        h.assertTrue(!ConstructionService.resolve(server,project.id(),f.player()),"An unassigned project cannot complete through the normal work path");
         h.assertTrue(ConstructionService.resolve(server,project.id(),f.player(),true) && !ConstructionService.resolve(server,project.id(),f.player(),true),"Development completion still uses one native placement receipt");
         var farm=farm(f); var d=ProfessionSavedData.get(server);
         h.assertTrue(d.workers(farm.id())==0 && farm.workplaceSlots()==2 && farm.capabilities().contains(BuildingCapability.FOOD_PRODUCTION),"Registered Farm makes configured slots available");
         var water=entry.plan().buildings().getFirst().position(new BlockPos(4,1,3)); h.assertTrue(h.getLevel().getBlockState(water).is(Blocks.WATER),"Adaptive native Farm contains irrigation");
-        h.assertTrue(ConstructionSavedData.get(server).reservations(f.settlement().id()).isEmpty(),"Completed project releases plot reservation"); h.succeed();
+        h.assertTrue(storage.reservations(f.settlement().id()).size()==1 && !storage.reservations(f.settlement().id()).contains(farmPlot),
+                "Completed Farm releases only its own plot while the queued House keeps its reservation"); h.succeed();
     }
 
     @GameTest(template="empty",timeoutTicks=600)

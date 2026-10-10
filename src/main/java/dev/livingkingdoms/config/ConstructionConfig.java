@@ -9,11 +9,14 @@ import java.util.Map;
 public final class ConstructionConfig {
     public static ModConfigSpec.BooleanValue ENABLED;
     public static ModConfigSpec.IntValue TEST_DURATION;
+    public static ModConfigSpec.IntValue ACTIVE_PROJECTS,QUEUE_LIMIT;
     private static final Map<BuildingKind, ModConfigSpec.IntValue> DURATIONS = new EnumMap<>(BuildingKind.class);
     private static final Map<BuildingKind, Map<ResourceKind, ModConfigSpec.IntValue>> COSTS = new EnumMap<>(BuildingKind.class);
     private ConstructionConfig() {}
     public static void define(ModConfigSpec.Builder builder) {
         builder.push("construction");
+        ACTIVE_PROJECTS=builder.comment("Maximum concurrent Builder projects per settlement.").defineInRange("activeProjects",1,1,4);
+        QUEUE_LIMIT=builder.comment("Maximum unfinished planned projects per settlement.").defineInRange("queueLimit",8,1,64);
         ENABLED = builder.comment("New wilderness Charter foundations start with a camp. Existing settlements and conversions are unaffected.")
                 .define("progressiveFounding", true);
         TEST_DURATION = builder.comment("Development duration override in ticks; 0 uses gameplay durations. Existing projects retain their saved duration.")

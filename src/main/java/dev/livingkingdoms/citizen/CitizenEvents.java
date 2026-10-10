@@ -67,6 +67,7 @@ public final class CitizenEvents {
                 .filter(c -> c.state() == CitizenState.ACTIVE
                         && c.id().equals(villager.getPersistentData().getUUID(CitizenService.CITIZEN_ID_KEY))
                         && CitizenService.canApply(c,villager))
-                .ifPresent(c -> { if(!dev.livingkingdoms.profession.FarmerWork.assigned(villager) && !dev.livingkingdoms.profession.GuardWork.assigned(villager)) CitizenService.guideHome(villager); });
+                .ifPresent(c -> { if(!dev.livingkingdoms.profession.FarmerWork.assigned(villager) && !dev.livingkingdoms.profession.GuardWork.assigned(villager)
+                        && !dev.livingkingdoms.profession.BuilderWork.assigned(villager)) CitizenService.guideHome(villager); });
     }
 }

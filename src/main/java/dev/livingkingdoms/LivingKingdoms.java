@@ -55,6 +55,13 @@ public final class LivingKingdoms {
         NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST,false,dev.livingkingdoms.profession.GuardWork::beforeDamage);
         NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST,false,dev.livingkingdoms.profession.GuardWork::onDeath);
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.command.GuardCommands::register);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.command.BuilderCommands::register);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.profession.BuilderWork::onJoin);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.profession.BuilderWork::onLeave);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.profession.BuilderWork::onTick);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.profession.BuilderWork::onDamage);
+        NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST,false,dev.livingkingdoms.profession.BuilderWork::onDeath);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.profession.BuilderWork::onConversion);
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.command.DefenseCommands::register);
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.defense.DefenseService::onServerTick);
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.defense.DefenseService::onLogin);

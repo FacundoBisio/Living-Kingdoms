@@ -216,6 +216,9 @@ public final class ConstructionGameTests {
             // Test-only loading: reproduce the saved preconditions, then notify the real chunk index.
             for(var pos:plan.before().keySet()) level.getChunk(pos.getX()>>4,pos.getZ()>>4);
             for(var e:plan.before().entrySet()) level.setBlock(e.getKey(),e.getValue(),18);
+            // This synthetic remote reservation bypassed ConstructionService.reserve while its
+            // chunks were absent. Restore its owned reservation marker together with the terrain.
+            level.setBlock(deferred.marker(),KingdomBlocks.CONSTRUCTION_MARKER.get().defaultBlockState(),18);
             var chunk=new ChunkPos(deferred.marker()); level.getChunkSource().addRegionTicket(FIXTURE,chunk,4,chunk);
             data.chunkLoaded(remote.dimension(),chunk);
             h.assertTrue(data.ready(ConstructionService.now(server),64).contains(project),"Relevant chunk load wakes deferred project");

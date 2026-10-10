@@ -24,12 +24,20 @@ public record FunctionalBuilding(UUID id,UUID settlementId,String dimension,Buil
     public Set<BuildingCapability> capabilities() {
         return switch(kind) {
             case HOUSE,HOUSE_VARIANT,HOUSE_THIRD -> Set.of(BuildingCapability.HOUSING);
-            case CORE,TOWN_HALL -> Set.of(BuildingCapability.ADMINISTRATION);
+            case CORE,TOWN_HALL -> Set.of(BuildingCapability.ADMINISTRATION,BuildingCapability.BUILDER_WORKPLACE);
             case FARM -> Set.of(BuildingCapability.FARMER_WORKPLACE,BuildingCapability.FOOD_PRODUCTION);
             case BARRACKS -> Set.of(BuildingCapability.GUARD_WORKPLACE,BuildingCapability.DEFENSE_SUPPORT);
             case WATCHTOWER -> Set.of(BuildingCapability.DEFENSE_SUPPORT);
             case BLACKSMITH -> Set.of(BuildingCapability.BLACKSMITH_WORKPLACE);
             default -> Set.of();
+        };
+    }
+    public boolean supports(ProfessionType profession) {
+        return switch(profession) {
+            case FARMER -> capabilities().contains(BuildingCapability.FARMER_WORKPLACE);
+            case GUARD -> capabilities().contains(BuildingCapability.GUARD_WORKPLACE);
+            case BUILDER -> capabilities().contains(BuildingCapability.BUILDER_WORKPLACE);
+            default -> false;
         };
     }
     public boolean containsCrop(BlockPos pos) {

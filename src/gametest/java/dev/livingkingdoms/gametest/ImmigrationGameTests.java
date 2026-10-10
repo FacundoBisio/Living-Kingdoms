@@ -113,8 +113,10 @@ public final class ImmigrationGameTests {
         h.assertTrue(data.summary(f.settlement().id()).total()==0 && ImmigrationService.attempt(level,f.settlement(),true).isEmpty(),"Vanilla village starts with no inferred beds/housing");
         h.assertTrue(ConstructionService.planHouse(level,f.settlement().id(),f.player()),"Player plans an actual LK house in safe converted wilderness space");
         var entry=ConstructionService.current(server,f.settlement().id()).orElseThrow(); var project=entry.project();
-        var funded=project.supply(project.required()).start(ConstructionService.now(server));
+        var funded=project.supply(project.required());
         ConstructionSavedData.get(server).replace(project,funded);
+        h.assertTrue(funded.state()==dev.livingkingdoms.construction.domain.ConstructionState.READY
+                && funded.builderId()==null,"Supplied project keeps its resources while waiting for a Builder");
         h.assertTrue(ConstructionService.resolve(server,project.id(),f.player(),true),"Existing construction places the real native house");
         h.assertTrue(data.summary(f.settlement().id()).total()==CitizenConfig.DEFAULT_HOUSE_CAPACITY.get()
                 && SettlementSavedData.get(server).layout(f.settlement().id()).orElseThrow().buildings().stream().allMatch(b -> b.kind()==BuildingKind.HOUSE),"Only completed LK house counts; converted village has no fake core");

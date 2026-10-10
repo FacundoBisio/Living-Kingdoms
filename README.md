@@ -1,10 +1,12 @@
 # Living Kingdoms
 
-Minecraft Java **1.21.1**, **Java 21**, **NeoForge 21.1.252**. Version 0.14.0 adds persistent local threat events, contextual defense quests, settlement alerts, Watchtower detection and meaningful participation rewards. Guards, Barracks, Security, Housing, Citizens, Immigration, Farmers/Farms/Food, founding, conversion, quests, reputation, factions, encounters and progression remain compatible with 0.13.0 saves. Builder/Blacksmith gameplay, raids, diplomacy, economy and conquest remain future milestones.
+Minecraft Java **1.21.1**, **Java 21**, **NeoForge 21.1.252**. Version 0.15.0 adds the Builder profession, shared project queues and safe visible construction stages driven by nearby workers. Guards, Barracks, Security, Housing, Citizens, Immigration, Farmers/Farms/Food, local defense, founding, conversion, quests, reputation, factions, encounters and progression remain compatible with 0.14.0 saves. Blacksmith gameplay, raids, diplomacy, economy and conquest remain future milestones.
 
 Living Kingdoms focuses on exploring, discovering settlements, gaining reputation and protecting the region. Registered citizens now help their settlement through explicit, shared profession assignments.
 
 When a real hostile party approaches an allied settlement, one local warning marks it **THREATENED**. Accept **Local Defense** at the Quest Board, fight the linked group alongside Guards, and claim your reward after victory. Standing nearby grants no credit; a Guard-only victory still returns the settlement to **SAFE**. Meaningful successful participation grants **Hold the Line / Mantener la línea** once. Build a Watchtower through Mayor → Construction for earlier detection. See [architecture, rewards, development commands, compatibility and the 16-step gamer QA](docs/local-defense-quests.md).
+
+Assign a housed citizen as **Builder** in Mayor → Citizens → Choose profession. Town Halls provide two slots; converted villages use their existing plaza. Plan and supply buildings in Construction: one active project advances through foundation, lower structure, walls, roof and final native template while its Builder works nearby. First founding Hall/House and migrated 0.14 projects retain their timers. See [Builder architecture, configuration, commands, limitations and gaming-PC QA](docs/builder-visible-construction.md).
 
 ## Build and run
 
@@ -26,9 +28,9 @@ bash ./gradlew runGameTestServer
 bash ./gradlew runClient
 ```
 
-The client opens the Minecraft development environment. Survival establishment requires no cheats; enable them only for optional debug commands. The mod JAR is `build/libs/livingkingdoms-0.14.0.jar`; the `-sources.jar` is for developers, not installation. Use the same mod version on clients and dedicated servers. Python and development mods are not required for the ordinary Java build or runtime.
+The client opens the Minecraft development environment. Survival establishment requires no cheats; enable them only for optional debug commands. The mod JAR is `build/libs/livingkingdoms-0.15.0.jar`; the `-sources.jar` is for developers, not installation. Use the same mod version on clients and dedicated servers. Python and development mods are not required for the ordinary Java build or runtime.
 
-The QA bugfix fixes an overlay that blurred the Quest Board/dialogue and a disconnected watchtower roof strip, adds responsive readers and validates every template at all four rotations. This session's client attempts crashed in the AMD OpenGL driver before gameplay; screenshot acceptance and Save & Quit/reopen remain pending. See the [QA findings and exact manual checklist](docs/qa-ui-structure-bugfix.md).
+The QA bugfix fixes an overlay that blurred the Quest Board/dialogue and a disconnected watchtower roof strip, adds responsive readers and validates every template at all four rotations. Earlier client attempts crashed in the AMD OpenGL driver before gameplay; screenshot acceptance and Save & Quit/reopen remain pending. See the [QA findings and exact manual checklist](docs/qa-ui-structure-bugfix.md).
 
 For a dedicated development server:
 
@@ -58,7 +60,7 @@ See [progressive founding, configuration, compatibility, validation and the 14-s
 
 ## Grow a community
 
-After establishment, select **Mayor > Construction > Plan House** to reserve another House with the current resource/timer flow. Default small houses have two places; the three starting citizens need a second house before a free immigration place exists. Completed registered houses count, while temporary shelters and vanilla beds do not by default.
+After establishment, select **Mayor > Construction > Choose building > Plan House** to reserve another House. Supply its resources and assign a housed Builder; new expansion needs nearby physical work. Default small houses have two places; the three starting citizens need a second house before a free immigration place exists. Completed registered houses count, while temporary shelters and vanilla beds do not by default.
 
 An eligible settlement may receive a traveler request. Open **Mayor > Immigration** or the board shortcut, inspect their name/level and current housing, and choose Accept or Decline. Acceptance rechecks shared housing, spawns one persistent vanilla villager and grants the accepting player the one-time **Growing Community** advancement. Death frees the citizen's home, while unloaded chunks preserve identity/population. Operator QA can trigger a request with `/kingdom immigration candidate`; lifecycle and housing requirements still apply.
 
@@ -66,9 +68,9 @@ Read [architecture, configuration, compatibility, automated validation and the 1
 
 ## Give citizens a job
 
-In an established settlement, open **Mayor > Construction > Plan Farm**. Defaults: 32 logs, 16 stone, 2 iron ingots, then two minutes of server time after funding. The adaptive planner reserves a loaded, safe plot and places the native irrigated crop field and small shelter through the existing ConstructionProject system.
+In an established settlement, open **Mayor > Construction > Choose building > Plan Farm**. Defaults: 32 logs, 16 stone, 2 iron ingots, then two minutes of nearby level-1 Builder work. The adaptive planner reserves a loaded, safe plot and places the native irrigated crop field and small shelter through the existing ConstructionProject system.
 
-Open **Mayor > Citizens**, select an active citizen with a home, and choose **Assign Farmer**. A basic Farm has two shared worker slots. New immigrants remain unassigned; the Mayor keeps the special Mayor profession. The citizen detail reader shows name, citizen level, profession level/XP, home, workplace occupancy and work status. Remove job frees the slot while retaining identity, home and Farmer progress. The first assignment grants **A Job to Do / Manos a la obra**.
+Open **Mayor > Citizens**, select an active citizen with a home, and choose **Choose profession > Farmer**. A basic Farm has two shared worker slots. New immigrants remain unassigned; the Mayor keeps the special Mayor profession. The citizen detail reader shows name, citizen level, profession level/XP, home, workplace occupancy and work status. Remove job frees the slot while retaining identity, home and Farmer progress. The first assignment grants **A Job to Do / Manos a la obra**.
 
 Farmers work roughly from daytime 1000 to 11000, navigate using Minecraft's local navigation, harvest mature wheat/carrots/potatoes only inside their assigned Farm, and replant at age zero. Each harvest produces 2 abstract Food and 5 profession XP by default, without item drops. Food is capped at 500; full storage pauses harvesting. Level cap 5 provides a modest cooldown reduction. Low food multiplies immigration chance by 0.1 below 20 stock, gradually returning to normal at 80; free housing is always mandatory. Existing food delivery quests replenish stock and receive shortage weighting.
 

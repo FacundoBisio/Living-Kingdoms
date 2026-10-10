@@ -104,7 +104,8 @@ public final class VillageUiService {
         if(request.action()==UiPayloads.Action.CITIZENS) {
             var citizens=session.citizensView(); SESSIONS.put(player,citizens); sendCitizens(player,citizens,settlement,null); return true;
         }
-        if(request.action()==UiPayloads.Action.ASSIGN_FARMER || request.action()==UiPayloads.Action.ASSIGN_GUARD || request.action()==UiPayloads.Action.REMOVE_PROFESSION) {
+        if(request.action()==UiPayloads.Action.ASSIGN_FARMER || request.action()==UiPayloads.Action.ASSIGN_GUARD
+                || request.action()==UiPayloads.Action.ASSIGN_BUILDER || request.action()==UiPayloads.Action.REMOVE_PROFESSION) {
             if(!session.citizens) return false;
             var jobs=dev.livingkingdoms.profession.persistence.ProfessionSavedData.get(player.server);
             var expected=CITIZEN_VIEWS.getOrDefault(player,Map.of()).get(request.quest());
@@ -115,6 +116,8 @@ public final class VillageUiService {
                     ? dev.livingkingdoms.profession.ProfessionService.assign(player,settlement.id(),request.quest())
                     : request.action()==UiPayloads.Action.ASSIGN_GUARD
                     ? dev.livingkingdoms.profession.ProfessionService.assignGuard(player,settlement.id(),request.quest())
+                    : request.action()==UiPayloads.Action.ASSIGN_BUILDER
+                    ? dev.livingkingdoms.profession.ProfessionService.assignBuilder(player,settlement.id(),request.quest())
                     : dev.livingkingdoms.profession.ProfessionService.remove(player,settlement.id(),request.quest());
             sendCitizens(player,session,settlement,result?"ui.livingkingdoms.citizens.changed":"ui.livingkingdoms.citizens.rejected"); return result;
         }
@@ -233,8 +236,10 @@ public final class VillageUiService {
         tag.putInt("immigration_pending",candidates.size());
         tag.putInt("security",dev.livingkingdoms.profession.SecurityService.score(player.server,settlement.id()));
         tag.putString("safety",dev.livingkingdoms.defense.DefenseService.status(player.server,settlement.id()).name().toLowerCase(java.util.Locale.ROOT));
-        tag.putBoolean("barracks_plan",dev.livingkingdoms.profession.persistence.ProfessionSavedData.get(player.server).buildings(settlement.id()).stream().noneMatch(b -> b.kind()==dev.livingkingdoms.structure.BuildingKind.BARRACKS));
-        tag.putBoolean("watchtower_plan",dev.livingkingdoms.profession.persistence.ProfessionSavedData.get(player.server).buildings(settlement.id()).stream().noneMatch(b -> b.kind()==dev.livingkingdoms.structure.BuildingKind.WATCHTOWER));
+        tag.putBoolean("barracks_plan",!dev.livingkingdoms.construction.ConstructionService.planned(player.server,settlement.id(),dev.livingkingdoms.structure.BuildingKind.BARRACKS)
+                && dev.livingkingdoms.profession.persistence.ProfessionSavedData.get(player.server).buildings(settlement.id()).stream().noneMatch(b -> b.kind()==dev.livingkingdoms.structure.BuildingKind.BARRACKS));
+        tag.putBoolean("watchtower_plan",!dev.livingkingdoms.construction.ConstructionService.planned(player.server,settlement.id(),dev.livingkingdoms.structure.BuildingKind.WATCHTOWER)
+                && dev.livingkingdoms.profession.persistence.ProfessionSavedData.get(player.server).buildings(settlement.id()).stream().noneMatch(b -> b.kind()==dev.livingkingdoms.structure.BuildingKind.WATCHTOWER));
         dev.livingkingdoms.defense.DefenseService.current(player.server,settlement.id()).ifPresent(event -> DefenseUiState.write(tag,event,player.getUUID()));
         var food=dev.livingkingdoms.profession.ProfessionService.food(player.server,settlement.id());
         tag.putInt("food_stock",food.stock()); tag.putInt("food_capacity",food.capacity()); tag.putLong("food_produced",food.produced());
@@ -262,15 +267,34 @@ public final class VillageUiService {
         CompoundTag tag=base(player,session,settlement,"construction");
         if(rejected) tag.putString("notice","construction.livingkingdoms.rejected");
         ListTag projects=new ListTag();
-        var entries=dev.livingkingdoms.construction.persistence.ConstructionSavedData.get(player.server).projects(settlement.id());
+        var entries=dev.livingkingdoms.construction.persistence.ConstructionSavedData.get(player.server).projects(settlement.id()).stream()
+                .sorted(java.util.Comparator.comparingInt((dev.livingkingdoms.construction.persistence.ConstructionSavedData.Entry e) ->
+                        e.project().state()==dev.livingkingdoms.construction.domain.ConstructionState.BUILDING ? 0
+                        : e.project().state()==dev.livingkingdoms.construction.domain.ConstructionState.COMPLETED ? 2 : 1)).toList();
+        var people=CitizenSavedData.get(player.server);
+        var jobs=dev.livingkingdoms.profession.persistence.ProfessionSavedData.get(player.server);
         for(var entry:entries) {
             var p=entry.project(); CompoundTag view=new CompoundTag(); view.putUUID("id",p.id());
             view.putString("building",p.building().name().toLowerCase(java.util.Locale.ROOT)); view.putString("state",p.state().name());
             view.putInt("x",p.plot().x()); view.putInt("y",p.plot().y()); view.putInt("z",p.plot().z());
             view.putDouble("progress",p.progress(now(player))); view.putBoolean("awaiting_chunks",p.awaitingChunks());
+            view.putBoolean("builder_required",p.builderRequired()); view.putInt("stage",p.visualStage());
+            view.putString("queue",p.state()==dev.livingkingdoms.construction.domain.ConstructionState.COMPLETED ? ""
+                    : p.state()==dev.livingkingdoms.construction.domain.ConstructionState.BUILDING ? "active" : "next");
+            double speed=1;
+            if(p.builderId()!=null) {
+                people.citizen(p.builderId()).ifPresent(c -> view.putString("builder",c.name()));
+                var job=jobs.profession(p.builderId()).orElse(null);
+                if(job!=null) {
+                    view.putString("builder_status",job.workState().name().toLowerCase(java.util.Locale.ROOT));
+                    speed=dev.livingkingdoms.profession.domain.BuilderPolicy.speedMultiplier(job.level().value(),
+                            dev.livingkingdoms.config.BuilderConfig.LEVEL_CAP.get(),dev.livingkingdoms.config.BuilderConfig.MAX_SPEED_BONUS.get());
+                }
+            }
             view.putLong("duration",p.durationTicks());
             view.putBoolean("waiting_site",dev.livingkingdoms.construction.persistence.ConstructionSavedData.get(player.server).waitingForClearSite(p.id()));
-            view.putLong("remaining",p.startedAt()<0 ? p.durationTicks()/20 : Math.max(0,(p.deadline()-now(player)+19)/20));
+            view.putLong("remaining",p.builderRequired() ? (long)Math.ceil(p.remainingWork()/(20*speed))
+                    : p.startedAt()<0 ? p.durationTicks()/20 : Math.max(0,(p.deadline()-now(player)+19)/20));
             ListTag costs=new ListTag();
             for(var kind:ResourceKind.values()) if(p.required().containsKey(kind)) {
                 CompoundTag cost=new CompoundTag(); cost.putString("item",kind.id()); cost.putInt("required",p.required().get(kind));
@@ -278,9 +302,10 @@ public final class VillageUiService {
             }
             view.put("requirements",costs); projects.add(view);
         }
-        tag.put("projects",projects); tag.putBoolean("plan",(settlement.lifecycle()==dev.livingkingdoms.settlement.domain.SettlementLifecycle.FOUNDING
-                || settlement.lifecycle()==dev.livingkingdoms.settlement.domain.SettlementLifecycle.ESTABLISHED)
-                && entries.stream().noneMatch(e -> e.project().state()!=dev.livingkingdoms.construction.domain.ConstructionState.COMPLETED));
+        tag.put("projects",projects); tag.putBoolean("plan",settlement.lifecycle()==dev.livingkingdoms.settlement.domain.SettlementLifecycle.ESTABLISHED
+                ? dev.livingkingdoms.construction.ConstructionService.canPlan(player.server,settlement.id())
+                : settlement.lifecycle()==dev.livingkingdoms.settlement.domain.SettlementLifecycle.FOUNDING
+                    && entries.stream().noneMatch(e -> e.project().state()!=dev.livingkingdoms.construction.domain.ConstructionState.COMPLETED));
         PacketDistributor.sendToPlayer(player,new UiPayloads.Snapshot(tag));
     }
 
@@ -323,9 +348,15 @@ public final class VillageUiService {
             if(p.workplaceId()!=null) jobs.building(p.workplaceId()).ifPresent(b -> {v.putBoolean("workplace",true);v.putString("workplace_kind",b.kind().name().toLowerCase(java.util.Locale.ROOT));v.putInt("work_x",b.origin().getX());v.putInt("work_z",b.origin().getZ());v.putInt("workers",jobs.workers(b.id()));v.putInt("slots",b.workplaceSlots());});
             v.putBoolean("assign",settlement.lifecycle()==dev.livingkingdoms.settlement.domain.SettlementLifecycle.ESTABLISHED
                     && dev.livingkingdoms.profession.ProfessionService.canAssign(citizen,p,buildings,jobs));
-            v.putBoolean("remove",citizen.state()==dev.livingkingdoms.citizen.domain.CitizenState.ACTIVE && (p.type()==dev.livingkingdoms.profession.domain.ProfessionType.FARMER || p.type()==dev.livingkingdoms.profession.domain.ProfessionType.GUARD));
+            v.putBoolean("remove",citizen.state()==dev.livingkingdoms.citizen.domain.CitizenState.ACTIVE && (p.type()==dev.livingkingdoms.profession.domain.ProfessionType.FARMER
+                    || p.type()==dev.livingkingdoms.profession.domain.ProfessionType.GUARD || p.type()==dev.livingkingdoms.profession.domain.ProfessionType.BUILDER));
             v.putBoolean("assign_guard",settlement.lifecycle()==dev.livingkingdoms.settlement.domain.SettlementLifecycle.ESTABLISHED
                     && dev.livingkingdoms.profession.ProfessionService.canAssign(citizen,p,buildings,jobs,dev.livingkingdoms.profession.domain.ProfessionType.GUARD));
+            v.putBoolean("assign_builder",settlement.lifecycle()==dev.livingkingdoms.settlement.domain.SettlementLifecycle.ESTABLISHED
+                    && dev.livingkingdoms.profession.ProfessionService.canAssignBuilder(player.serverLevel(),citizen,p,buildings,jobs));
+            if(p.type()==dev.livingkingdoms.profession.domain.ProfessionType.BUILDER)
+                dev.livingkingdoms.construction.ConstructionService.projectForBuilder(player.server,citizen.id())
+                        .ifPresent(e -> v.putString("project_building",e.project().building().name().toLowerCase(java.util.Locale.ROOT)));
             list.add(v);
         }
         tag.put("citizens",list); PacketDistributor.sendToPlayer(player,new UiPayloads.Snapshot(tag));

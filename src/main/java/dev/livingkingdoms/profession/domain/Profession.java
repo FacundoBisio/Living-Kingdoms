@@ -12,7 +12,7 @@ public record Profession(UUID citizenId, UUID settlementId, ProfessionType type,
         Objects.requireNonNull(level); Objects.requireNonNull(workState); traits=Set.copyOf(traits);
         if(experience<0 || experience>1_000_000_000L || nextWorkAt<0 || cropCursor<0 || cropCursor>675
                 || navigationFailures<0 || navigationFailures>1000 || traits.size()>4
-                || active && (type==ProfessionType.FARMER || type==ProfessionType.GUARD) && workplaceId==null
+                || active && (type==ProfessionType.FARMER || type==ProfessionType.GUARD || type==ProfessionType.BUILDER) && workplaceId==null
                 || (type==ProfessionType.UNASSIGNED || type==ProfessionType.MAYOR) && workplaceId!=null)
             throw new IllegalArgumentException("Invalid profession state");
     }

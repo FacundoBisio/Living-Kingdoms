@@ -22,18 +22,36 @@ public final class ConstructionNbt {
         t.putString("state", p.state().name()); t.putLong("duration", p.durationTicks()); t.putLong("created", p.createdAt());
         t.putLong("started", p.startedAt()); t.putLong("completed", p.completedAt()); t.putBoolean("awaiting_chunks", p.awaitingChunks());
         t.putIntArray("plot", new int[]{p.plot().x(), p.plot().y(), p.plot().z()}); t.putString("rotation", p.plot().rotation().name());
-        t.put("required", resources(p.required())); t.put("supplied", resources(p.supplied())); return t;
+        t.put("required", resources(p.required())); t.put("supplied", resources(p.supplied()));
+        t.putBoolean("builder_required",p.builderRequired());
+        if(p.builderId()!=null) t.putUUID("builder",p.builderId());
+        t.putLong("work_ticks",p.workTicks()); t.putLong("last_work",p.lastWorkAt());
+        t.putInt("visual_stage",p.visualStage()); t.putInt("awarded_stages",p.awardedStages()); return t;
     }
     public static ConstructionProject readProject(CompoundTag t) {
+        boolean expanded=List.of("builder_required","builder","work_ticks","last_work","visual_stage","awarded_stages").stream().anyMatch(t::contains);
+        return readProject(t,expanded ? 2 : 1);
+    }
+    static ConstructionProject readProject(CompoundTag t,int schema) {
         if (!t.hasUUID("id") || !t.hasUUID("settlement")) throw new IllegalArgumentException("Missing project identity");
         for (String k : List.of("building", "state", "rotation")) require(t,k,Tag.TAG_STRING);
         for (String k : List.of("duration", "created", "started", "completed")) require(t,k,Tag.TAG_LONG);
         require(t,"awaiting_chunks",Tag.TAG_BYTE);
         BlockPos pos = pos(t,"plot");
-        return new ConstructionProject(t.getUUID("id"),t.getUUID("settlement"),BuildingKind.valueOf(t.getString("building")),
+        if(schema==1) return new ConstructionProject(t.getUUID("id"),t.getUUID("settlement"),BuildingKind.valueOf(t.getString("building")),
                 new ConstructionProject.Plot(pos.getX(),pos.getY(),pos.getZ(),ConstructionProject.Orientation.valueOf(t.getString("rotation"))),
                 ConstructionState.valueOf(t.getString("state")),resources(t,"required"),resources(t,"supplied"),
                 t.getLong("duration"),t.getLong("created"),t.getLong("started"),t.getLong("completed"),t.getBoolean("awaiting_chunks"));
+        if(schema!=2) throw new IllegalArgumentException("Unsupported construction project schema");
+        require(t,"builder_required",Tag.TAG_BYTE); require(t,"work_ticks",Tag.TAG_LONG); require(t,"last_work",Tag.TAG_LONG);
+        require(t,"visual_stage",Tag.TAG_INT); require(t,"awarded_stages",Tag.TAG_INT);
+        if(t.contains("builder") && !t.hasUUID("builder")) throw new IllegalArgumentException("Invalid project Builder identity");
+        return new ConstructionProject(t.getUUID("id"),t.getUUID("settlement"),BuildingKind.valueOf(t.getString("building")),
+                new ConstructionProject.Plot(pos.getX(),pos.getY(),pos.getZ(),ConstructionProject.Orientation.valueOf(t.getString("rotation"))),
+                ConstructionState.valueOf(t.getString("state")),resources(t,"required"),resources(t,"supplied"),
+                t.getLong("duration"),t.getLong("created"),t.getLong("started"),t.getLong("completed"),t.getBoolean("awaiting_chunks"),
+                t.getBoolean("builder_required"),t.hasUUID("builder") ? t.getUUID("builder") : null,t.getLong("work_ticks"),t.getLong("last_work"),
+                t.getInt("visual_stage"),t.getInt("awarded_stages"));
     }
     private static CompoundTag resources(Map<ResourceKind,Integer> values) {
         CompoundTag t = new CompoundTag(); values.forEach((k,v) -> t.putInt(k.name(),v)); return t;

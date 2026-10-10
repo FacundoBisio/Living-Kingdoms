@@ -12,6 +12,7 @@ public final class ConstructionEvents {
         if(now%20!=0) return;
         var storage=ConstructionSavedData.get(server);
         for(var id:storage.ready(now,2)) ConstructionService.resolve(server,id,null);
+        if(now%100==0) for(var settlement:storage.pendingSettlements(16)) ConstructionService.assignReady(server,settlement);
     }
     public static void onChunkLoad(ChunkEvent.Load event) {
         if(event.getLevel() instanceof ServerLevel level) {

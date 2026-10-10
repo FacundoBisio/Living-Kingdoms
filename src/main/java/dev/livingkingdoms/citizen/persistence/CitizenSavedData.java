@@ -123,6 +123,7 @@ public final class CitizenSavedData extends SavedData {
         checkThread();
         Citizen before = byEntity(entity).orElse(null);
         if (before == null || before.state() == CitizenState.DEAD) return false;
+        if(before.homeId()!=null) housing(before.homeId()).filter(Housing::convertedBed).ifPresent(h -> disableConvertedBedHome(h.id()));
         citizens.put(before.id(), before.withState(CitizenState.DEAD));
         setDirty();
         assignHomes(before.settlementId());
@@ -149,6 +150,32 @@ public final class CitizenSavedData extends SavedData {
 
     public int occupancy(UUID houseId) { return assignedResidents(houseId).size(); }
 
+    /** Explicit on-demand adoption of one verified native bed; the runtime validates physical blocks first. */
+    public boolean assignConvertedBedHome(Settlement settlement,Citizen expected,Housing home) {
+        checkThread(); Objects.requireNonNull(settlement); Objects.requireNonNull(expected); Objects.requireNonNull(home);
+        if(settlement.provenance().origin()!=dev.livingkingdoms.settlement.domain.SettlementOrigin.CONVERTED || !settlement.faction().isAllied()
+                || !expected.equals(citizens.get(expected.id())) || !expected.settlementId().equals(settlement.id())
+                || expected.state()!=CitizenState.ACTIVE || expected.role()==CitizenRole.MAYOR || expected.homeId()!=null
+                || !home.convertedBed() || home.status()!=HousingStatus.ACTIVE || !home.settlementId().equals(settlement.id())
+                || !home.dimension().equals(settlement.territory().dimension())
+                || !settlement.territory().contains(home.dimension(),home.position().getX(),home.position().getZ())
+                || !settlement.territory().contains(home.dimension(),home.entrance().getX(),home.entrance().getZ()) || occupancy(home.id())>0) return false;
+        var existing=houses.get(home.id());
+        if(existing!=null && (!existing.convertedBed() || !existing.settlementId().equals(home.settlementId())
+                || !existing.dimension().equals(home.dimension()) || !existing.position().equals(home.position()))) return false;
+        if(existing==null && houses.size()>=MAX_HOUSES) return false;
+        houses.put(home.id(),home); settlementHouses.computeIfAbsent(settlement.id(),key -> new LinkedHashSet<>()).add(home.id());
+        citizens.put(expected.id(),expected.withHome(home.id())); setDirty(); return true;
+    }
+    /** Broken/dead native bed owners never leave an unverified spare immigration slot. */
+    public boolean disableConvertedBedHome(UUID id) {
+        checkThread(); var home=houses.get(id); if(home==null || !home.convertedBed()) return false;
+        boolean changed=home.status()!=HousingStatus.DISABLED;
+        if(changed) houses.put(id,new Housing(home.id(),home.settlementId(),home.dimension(),home.template(),home.position(),home.entrance(),home.capacity(),HousingStatus.DISABLED));
+        for(var c:citizens(home.settlementId())) if(id.equals(c.homeId())) { citizens.put(c.id(),c.withHome(null)); changed=true; }
+        if(changed) setDirty(); return changed;
+    }
+
     public HousingSummary summary(UUID settlement) {
         int total = 0, occupied = 0;
         for (Housing house : houses(settlement)) {
@@ -167,6 +194,8 @@ public final class CitizenSavedData extends SavedData {
                                    ToIntFunction<SettlementLayoutMetadata.Building> capacity, boolean includeTemporaryShelters) {
         checkThread(); Objects.requireNonNull(settlement); Objects.requireNonNull(capacity);
         Map<UUID, Housing> desired = new LinkedHashMap<>();
+        if(settlement.provenance().origin()==dev.livingkingdoms.settlement.domain.SettlementOrigin.CONVERTED)
+            for(var home:houses(settlement.id())) if(home.convertedBed()) desired.put(home.id(),home);
         if (layout != null) {
             for (SettlementLayoutMetadata.Building building : layout.buildings()) {
                 if (!isHouse(building.kind()) && !(includeTemporaryShelters && building.kind() == BuildingKind.FOUNDING_CAMP)) continue;
@@ -213,7 +242,7 @@ public final class CitizenSavedData extends SavedData {
     /** Existing residents take available places before new requests can consume them. */
     public void assignHomes(UUID settlement) {
         checkThread();
-        List<Housing> available = houses(settlement).stream().filter(h -> h.status() == HousingStatus.ACTIVE).toList();
+        List<Housing> available = houses(settlement).stream().filter(h -> h.status() == HousingStatus.ACTIVE && !h.convertedBed()).toList();
         Map<UUID, Integer> used = new HashMap<>();
         for (Citizen citizen : citizens(settlement)) {
             if (citizen.state() == CitizenState.ACTIVE && citizen.homeId() != null) used.merge(citizen.homeId(), 1, Integer::sum);

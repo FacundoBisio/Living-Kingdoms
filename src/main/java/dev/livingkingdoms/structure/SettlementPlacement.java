@@ -21,9 +21,15 @@ public final class SettlementPlacement implements AutoCloseable {
     private SettlementPlacement(ServerLevel level, SettlementLayout plan) { this.level = level; this.plan = plan; }
 
     public static SettlementPlacement apply(ServerLevel level, SettlementLayout plan) {
+        return apply(level,plan,java.util.Set.of());
+    }
+
+    /** A construction worker may occupy unchanged exterior path clearance, never a new solid write. */
+    public static SettlementPlacement apply(ServerLevel level, SettlementLayout plan,java.util.Set<java.util.UUID> workers) {
         if (!level.getServer().isSameThread() || !level.dimension().location().toString().equals(plan.territory().dimension()))
             throw new IllegalStateException("Placement requires the owning server thread and dimension");
         plan.validateGeometry();
+        var bodies=plan.buildings().stream().map(SettlementLayout.Building::volume).toList();
         // Revalidate the entire immutable snapshot before the first write, even for delayed growth requests.
         for (var entry : plan.before().entrySet()) {
             BlockPos pos = entry.getKey();
@@ -32,7 +38,10 @@ public final class SettlementPlacement implements AutoCloseable {
                     || !plan.territory().contains(plan.territory().dimension(), pos.getX(), pos.getZ())
                     || !level.getBlockState(pos).equals(entry.getValue()) || level.getBlockEntity(pos) != null)
                 throw new IllegalStateException("Planned terrain changed or became unavailable at " + pos);
-            if (!level.getEntities((Entity) null, new AABB(pos), entity -> !entity.isSpectator()).isEmpty())
+            boolean exterior=bodies.stream().noneMatch(body -> body.isInside(pos));
+            boolean unchanged=plan.pathBlocks().getOrDefault(pos,entry.getValue()).equals(entry.getValue());
+            if (!level.getEntities((Entity) null, new AABB(pos), entity -> !entity.isSpectator()
+                    && !(exterior && unchanged && workers.contains(entity.getUUID()))).isEmpty())
                 throw new Occupied(pos);
         }
         SettlementPlacement transaction = new SettlementPlacement(level, plan);
