@@ -40,7 +40,14 @@ public final class SecurityService {
     public static void alertThreat(ServerLevel level,Settlement settlement) {
         alert(level,settlement,true);
     }
+    public static void alertApproaching(ServerLevel level,Settlement settlement,dev.livingkingdoms.faction.Faction faction) {
+        alert(level,settlement,true,Component.translatable("defense.livingkingdoms.approaching",
+                Component.translatable("faction.livingkingdoms."+faction.id()),settlement.name()));
+    }
     private static void alert(ServerLevel level,Settlement settlement,boolean newEvent) {
+        alert(level,settlement,newEvent,Component.translatable("defense.livingkingdoms.alert",settlement.name()));
+    }
+    private static void alert(ServerLevel level,Settlement settlement,boolean newEvent,Component message) {
         long now=level.getServer().overworld().getGameTime(); var cooldowns=ALERTS.computeIfAbsent(level.getServer(),s -> new HashMap<>());
         if(!newEvent && now<cooldowns.getOrDefault(settlement.id(),0L)) return;
         // Only occupied local regions need a feedback receipt; no offline settlement map growth.
@@ -49,6 +56,6 @@ public final class SecurityService {
         if(players.isEmpty()) return;
         cooldowns.entrySet().removeIf(e -> e.getValue()<=now);
         cooldowns.put(settlement.id(),now+GuardConfig.ALERT_COOLDOWN.get());
-        for(var player:players) player.displayClientMessage(Component.translatable("defense.livingkingdoms.alert",settlement.name()),false);
+        for(var player:players) player.displayClientMessage(message,false);
     }
 }

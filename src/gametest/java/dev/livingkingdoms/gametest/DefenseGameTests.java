@@ -154,9 +154,21 @@ public final class DefenseGameTests {
 
     @GameTest(template="empty",timeoutTicks=600)
     public static void defaultDebugCommandsCannotGrantDefenseRewardOrFabricateVictory(GameTestHelper h) throws Exception {
-        var f=fixture(h,296144,false); var dispatcher=f.player().server.getCommands().getDispatcher(); var source=f.player().createCommandSourceStack().withPermission(2);
+        var f=fixture(h,296144,false);
+        // The defense debug command now needs a loaded, safe origin outside territory.
+        for(int x=49;x<=120;x++) for(int z=-24;z<=24;z++) {
+            h.getLevel().getChunkAt(f.center().offset(x,0,z));
+            h.getLevel().setBlock(f.center().offset(x,-1,z),Blocks.GRASS_BLOCK.defaultBlockState(),18);
+        }
+        var dispatcher=f.player().server.getCommands().getDispatcher(); var source=f.player().createCommandSourceStack().withPermission(2);
         h.assertTrue(dispatcher.execute("kingdom defense trigger pillager",source)==1,"Explicit operator command creates real test party");
-        var event=DefenseService.current(f.player().server,f.settlement().id()).orElseThrow(); var quest=accept(h,f,f.player());
+        var event=DefenseService.current(f.player().server,f.settlement().id()).orElseThrow();
+        h.assertTrue(event.state()==ThreatState.APPROACHING,"Debug defense begins outside settlement");
+        for(var id:EncounterSavedData.get(f.player().server).get(event.partyId()).orElseThrow().remainingMembers()) {
+            var member=(Mob)h.getLevel().getEntity(id); member.setNoAi(true); member.setPos(f.center().getX()+20.5,f.center().getY(),f.center().getZ()+.5);
+            DefenseService.detectMember(h.getLevel(),member);
+        }
+        var quest=accept(h,f,f.player());
         h.assertTrue(event.debug() && !event.rewardEligible() && quest.rewards().equals(new QuestRewards(0,0)),"Default debug snapshots zero rewards");
         for(var id:EncounterSavedData.get(f.player().server).get(event.partyId()).orElseThrow().remainingMembers())
             ((Mob)h.getLevel().getEntity(id)).hurt(f.player().damageSources().playerAttack(f.player()),1000);

@@ -1,12 +1,14 @@
 # Living Kingdoms
 
-Minecraft Java **1.21.1**, **Java 21**, **NeoForge 21.1.252**. Version 0.15.0 adds the Builder profession, shared project queues and safe visible construction stages driven by nearby workers. Guards, Barracks, Security, Housing, Citizens, Immigration, Farmers/Farms/Food, local defense, founding, conversion, quests, reputation, factions, encounters and progression remain compatible with 0.14.0 saves. Blacksmith gameplay, raids, diplomacy, economy and conquest remain future milestones.
+Minecraft Java **1.21.1**, **Java 21**, **NeoForge 21.1.252**. Version 0.15.1 adds outside threat approaches, a personal tracked quest HUD and remappable K/J/H shortcuts on top of the Builder profession, shared project queues and visible construction introduced in 0.15.0. Guards, Barracks, Security, Housing, Citizens, Immigration, Farmers/Farms/Food, local defense, founding, conversion, quests, reputation, factions, encounters and progression remain compatible with existing 0.14.0/0.15.0 saves. Blacksmith gameplay, raids, diplomacy, economy and conquest remain future milestones.
 
 Living Kingdoms focuses on exploring, discovering settlements, gaining reputation and protecting the region. Registered citizens now help their settlement through explicit, shared profession assignments.
 
 When a real hostile party approaches an allied settlement, one local warning marks it **THREATENED**. Accept **Local Defense** at the Quest Board, fight the linked group alongside Guards, and claim your reward after victory. Standing nearby grants no credit; a Guard-only victory still returns the settlement to **SAFE**. Meaningful successful participation grants **Hold the Line / Mantener la línea** once. Build a Watchtower through Mayor → Construction for earlier detection. See [architecture, rewards, development commands, compatibility and the 16-step gamer QA](docs/local-defense-quests.md).
 
 Assign a housed citizen as **Builder** in Mayor → Citizens → Choose profession. Town Halls provide two slots; converted villages use their existing plaza. Plan and supply buildings in Construction: one active project advances through foundation, lower structure, walls, roof and final native template while its Builder works nearby. First founding Hall/House and migrated 0.14 projects retain their timers. See [Builder architecture, configuration, commands, limitations and gaming-PC QA](docs/builder-visible-construction.md).
+
+Local defense parties now start outside allied territory, walk toward it, become detected (earlier with a completed Watchtower), and activate at the defense area. K opens the local Kingdom UI, J opens a personal remote journal, and H toggles the HUD. Remote viewing/tracking is allowed; accepting/claiming stays local. See [0.15.1 configuration, permissions, limitations and the 20-step gaming-PC QA](docs/threat-approach-quest-hud.md).
 
 ## Build and run
 

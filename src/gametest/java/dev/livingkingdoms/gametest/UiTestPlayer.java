@@ -19,6 +19,7 @@ import java.util.UUID;
 /** Records the real outbound payload path, without introducing production test hooks. */
 class UiTestPlayer extends FakePlayer {
     final List<CompoundTag> snapshots = new ArrayList<>();
+    final List<CompoundTag> hudSnapshots = new ArrayList<>();
     UiTestPlayer(ServerLevel level) {
         super(level, new GameProfile(UUID.randomUUID(), "VillageUiTest"));
         Connection wire = new Connection(PacketFlow.SERVERBOUND) {
@@ -28,6 +29,8 @@ class UiTestPlayer extends FakePlayer {
             @Override public void send(Packet<?> packet) {
                 if (packet instanceof ClientboundCustomPayloadPacket custom && custom.payload() instanceof UiPayloads.Snapshot payload)
                     snapshots.add(payload.data().copy());
+                if (packet instanceof ClientboundCustomPayloadPacket custom && custom.payload() instanceof UiPayloads.HudSnapshot payload)
+                    hudSnapshots.add(payload.data().copy());
             }
         };
     }

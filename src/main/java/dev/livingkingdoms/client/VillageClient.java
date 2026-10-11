@@ -10,8 +10,13 @@ import net.neoforged.fml.common.Mod;
 /** Loaded exclusively on the physical client; dedicated servers never resolve screen/render classes. */
 @Mod(value = LivingKingdoms.MOD_ID, dist = Dist.CLIENT)
 public final class VillageClient {
-    public VillageClient(IEventBus bus) {
+    public VillageClient(IEventBus bus,net.neoforged.fml.ModContainer container) {
         bus.addListener(MayorCircletLayer::register);
+        bus.addListener(KingdomKeys::register);
+        bus.addListener(KingdomHud::register);
+        container.registerConfig(net.neoforged.fml.config.ModConfig.Type.CLIENT,dev.livingkingdoms.config.ClientHudConfig.SPEC);
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(KingdomKeys::tick);
+        UiPayloads.hudReceiver=payload -> KingdomHud.update(payload.data());
         UiPayloads.clientReceiver = payload -> {
             Minecraft client = Minecraft.getInstance();
             String kind = payload.data().getString("screen");

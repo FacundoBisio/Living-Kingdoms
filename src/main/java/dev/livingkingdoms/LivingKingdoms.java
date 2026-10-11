@@ -65,6 +65,9 @@ public final class LivingKingdoms {
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.command.DefenseCommands::register);
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.defense.DefenseService::onServerTick);
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.defense.DefenseService::onLogin);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.ui.KingdomHudService::onTick);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.defense.ThreatApproachWork::onJoin);
+        NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST,false,dev.livingkingdoms.defense.ThreatApproachWork::onChangeTarget);
         NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, false, EncounterEvents::onDeath);
         NeoForge.EVENT_BUS.addListener(EncounterEvents::onConversion);
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.profession.GuardWork::onConversion);

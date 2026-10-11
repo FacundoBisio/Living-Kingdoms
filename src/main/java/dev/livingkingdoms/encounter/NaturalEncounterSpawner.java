@@ -102,8 +102,16 @@ public final class NaturalEncounterSpawner {
         }
         if (SettlementSavedData.get(level.getServer()).nearAlliedTerritory(dimension(level), proposed.getX(), proposed.getZ(),
                 ALLIED_BUFFER + GROUP_MARGIN)) return Optional.empty();
+        var nearby=dev.livingkingdoms.settlement.NearestAlliedSettlementService.findNearest(level,proposed,
+                dev.livingkingdoms.config.DefenseConfig.APPROACH_MAX_DISTANCE.get());
+        if(nearby.isPresent() && !dev.livingkingdoms.defense.ThreatApproachPolicy.validOrigin(
+                Math.hypot(proposed.getX()-nearby.get().territory().x(),proposed.getZ()-nearby.get().territory().z()),nearby.get().territory().radius(),
+                dev.livingkingdoms.config.DefenseConfig.APPROACH_MIN_DISTANCE.get()+GROUP_MARGIN,
+                dev.livingkingdoms.config.DefenseConfig.APPROACH_MAX_DISTANCE.get()-GROUP_MARGIN)) return Optional.empty();
+        if(nearby.isPresent() && dev.livingkingdoms.defense.DefenseService.current(level.getServer(),nearby.get().id()).isPresent()) return Optional.empty();
         if (type == PartyType.UNDEAD_HORDE && !darkAtNight(level, proposed)) return Optional.empty();
         EncounterSpawner.Result result = EncounterSpawner.spawnAt(level, proposed, type, false, true);
+        if(result.successful()) nearby.ifPresent(s -> dev.livingkingdoms.defense.DefenseService.beginApproach(level,s,result.party()));
         return Optional.ofNullable(result.party());
     }
 

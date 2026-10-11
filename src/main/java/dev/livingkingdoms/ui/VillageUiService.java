@@ -31,14 +31,28 @@ public final class VillageUiService {
     private static final Map<ServerPlayer,Map<UUID,Long>> CITIZEN_VIEWS=new WeakHashMap<>();
     private VillageUiService() {}
     private record Session(UUID token, UUID settlement, String dimension, BlockPos board, UUID npc, long opened,
-                           BlockPos marker, boolean construction, boolean immigration, boolean citizens) {
+                           BlockPos marker, boolean construction, boolean immigration, boolean citizens,boolean shortcut) {
+        Session(UUID token,UUID settlement,String dimension,BlockPos board,UUID npc,long opened,BlockPos marker,boolean construction,boolean immigration,boolean citizens) {
+            this(token,settlement,dimension,board,npc,opened,marker,construction,immigration,citizens,false);
+        }
         Session(UUID token, UUID settlement, String dimension, BlockPos board, UUID npc, long opened) {
             this(token,settlement,dimension,board,npc,opened,null,false,false,false);
         }
-        Session constructionView() { return new Session(token,settlement,dimension,board,npc,opened,marker,true,false,false); }
-        Session immigrationView() { return new Session(token,settlement,dimension,board,npc,opened,marker,false,true,false); }
-        Session citizensView() { return new Session(token,settlement,dimension,board,npc,opened,marker,false,false,true); }
-        Session originalView() { return new Session(token,settlement,dimension,board,npc,opened,marker,false,false,false); }
+        Session constructionView() { return new Session(token,settlement,dimension,board,npc,opened,marker,true,false,false,shortcut); }
+        Session immigrationView() { return new Session(token,settlement,dimension,board,npc,opened,marker,false,true,false,shortcut); }
+        Session citizensView() { return new Session(token,settlement,dimension,board,npc,opened,marker,false,false,true,shortcut); }
+        Session originalView() { return new Session(token,settlement,dimension,board,npc,opened,marker,false,false,false,shortcut); }
+    }
+
+    public static boolean openShortcut(ServerPlayer player) {
+        if(!player.server.isSameThread() || !player.isAlive() || player.isSpectator()) return false;
+        var pos=player.blockPosition();
+        var settlement=SettlementSavedData.get(player.server).at(player.level().dimension().location().toString(),pos.getX(),pos.getZ())
+                .filter(s -> s.faction().isAllied()).or(() -> dev.livingkingdoms.settlement.NearestAlliedSettlementService.findNearest(player.serverLevel(),pos,1040)
+                        .filter(s -> Math.hypot(pos.getX()-s.territory().x(),pos.getZ()-s.territory().z())<=s.territory().radius()+16));
+        if(settlement.isEmpty()) { player.displayClientMessage(Component.translatable("ui.livingkingdoms.shortcut.no_settlement"),true); return false; }
+        var session=new Session(UUID.randomUUID(),settlement.get().id(),player.level().dimension().location().toString(),null,null,now(player),null,false,false,false,true);
+        SESSIONS.put(player,session); sendDialogue(player,session,settlement.get(),null,true); return true;
     }
 
     public static boolean openConstructionMarker(ServerPlayer player,BlockPos marker) {
@@ -85,13 +99,19 @@ public final class VillageUiService {
 
     public static boolean handle(ServerPlayer player, UiPayloads.Request request) {
         if (!player.server.isSameThread()) throw new IllegalStateException("UI actions require server thread");
+        if(QuestJournalService.owns(player,request.session())) return QuestJournalService.handle(player,request);
         Session session = SESSIONS.get(player);
         if (session == null || !session.token.equals(request.session())) return false;
         if (request.action() == UiPayloads.Action.CLOSE) { SESSIONS.remove(player); return true; }
         if (!player.isAlive() || player.isSpectator() || now(player) - session.opened > 12000
                 || !session.dimension.equals(player.level().dimension().location().toString())) return invalidate(player);
         var settlement = SettlementSavedData.get(player.server).get(session.settlement).orElse(null);
-        if (settlement == null || !settlement.faction().isAllied() || !inside(player, settlement)) return invalidate(player);
+        if (settlement == null || !settlement.faction().isAllied()) return invalidate(player);
+        if(!inside(player,settlement)) {
+            if(!session.shortcut || Math.hypot(player.getX()-settlement.territory().x(),player.getZ()-settlement.territory().z())>settlement.territory().radius()+16) return invalidate(player);
+            if(request.action()!=UiPayloads.Action.INFO && request.action()!=UiPayloads.Action.TALK && request.action()!=UiPayloads.Action.REFRESH) return false;
+            sendDialogue(player,session,settlement,null,true); return true;
+        }
         if (session.marker != null && (player.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(session.marker)) > 64
                 || !player.serverLevel().getChunkSource().hasChunk(session.marker.getX()>>4,session.marker.getZ()>>4)
                 || !player.serverLevel().getBlockState(session.marker).is(dev.livingkingdoms.block.KingdomBlocks.CONSTRUCTION_MARKER)
@@ -101,6 +121,13 @@ public final class VillageUiService {
         // A construction view retains its original physical anchor and all reach/ownership checks.
         if (session.npc != null && !validMayor(player,session)) return invalidate(player);
         if (session.board != null && ExpandedQuestService.boardSettlement(player,session.board).filter(s -> s.id().equals(session.settlement)).isEmpty()) return invalidate(player);
+        if(request.action()==UiPayloads.Action.TRACK || request.action()==UiPayloads.Action.UNTRACK) {
+            if(session.board==null || session.construction || session.citizens || session.immigration) return false;
+            var quests=QuestSavedData.get(player.server);
+            if(quests.quest(player.getUUID(),request.quest()).filter(q -> q.source().settlementId().equals(session.settlement)).isEmpty()) return false;
+            boolean result=request.action()==UiPayloads.Action.TRACK?quests.track(player.getUUID(),request.quest()):quests.untrack(player.getUUID(),request.quest());
+            sendBoard(player,session,settlement,!result); return result;
+        }
         if(request.action()==UiPayloads.Action.CITIZENS) {
             var citizens=session.citizensView(); SESSIONS.put(player,citizens); sendCitizens(player,citizens,settlement,null); return true;
         }
@@ -187,6 +214,13 @@ public final class VillageUiService {
             sendBoard(player, session, settlement, !result);
             return result;
         }
+        if(session.shortcut) {
+            if(request.action()==UiPayloads.Action.BOARD) return QuestJournalService.open(player);
+            if(request.action()==UiPayloads.Action.INFO || request.action()==UiPayloads.Action.TALK || request.action()==UiPayloads.Action.REFRESH) {
+                sendDialogue(player,session,settlement,null,true); return true;
+            }
+            return false;
+        }
         var entity = player.serverLevel().getEntity(session.npc);
         if (!(entity instanceof Villager npc) || !npc.isAlive() || player.distanceToSqr(npc) > 64
                 || NpcIdentity.read(npc).filter(id -> id.role() == NpcRole.MAYOR && id.settlementId().equals(session.settlement)).isEmpty()
@@ -240,7 +274,8 @@ public final class VillageUiService {
                 && dev.livingkingdoms.profession.persistence.ProfessionSavedData.get(player.server).buildings(settlement.id()).stream().noneMatch(b -> b.kind()==dev.livingkingdoms.structure.BuildingKind.BARRACKS));
         tag.putBoolean("watchtower_plan",!dev.livingkingdoms.construction.ConstructionService.planned(player.server,settlement.id(),dev.livingkingdoms.structure.BuildingKind.WATCHTOWER)
                 && dev.livingkingdoms.profession.persistence.ProfessionSavedData.get(player.server).buildings(settlement.id()).stream().noneMatch(b -> b.kind()==dev.livingkingdoms.structure.BuildingKind.WATCHTOWER));
-        dev.livingkingdoms.defense.DefenseService.current(player.server,settlement.id()).ifPresent(event -> DefenseUiState.write(tag,event,player.getUUID()));
+        dev.livingkingdoms.defense.DefenseService.current(player.server,settlement.id())
+                .filter(event -> event.state()!=dev.livingkingdoms.defense.domain.ThreatState.APPROACHING).ifPresent(event -> DefenseUiState.write(tag,event,player.getUUID()));
         var food=dev.livingkingdoms.profession.ProfessionService.food(player.server,settlement.id());
         tag.putInt("food_stock",food.stock()); tag.putInt("food_capacity",food.capacity()); tag.putLong("food_produced",food.produced());
         return tag;
@@ -248,8 +283,10 @@ public final class VillageUiService {
 
     private static void sendDialogue(ServerPlayer player, Session session, Settlement settlement, Villager npc, boolean info) {
         CompoundTag tag = base(player, session, settlement, "dialogue");
-        tag.putInt("entity", npc.getId());
-        tag.putString("name", MayorPresentation.name(npc));
+        tag.putInt("entity", npc==null?-1:npc.getId());
+        tag.putString("name", npc==null?VillageNames.display(settlement):MayorPresentation.name(npc));
+        tag.putBoolean("shortcut",session.shortcut);
+        tag.putBoolean("readonly",!inside(player,settlement));
         tag.putString("role", "mayor");
         tag.putBoolean("info",info);
         tag.putString("dialogue", info ? "ui.livingkingdoms.dialogue.info"
@@ -258,6 +295,7 @@ public final class VillageUiService {
                 ? "npc.livingkingdoms.mayor.after" : "npc.livingkingdoms.mayor.before");
         if(!info) dev.livingkingdoms.defense.DefenseService.current(player.server,settlement.id())
                 .or(() -> dev.livingkingdoms.defense.DefenseService.latest(player.server,settlement.id()))
+                .filter(e -> e.state()!=dev.livingkingdoms.defense.domain.ThreatState.APPROACHING)
                 .ifPresent(event -> tag.putString("dialogue",DefenseUiState.dialogue(event,player.getUUID())));
         tag.putInt("level", settlement.level());
         PacketDistributor.sendToPlayer(player, new UiPayloads.Snapshot(tag));
@@ -412,6 +450,7 @@ public final class VillageUiService {
                 tag.putString("target", "encounter.livingkingdoms.type." + party.partyType().id());
                 dev.livingkingdoms.encounter.persistence.EncounterSavedData.get(player.server).get(party.partyId()).ifPresent(target -> {
                     tag.putInt("target_x", target.origin().x()); tag.putInt("target_z", target.origin().z());
+                    tag.putInt("party_remaining",target.remainingMembers().size());
                 });
                 if(quest.template()==QuestTemplate.LOCAL_DEFENSE) {
                     tag.putString("settlement",SettlementSavedData.get(player.server).get(quest.source().settlementId())
@@ -426,6 +465,8 @@ public final class VillageUiService {
             case QuestObjective.Return ignored -> tag.putString("objective", "quest.livingkingdoms.return_objective");
         }
         tag.put("requirements", requirements); tag.putBoolean("ready", ready);
+        boolean tracked=QuestSavedData.get(player.server).tracked(player.getUUID()).map(q -> q.id().equals(quest.id())).orElse(false);
+        tag.putBoolean("tracked",tracked); tag.putBoolean("track",quest.state()==QuestState.ACTIVE); tag.putBoolean("untrack",tracked);
         tag.putBoolean("accept", quest.state() == QuestState.AVAILABLE && !(quest.objective() instanceof QuestObjective.Meet));
         tag.putBoolean("claim", quest.state() == QuestState.ACTIVE && ready);
         return tag;

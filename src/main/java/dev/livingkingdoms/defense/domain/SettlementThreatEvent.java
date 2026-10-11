@@ -36,7 +36,7 @@ public record SettlementThreatEvent(UUID id, UUID settlementId, String dimension
         if (participants.size() > MAX_PARTICIPANTS)
             throw new IllegalArgumentException("Too many defense participants");
         switch (state) {
-            case DETECTED -> {
+            case APPROACHING, DETECTED -> {
                 if (startedAt != -1 || resolvedAt != -1 || outcome != ThreatOutcome.NONE || !participants.isEmpty())
                     throw new IllegalArgumentException("Invalid detected threat state");
             }
@@ -71,6 +71,10 @@ public record SettlementThreatEvent(UUID id, UUID settlementId, String dimension
     public SettlementThreatEvent activated(long now) {
         if (state != ThreatState.DETECTED) throw new IllegalArgumentException("Only a detected threat can activate");
         return copy(remainingMembers, ThreatState.ACTIVE, ThreatOutcome.NONE, now, -1, Set.of());
+    }
+    public SettlementThreatEvent spotted() {
+        if(state!=ThreatState.APPROACHING) throw new IllegalArgumentException("Only an approaching threat can be spotted");
+        return copy(remainingMembers,ThreatState.DETECTED,ThreatOutcome.NONE,-1,-1,Set.of());
     }
     public SettlementThreatEvent resolved(long now, Set<UUID> eligiblePlayers) {
         if (state != ThreatState.ACTIVE || remainingMembers != 0)

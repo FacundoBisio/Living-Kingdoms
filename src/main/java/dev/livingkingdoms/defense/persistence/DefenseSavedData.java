@@ -96,7 +96,7 @@ public final class DefenseSavedData extends SavedData {
     }
     public boolean detect(SettlementThreatEvent event) {
         authority(); Objects.requireNonNull(event);
-        if (event.state() != ThreatState.DETECTED) throw new IllegalArgumentException("New threats must start as DETECTED");
+        if (event.state() != ThreatState.DETECTED && event.state()!=ThreatState.APPROACHING) throw new IllegalArgumentException("New threats must start as APPROACHING or DETECTED");
         if (events.containsKey(event.id()) || byParty.containsKey(event.partyId()) || activeBySettlement.containsKey(event.settlementId())
                 || events.size() >= MAX_EVENTS || activeBySettlement.size() >= MAX_ACTIVE_EVENTS) return false;
         put(event); return true;
@@ -110,6 +110,11 @@ public final class DefenseSavedData extends SavedData {
         authority(); var event = get(id).orElse(null);
         if (event == null || event.state() != ThreatState.DETECTED || now < event.detectedAt() || now >= event.expiresAt()) return false;
         put(event.activated(now)); return true;
+    }
+    public boolean spot(UUID id) {
+        authority(); var event=get(id).orElse(null);
+        if(event==null || event.state()!=ThreatState.APPROACHING) return false;
+        put(event.spotted()); return true;
     }
     public boolean resolve(UUID id, long now, Set<UUID> eligiblePlayers) {
         authority(); Objects.requireNonNull(eligiblePlayers); var event = get(id).orElse(null);
@@ -132,10 +137,11 @@ public final class DefenseSavedData extends SavedData {
         authority(); Objects.requireNonNull(expected); Objects.requireNonNull(next);
         if (!sameIdentity(expected, next)) throw new IllegalArgumentException("Threat identity changed");
         if (!expected.equals(events.get(expected.id())) || !expected.threatened()) return false;
-        if (next.remainingMembers() > expected.remainingMembers() || expected.state() == ThreatState.ACTIVE && next.state() == ThreatState.DETECTED
+        if (next.remainingMembers() > expected.remainingMembers() || next.state().ordinal()<expected.state().ordinal()
+                || expected.state()==ThreatState.APPROACHING && next.state()==ThreatState.ACTIVE
                 || expected.startedAt() != -1 && next.startedAt() != expected.startedAt()
-                || expected.state() == ThreatState.DETECTED && next.state() == ThreatState.RESOLVED
-                || expected.state() == ThreatState.DETECTED && next.state() == ThreatState.FAILED && next.startedAt() != -1
+                || expected.state()!=ThreatState.ACTIVE && next.state() == ThreatState.RESOLVED
+                || expected.state()!=ThreatState.ACTIVE && next.state() == ThreatState.FAILED && next.startedAt() != -1
                 || newPlayerCount(next.participants()) + (long) successfulPlayers.size() > MAX_SUCCESSFUL_PLAYERS) return false;
         if (!next.equals(expected)) put(next); return true;
     }
@@ -186,7 +192,7 @@ public final class DefenseSavedData extends SavedData {
 
     public static DefenseSavedData load(CompoundTag tag, HolderLookup.Provider registries) {
         require(tag, "schema_version", Tag.TAG_INT);
-        if (tag.getInt("schema_version") != 1) throw new IllegalArgumentException("Unsupported defense schema");
+        if (tag.getInt("schema_version") < 1 || tag.getInt("schema_version") > 2) throw new IllegalArgumentException("Unsupported defense schema");
         var data = new DefenseSavedData();
         for (Tag entry : list(tag, "events", MAX_EVENTS)) {
             var e = (CompoundTag) entry; var participants = new LinkedHashSet<UUID>();
@@ -210,7 +216,7 @@ public final class DefenseSavedData extends SavedData {
         data.successfulPlayers.clear(); data.successfulPlayers.addAll(successful); data.setDirty(false); return data;
     }
     @Override public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
-        authority(); tag.putInt("schema_version", 1); var list = new ListTag();
+        authority(); tag.putInt("schema_version", 2); var list = new ListTag();
         for (var event : events.values()) {
             var e = new CompoundTag(); e.putUUID("id", event.id()); e.putUUID("settlement", event.settlementId());
             e.putString("dimension", event.dimension()); e.putString("faction", event.faction().id()); e.putUUID("party", event.partyId());

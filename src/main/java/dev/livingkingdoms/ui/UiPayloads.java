@@ -16,8 +16,22 @@ import java.util.function.Consumer;
 public final class UiPayloads {
     private UiPayloads() {}
     public static Consumer<Snapshot> clientReceiver = ignored -> {};
+    public static Consumer<HudSnapshot> hudReceiver = ignored -> {};
     public enum Action { ACCEPT, CLAIM, TALK, BOARD, INFO, CLOSE, REFRESH, CONSTRUCTION, DEPOSIT, RETRY, PLAN,
-        IMMIGRATION, ACCEPT_CITIZEN, DECLINE_CITIZEN, CITIZENS, ASSIGN_FARMER, REMOVE_PROFESSION, PLAN_FARM, ASSIGN_GUARD, PLAN_BARRACKS, PLAN_WATCHTOWER, ASSIGN_BUILDER }
+        IMMIGRATION, ACCEPT_CITIZEN, DECLINE_CITIZEN, CITIZENS, ASSIGN_FARMER, REMOVE_PROFESSION, PLAN_FARM, ASSIGN_GUARD, PLAN_BARRACKS, PLAN_WATCHTOWER, ASSIGN_BUILDER, TRACK, UNTRACK }
+
+    public record HudSnapshot(CompoundTag data) implements CustomPacketPayload {
+        public static final Type<HudSnapshot> TYPE=new Type<>(ResourceLocation.fromNamespaceAndPath(LivingKingdoms.MOD_ID,"kingdom_hud"));
+        public static final StreamCodec<RegistryFriendlyByteBuf,HudSnapshot> CODEC=StreamCodec.of(
+                (buf,value) -> buf.writeNbt(value.data),buf -> new HudSnapshot(java.util.Objects.requireNonNull(buf.readNbt())));
+        @Override public Type<HudSnapshot> type() { return TYPE; }
+    }
+    public record Shortcut(ShortcutAction action) implements CustomPacketPayload {
+        public static final Type<Shortcut> TYPE=new Type<>(ResourceLocation.fromNamespaceAndPath(LivingKingdoms.MOD_ID,"kingdom_shortcut"));
+        public static final StreamCodec<RegistryFriendlyByteBuf,Shortcut> CODEC=StreamCodec.of(
+                (buf,value) -> buf.writeEnum(value.action),buf -> new Shortcut(buf.readEnum(ShortcutAction.class)));
+        @Override public Type<Shortcut> type() { return TYPE; }
+    }
 
     public record Snapshot(CompoundTag data) implements CustomPacketPayload {
         public static final Type<Snapshot> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(LivingKingdoms.MOD_ID, "village_ui"));
@@ -36,7 +50,11 @@ public final class UiPayloads {
     }
 
     public static void register(RegisterPayloadHandlersEvent event) {
-        var registrar = event.registrar("7");
+        var registrar = event.registrar("8");
+        registrar.playToClient(HudSnapshot.TYPE,HudSnapshot.CODEC,(payload,context) -> hudReceiver.accept(payload));
+        registrar.playToServer(Shortcut.TYPE,Shortcut.CODEC,(payload,context) -> {
+            if(context.player() instanceof ServerPlayer player) QuestJournalService.shortcut(player,payload.action());
+        });
         registrar.playToClient(Snapshot.TYPE, Snapshot.CODEC, (payload, context) -> clientReceiver.accept(payload));
         registrar.playToServer(Request.TYPE, Request.CODEC, (payload, context) -> {
             if (context.player() instanceof ServerPlayer player) VillageUiService.handle(player, payload);

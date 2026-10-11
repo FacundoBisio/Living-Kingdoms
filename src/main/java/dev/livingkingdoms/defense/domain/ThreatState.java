@@ -2,7 +2,7 @@ package dev.livingkingdoms.defense.domain;
 
 /** Settlement threat state stays separate from settlement founding/established lifecycle. */
 public enum ThreatState {
-    DETECTED, ACTIVE, RESOLVED, FAILED;
+    APPROACHING, DETECTED, ACTIVE, RESOLVED, FAILED;
 
-    public boolean threatened() { return this == DETECTED || this == ACTIVE; }
+    public boolean threatened() { return this == APPROACHING || this == DETECTED || this == ACTIVE; }
 }

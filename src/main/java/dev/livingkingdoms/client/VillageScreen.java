@@ -39,6 +39,7 @@ public final class VillageScreen extends Screen {
 
     public VillageScreen(CompoundTag data) {
         super(tr("board")); this.data = data; selectDefense();
+        if(data.getBoolean("remote")) section=2;
     }
     public boolean sameSession(CompoundTag next) { return next.hasUUID("session") && data.getUUID("session").equals(next.getUUID("session")); }
     public void update(CompoundTag next) {
@@ -96,6 +97,7 @@ public final class VillageScreen extends Screen {
             message.append(". ").append(questTitle(quest)).append(". ").append(state(quest))
                     .append(". ").append(Component.translatable(quest.getString("objective"), Component.translatable(quest.getString("target"))))
                     .append(". ").append(tr("reward_value", quest.getInt("emeralds"), quest.getInt("reward_reputation")));
+            if(quest.getBoolean("tracked")) message.append(". ").append(tr("tracked"));
             if(quest.getBoolean("defense")) {
                 for(Component detail:defenseDetails(quest)) message.append(". ").append(detail);
             }
@@ -201,12 +203,24 @@ public final class VillageScreen extends Screen {
         refresh.active=!pending;
         if(board()) {
             button(tr("construction"),left+14+navWidth*3,layout.footerTop(),navWidth,
-                    ()->send(UiPayloads.Action.CONSTRUCTION,null)).glyph("C").active=!pending;
+                    ()->send(UiPayloads.Action.CONSTRUCTION,null)).glyph("C").active=!pending && !data.getBoolean("remote");
             button(tr("immigration"),left+16+navWidth*4,layout.footerTop(),navWidth,
-                    ()->send(UiPayloads.Action.IMMIGRATION,null)).glyph("I").active=!pending;
+                    ()->send(UiPayloads.Action.IMMIGRATION,null)).glyph("I").active=!pending && !data.getBoolean("remote");
         }
         CompoundTag q=selectedQuest();
         int x=left+listWidth+8, available=panelWidth-listWidth-20;
+        if(board()) {
+            int w=(available-8)/3;
+            var action=button("quest_action",tr(pending?"working":q!=null && q.getBoolean("accept")?"accept":"claim"),x,layout.footerTop(),w,
+                    () -> { if(q!=null) send(q.getBoolean("accept")?UiPayloads.Action.ACCEPT:UiPayloads.Action.CLAIM,q.getUUID("id")); });
+            action.primary(); action.active=!pending && q!=null && !data.getBoolean("remote") && (q.getBoolean("accept") || q.getBoolean("claim"));
+            if(data.getBoolean("remote")) action.setTooltip(Tooltip.create(tr("journal.read_only")));
+            var track=button("quest_track",tr(q!=null && q.getBoolean("tracked")?"untrack":"track"),x+w+4,layout.footerTop(),w,
+                    () -> { if(q!=null) send(q.getBoolean("tracked")?UiPayloads.Action.UNTRACK:UiPayloads.Action.TRACK,q.getUUID("id")); });
+            track.active=!pending && q!=null && q.getBoolean("track");
+            track.selected(q!=null && q.getBoolean("tracked"));
+            button(tr("leave"),x+(w+4)*2,layout.footerTop(),w,this::onClose); return;
+        }
         if(citizens()) {
             int actionWidth=(available-4)/2;
             var assign=button("profession_picker",tr(pending?"working":professionPicker?"back":q!=null && q.getBoolean("remove")?"citizens.remove":"citizens.choose_profession"),x,layout.footerTop(),actionWidth,
@@ -290,11 +304,11 @@ public final class VillageScreen extends Screen {
     private void initDialogue() {
         int x=layout.detailX(),w=Math.min(128,(layout.detailWidth()-4)/2),y=dialogueActionsTop();
         button(tr("talk"),x,y,w,()->send(UiPayloads.Action.TALK,null)).active=!pending;
-        button(tr("open_board"),x+w+4,y,w,()->send(UiPayloads.Action.BOARD,null)).active=!pending;
+        button(tr("open_board"),x+w+4,y,w,()->send(UiPayloads.Action.BOARD,null)).active=!pending && !data.getBoolean("readonly");
         button(tr("info"),x,y+24,w,()->send(UiPayloads.Action.INFO,null)).active=!pending;
-        button(tr("construction"),x+w+4,y+24,w,()->send(UiPayloads.Action.CONSTRUCTION,null)).active=!pending;
-        button(tr("immigration"),x,y+48,w,()->send(UiPayloads.Action.IMMIGRATION,null)).active=!pending;
-        button(tr("citizens"),x+w+4,y+48,w,()->send(UiPayloads.Action.CITIZENS,null)).active=!pending;
+        button(tr("construction"),x+w+4,y+24,w,()->send(UiPayloads.Action.CONSTRUCTION,null)).active=!pending && !data.getBoolean("readonly");
+        button(tr("immigration"),x,y+48,w,()->send(UiPayloads.Action.IMMIGRATION,null)).active=!pending && !data.getBoolean("readonly");
+        button(tr("citizens"),x+w+4,y+48,w,()->send(UiPayloads.Action.CITIZENS,null)).active=!pending && !data.getBoolean("readonly");
         button(tr("refresh"),x,y+72,w,()->send(UiPayloads.Action.REFRESH,null)).active=!pending;
         button(tr("leave"),x+w+4,y+72,w,this::onClose);
     }
@@ -370,7 +384,7 @@ public final class VillageScreen extends Screen {
         if(data.getString("safety").equals("threatened")) rep=safety();
         boolean threatened=data.getString("safety").equals("threatened");
         int settlementWidth=threatened?Math.max(60,panelWidth-font.width(rep)-35):panelWidth-24;
-        g.drawString(font,font.plainSubstrByWidth(data.getString("settlement"),settlementWidth),left+11,top+11,ON_BLUE,false);
+        g.drawString(font,font.plainSubstrByWidth(data.getBoolean("remote")?tr("journal").getString():data.getString("settlement"),settlementWidth),left+11,top+11,ON_BLUE,false);
         if(threatened || font.width(data.getString("settlement"))+font.width(rep)<panelWidth-30)
             g.drawString(font,rep,left+panelWidth-12-font.width(rep),top+11,GOLD,false);
         if(citizens()) renderCitizens(g); else if(immigration()) renderImmigration(g); else if(construction()) renderConstruction(g); else if(board()) renderBoard(g); else renderDialogue(g,mouseX,mouseY);
@@ -410,6 +424,8 @@ public final class VillageScreen extends Screen {
             int start=y;
             if(q.getBoolean("defense")) y=sectionHeader(g,tr("defense.heading"),x,y,w);
             y=paragraph(g,questTitle(q).copy().withStyle(net.minecraft.ChatFormatting.BOLD),x,y,w,INK);
+            if(q.getBoolean("tracked")) y=paragraph(g,tr("tracked"),x,y,w,SUCCESS);
+            if(data.getBoolean("remote")) y=paragraph(g,tr("journal.read_only"),x,y,w,MUTED);
             y=paragraph(g,tr("difficulty",Component.translatable(q.getString("difficulty")),q.getInt("level"))
                     .append(" · ").append(tr(q.getString("category").equals("MAIN")?"main":"requests")),x,y,w,MUTED);
             y=paragraph(g,state(q),x,y,w,q.getBoolean("claim")?SUCCESS:INK);

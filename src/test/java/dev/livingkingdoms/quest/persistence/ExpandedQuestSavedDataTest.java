@@ -76,7 +76,7 @@ class ExpandedQuestSavedDataTest {
         assertEquals(0, data.boardGeneration(player, settlement));
         assertFalse(data.acceptExpanded(player, UUID.randomUUID()));
         assertFalse(data.isDirty());
-        assertEquals(4, data.save(new CompoundTag(), null).getInt("schema_version"));
+        assertEquals(5, data.save(new CompoundTag(), null).getInt("schema_version"));
     }
 
     @Test
@@ -332,7 +332,7 @@ class ExpandedQuestSavedDataTest {
             assertEquals(mayor, reopened.mayor(settlement).orElseThrow());
             assertTrue(reopened.quests(player, settlement).isEmpty());
             assertTrue(reopened.mainSettlement(player).isEmpty());
-            assertEquals(4, reopened.save(new CompoundTag(), null).getInt("schema_version"));
+            assertEquals(5, reopened.save(new CompoundTag(), null).getInt("schema_version"));
         }
     }
 
@@ -354,7 +354,7 @@ class ExpandedQuestSavedDataTest {
         QuestSavedData data = new QuestSavedData();
         assertTrue(data.offer(player, offered(QuestTemplate.PILLAGER_REQUEST)));
         CompoundTag valid = data.save(new CompoundTag(), null);
-        malformed(valid, tag -> tag.putInt("schema_version", 5));
+        malformed(valid, tag -> tag.putInt("schema_version", 6));
         malformed(valid, tag -> tag.remove("expanded_players"));
         malformed(valid, tag -> expandedPlayer(tag).remove("player"));
         malformed(valid, tag -> expandedPlayer(tag).remove("boards"));

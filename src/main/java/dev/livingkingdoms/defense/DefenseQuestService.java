@@ -62,7 +62,7 @@ public final class DefenseQuestService {
         if (!settlement.faction().isAllied() || !settlement.territory().dimension()
                 .equals(player.serverLevel().dimension().location().toString())) return;
         var event = DefenseService.current(player.server, settlement.id());
-        if (event.isEmpty() || !event.get().threatened()
+        if (event.isEmpty() || !event.get().threatened() || event.get().state()==ThreatState.APPROACHING
                 || player.server.overworld().getGameTime() >= event.get().expiresAt()) return;
         var party = EncounterSavedData.get(player.server).get(event.get().partyId());
         if (party.isEmpty() || party.get().state() != PartyState.ALIVE

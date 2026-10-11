@@ -33,7 +33,7 @@ import java.util.LinkedHashSet;
 /** Global Overworld storage for UUID relationships; production access is on the server thread. */
 public final class QuestSavedData extends SavedData {
     public static final String DATA_NAME = "livingkingdoms_quests";
-    private static final int SCHEMA_VERSION = 4;
+    private static final int SCHEMA_VERSION = 5;
     private static final int MAX_EXPANDED_QUESTS = 256;
     private static final int MAX_BOARDS = 1024;
     private final Map<RelationshipKey, Relationship> relationships = new LinkedHashMap<>();
@@ -149,6 +149,34 @@ public final class QuestSavedData extends SavedData {
         return Optional.ofNullable(progress == null ? null : progress.quests.get(id));
     }
 
+    /** Personal journal is bounded by the existing per-player quest limit, across settlements. */
+    public List<QuestInstance> quests(UUID player) {
+        var progress=expandedPlayers.get(Objects.requireNonNull(player));
+        return progress==null?List.of():List.copyOf(progress.quests.values());
+    }
+    public Optional<QuestInstance> tracked(UUID player) {
+        var progress=expandedPlayers.get(Objects.requireNonNull(player));
+        return progress==null || progress.trackedQuest==null?Optional.empty():quest(player,progress.trackedQuest)
+                .filter(q -> q.state()==QuestState.ACTIVE);
+    }
+    public boolean track(UUID player,UUID id) {
+        var quest=quest(player,id).orElse(null);
+        if(quest==null || quest.state()!=QuestState.ACTIVE) return false;
+        var progress=expandedPlayers.get(player);
+        if(!id.equals(progress.trackedQuest)) { progress.trackedQuest=id; setDirty(); }
+        return true;
+    }
+    public boolean untrack(UUID player,UUID expected) {
+        Objects.requireNonNull(expected,"quest");
+        var progress=expandedPlayers.get(Objects.requireNonNull(player));
+        if(progress==null || !Objects.equals(expected,progress.trackedQuest)) return false;
+        progress.trackedQuest=null; setDirty(); return true;
+    }
+    private void clearTracking(UUID player,UUID id) {
+        var progress=expandedPlayers.get(player);
+        if(progress!=null && id.equals(progress.trackedQuest)) { progress.trackedQuest=null; setDirty(); }
+    }
+
     public boolean offer(UUID player, QuestInstance quest) {
         Objects.requireNonNull(player, "player");
         Objects.requireNonNull(quest, "quest");
@@ -185,6 +213,7 @@ public final class QuestSavedData extends SavedData {
         if (quest.template().category() == QuestCategory.MAIN && !priorMainCompleted(progress, quest.template())) return false;
         QuestInstance accepted = quest.withState(QuestState.ACTIVE);
         progress.quests.put(id, accepted);
+        progress.trackedQuest=id;
         index(player, accepted);
         setDirty();
         return true;
@@ -209,6 +238,7 @@ public final class QuestSavedData extends SavedData {
         Relationship relationship = relationships.get(key);
         int updated = Math.addExact(relationship == null ? 0 : relationship.reputation, quest.rewards().reputation());
         expandedPlayers.get(player).quests.put(id, quest.withState(QuestState.COMPLETED));
+        clearTracking(player,id);
         relationships.computeIfAbsent(key, ignored -> new Relationship()).reputation = updated;
         unindex(player, quest);
         setDirty();
@@ -220,6 +250,7 @@ public final class QuestSavedData extends SavedData {
         if (quest == null || (quest.state() != QuestState.ACTIVE && quest.state() != QuestState.AVAILABLE)
                 || quest.objectiveSatisfied()) return false;
         expandedPlayers.get(player).quests.put(id, quest.withState(QuestState.FAILED));
+        clearTracking(player,id);
         unindex(player, quest);
         setDirty();
         return true;
@@ -334,6 +365,7 @@ public final class QuestSavedData extends SavedData {
         if (quest.template() != QuestTemplate.LOCAL_DEFENSE
                 || (quest.state() != QuestState.AVAILABLE && quest.state() != QuestState.ACTIVE)) return;
         expandedPlayers.get(player).quests.put(quest.id(), quest.withState(terminal));
+        clearTracking(player,quest.id());
         unindex(player, quest);
         setDirty();
     }
@@ -602,6 +634,7 @@ public final class QuestSavedData extends SavedData {
             CompoundTag entry = new CompoundTag();
             entry.putUUID("player", player);
             if (progress.mainSettlement != null) entry.putUUID("main_settlement", progress.mainSettlement);
+            if (progress.trackedQuest != null) entry.putUUID("tracked_quest",progress.trackedQuest);
             ListTag quests = new ListTag();
             progress.quests.values().forEach(quest -> quests.add(ExpandedQuestNbt.write(quest)));
             entry.put("quests", quests);
@@ -641,6 +674,11 @@ public final class QuestSavedData extends SavedData {
                 if (quest.template().category() == QuestCategory.MAIN && !priorMainCompleted(progress, quest.template())) {
                     throw new IllegalArgumentException("Main quest prerequisites missing from save");
                 }
+            }
+            if(entry.contains("tracked_quest")) {
+                progress.trackedQuest=uuid(entry,"tracked_quest");
+                var tracked=progress.quests.get(progress.trackedQuest);
+                if(tracked==null || tracked.state()!=QuestState.ACTIVE) throw new IllegalArgumentException("Invalid tracked quest reference");
             }
             ListTag boards = compoundList(entry, "boards");
             if (boards.size() > MAX_BOARDS) throw new IllegalArgumentException("Too many saved boards");
@@ -694,6 +732,7 @@ public final class QuestSavedData extends SavedData {
     private record EncounterRewardReceipt(Set<UUID> players, UUID settlement, int amount) {}
     private static final class ExpandedProgress {
         private UUID mainSettlement;
+        private UUID trackedQuest;
         private final Map<UUID, QuestInstance> quests = new LinkedHashMap<>();
         private final Map<UUID, BoardRotation> boards = new LinkedHashMap<>();
     }

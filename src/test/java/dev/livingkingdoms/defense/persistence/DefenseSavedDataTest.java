@@ -14,6 +14,26 @@ import java.util.concurrent.CompletableFuture;
 import static org.junit.jupiter.api.Assertions.*;
 
 class DefenseSavedDataTest {
+    @Test void approachPersistsAndDetectionIsOneShotBeforeActivation() {
+        var original=event();
+        var approaching=new SettlementThreatEvent(original.id(),original.settlementId(),original.dimension(),original.faction(),original.partyId(),
+                original.threatRating(),original.recommendedLevel(),5,5,ThreatState.APPROACHING,ThreatOutcome.NONE,100,-1,-1,1300,false,true,Set.of());
+        var data=new DefenseSavedData(); assertTrue(data.detect(approaching)); assertFalse(data.activate(approaching.id(),110));
+        assertFalse(data.replace(approaching,approaching.spotted().activated(110)));
+        data=reload(data); assertEquals(approaching,data.forParty(approaching.partyId()).orElseThrow());
+        assertTrue(data.spot(approaching.id())); assertFalse(data.spot(approaching.id()));
+        var detected=data.get(approaching.id()).orElseThrow(); assertEquals(ThreatState.DETECTED,detected.state());
+        assertFalse(data.replace(detected,approaching)); assertTrue(data.activate(approaching.id(),120));
+        assertFalse(data.spot(approaching.id())); assertEquals(ThreatState.ACTIVE,reload(data).get(approaching.id()).orElseThrow().state());
+    }
+    @Test void blockedApproachFailsWithoutParticipationOrVictoryAcrossReload() {
+        var original=event(); var approaching=new SettlementThreatEvent(original.id(),original.settlementId(),original.dimension(),original.faction(),original.partyId(),
+                15,3,5,5,ThreatState.APPROACHING,ThreatOutcome.NONE,100,-1,-1,1300,true,false,Set.of());
+        var data=new DefenseSavedData(); data.detect(approaching); assertTrue(data.fail(approaching.id(),200,ThreatOutcome.ROUTE_BLOCKED));
+        var loaded=reload(data); assertEquals(ThreatOutcome.ROUTE_BLOCKED,loaded.get(approaching.id()).orElseThrow().outcome());
+        assertTrue(loaded.active(approaching.settlementId()).isEmpty()); assertFalse(loaded.spot(approaching.id()));
+        assertFalse(loaded.resolve(approaching.id(),210,Set.of(UUID.randomUUID())));
+    }
     @TempDir Path directory;
     private static SettlementThreatEvent event(UUID settlement, UUID party, Faction faction, long now, boolean rewardEligible) {
         return new SettlementThreatEvent(UUID.randomUUID(), settlement, "minecraft:overworld", faction, party, 15, 3,

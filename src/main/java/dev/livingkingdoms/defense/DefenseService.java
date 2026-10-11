@@ -47,7 +47,7 @@ public final class DefenseService {
         return DefenseSavedData.get(server).forParty(party);
     }
     public static SettlementSafety status(MinecraftServer server, UUID settlement) {
-        return current(server, settlement).isPresent() ? SettlementSafety.THREATENED : SettlementSafety.SAFE;
+        return current(server, settlement).filter(e -> e.state()!=ThreatState.APPROACHING).isPresent() ? SettlementSafety.THREATENED : SettlementSafety.SAFE;
     }
 
     /** Completed building metadata only; pending projects and multiple towers supply no extra bonus. */
@@ -58,7 +58,7 @@ public final class DefenseService {
         if (buildings.isEmpty()) tower = SettlementSavedData.get(server).layout(settlement.id())
                 .map(layout -> layout.buildings().stream().anyMatch(b -> b.kind() == BuildingKind.WATCHTOWER)).orElse(false);
         double security = SecurityService.score(server, settlement.id()) / 100.0 * DefenseConfig.SECURITY_DETECTION_BONUS.get();
-        return Math.min(DefenseConfig.MAX_DETECTION_RANGE.get(), GuardWork.defense(settlement) + security
+        return Math.min(DefenseConfig.MAX_DETECTION_RANGE.get(), DefenseConfig.NORMAL_DETECTION_RANGE.get() + security
                 + (tower ? DefenseConfig.WATCHTOWER_DETECTION_BONUS.get() : 0));
     }
 
@@ -77,7 +77,10 @@ public final class DefenseService {
         MinecraftServer server = level.getServer();
         var data = DefenseSavedData.get(server);
         var known = data.forParty(party.id());
-        if (known.isPresent()) return known;
+        if (known.isPresent()) {
+            SettlementSavedData.get(server).get(known.get().settlementId()).ifPresent(s -> advance(level,known.get(),s,position));
+            return data.forParty(party.id());
+        }
         if (party.state() != PartyState.ALIVE || !GuardPolicy.hostile(party.faction())
                 || !party.origin().dimension().equals(level.dimension().location().toString())
                 || !EncounterSavedData.get(server).get(party.id()).filter(party::equals).isPresent()) return Optional.empty();
@@ -94,9 +97,42 @@ public final class DefenseService {
                 now, -1, -1, Math.addExact(now, DefenseConfig.EVENT_DURATION.get()), party.debug(),
                 party.rewardEligible(), Set.of());
         if (!data.detect(event)) return Optional.empty();
-        data.activate(event.id(), now);
-        SecurityService.alertThreat(level, settlement);
+        if(GuardPolicy.within(position.getX()+.5,position.getZ()+.5,settlement.territory().x()+.5,settlement.territory().z()+.5,GuardWork.defense(settlement)))
+            data.activate(event.id(), now);
+        spotted(level,settlement,event);
+        install(level,party);
         return data.get(event.id());
+    }
+
+    public static Optional<SettlementThreatEvent> beginApproach(ServerLevel level,Settlement settlement,HostileParty party) {
+        var server=level.getServer(); var data=DefenseSavedData.get(server);
+        if(!settlement.faction().isAllied() || party.state()!=PartyState.ALIVE || !GuardPolicy.hostile(party.faction())
+                || !party.origin().dimension().equals(settlement.territory().dimension())
+                || !party.origin().dimension().equals(level.dimension().location().toString())
+                || EncounterSavedData.get(server).get(party.id()).filter(party::equals).isEmpty()) return Optional.empty();
+        double distance=Math.hypot(party.origin().x()-settlement.territory().x(),party.origin().z()-settlement.territory().z());
+        if(!ThreatApproachPolicy.validOrigin(distance,settlement.territory().radius(),DefenseConfig.APPROACH_MIN_DISTANCE.get(),DefenseConfig.APPROACH_MAX_DISTANCE.get())) return Optional.empty();
+        current(server,settlement.id()); long now=server.overworld().getGameTime();
+        var event=new SettlementThreatEvent(UUID.randomUUID(),settlement.id(),party.origin().dimension(),party.faction(),party.id(),party.threatRating(),
+                (int)Math.ceil(party.levels().average()),party.memberIds().size(),party.remainingMembers().size(),ThreatState.APPROACHING,ThreatOutcome.NONE,
+                now,-1,-1,Math.addExact(now,DefenseConfig.EVENT_DURATION.get()),party.debug(),party.rewardEligible(),Set.of());
+        if(!data.detect(event)) return Optional.empty();
+        install(level,party); return data.get(event.id());
+    }
+    private static void install(ServerLevel level,HostileParty party) {
+        for(var id:party.remainingMembers()) if(level.getEntity(id) instanceof net.minecraft.world.entity.Mob mob) ThreatApproachWork.install(mob);
+    }
+    private static void spotted(ServerLevel level,Settlement settlement,SettlementThreatEvent event) {
+        SecurityService.alertApproaching(level,settlement,event.faction());
+    }
+    private static void advance(ServerLevel level,SettlementThreatEvent event,Settlement settlement,BlockPos position) {
+        if(level.getServer().overworld().getGameTime()>=event.expiresAt()) return;
+        var data=DefenseSavedData.get(level.getServer());
+        double distance=Math.hypot(position.getX()-settlement.territory().x(),position.getZ()-settlement.territory().z());
+        if(event.state()==ThreatState.APPROACHING && distance<=detectionRange(level.getServer(),settlement) && data.spot(event.id())) {
+            spotted(level,settlement,event); event=data.get(event.id()).orElseThrow();
+        }
+        if(event.state()==ThreatState.DETECTED && distance<=GuardWork.defense(settlement)) data.activate(event.id(),level.getServer().overworld().getGameTime());
     }
 
     /** Every actual member death updates only its own linked event, including Guard/environment deaths. */
@@ -125,9 +161,17 @@ public final class DefenseService {
                 || party.get().memberIds().size() != event.totalMembers()) {
             fail(server, event, ThreatOutcome.PARTY_MISSING); return;
         }
-        if (event.state() == ThreatState.DETECTED) data.activate(event.id(), now);
+        var level=server.getLevel(net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION,
+                net.minecraft.resources.ResourceLocation.parse(event.dimension())));
+        if(level!=null) for(var id:party.get().remainingMembers()) if(level.getEntity(id) instanceof LivingEntity member && member.isAlive()) {
+            advance(level,data.get(event.id()).orElseThrow(),settlement.get(),member.blockPosition());
+            if(member instanceof net.minecraft.world.entity.Mob mob) ThreatApproachWork.install(mob);
+        }
         data.updateProgress(event.id(), party.get().remainingMembers().size());
         if (party.get().state() != PartyState.DEFEATED) return;
+        // Intercepting the linked party outside the walls is still a defense victory.
+        if(data.get(event.id()).orElseThrow().state()==ThreatState.APPROACHING) data.spot(event.id());
+        if(data.get(event.id()).orElseThrow().state()==ThreatState.DETECTED) data.activate(event.id(),now);
         Set<UUID> participants = event.rewardEligible() ? encounters.eligibleParticipants(event.partyId(), now,
                 KingdomConfig.ENCOUNTER_MIN_CONTRIBUTION.get(), EncounterSavedData.PARTICIPATION_EXPIRY_TICKS) : Set.of();
         if (!data.resolve(event.id(), now, participants)) return;
@@ -136,8 +180,8 @@ public final class DefenseService {
         notifyLocal(server, settlement.get(), "defense.livingkingdoms.safe");
         for (UUID id : resolved.participants()) {
             var player = server.getPlayerList().getPlayer(id);
-            if (player == null) for (var level : server.getAllLevels()) {
-                var local = level.getPlayerByUUID(id);
+            if (player == null) for (var playerLevel : server.getAllLevels()) {
+                var local = playerLevel.getPlayerByUUID(id);
                 if (local instanceof ServerPlayer found) { player = found; break; }
             }
             if (player != null) awardPending(player);
