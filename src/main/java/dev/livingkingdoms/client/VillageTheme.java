@@ -16,5 +16,9 @@ final class VillageTheme {
     static final int SUCCESS = 0xFF275C42;
     static final int ERROR = 0xFF922C22;
     static final int HUD_PARCHMENT = 0xE8E6D4A8;
+    static final int AVAILABLE = 0xFF6E4B1B;
+    static final int LOCKED = 0xFF5A5246;
+    static final int ACTIVE = 0xFF345872;
+    static final int WOOD_LIGHT = 0xFF8F7045;
     private VillageTheme() {}
 }

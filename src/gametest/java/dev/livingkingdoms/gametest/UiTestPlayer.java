@@ -20,6 +20,7 @@ import java.util.UUID;
 class UiTestPlayer extends FakePlayer {
     final List<CompoundTag> snapshots = new ArrayList<>();
     final List<CompoundTag> hudSnapshots = new ArrayList<>();
+    final List<CompoundTag> territorySnapshots = new ArrayList<>();
     UiTestPlayer(ServerLevel level) {
         super(level, new GameProfile(UUID.randomUUID(), "VillageUiTest"));
         Connection wire = new Connection(PacketFlow.SERVERBOUND) {
@@ -31,6 +32,8 @@ class UiTestPlayer extends FakePlayer {
                     snapshots.add(payload.data().copy());
                 if (packet instanceof ClientboundCustomPayloadPacket custom && custom.payload() instanceof UiPayloads.HudSnapshot payload)
                     hudSnapshots.add(payload.data().copy());
+                if (packet instanceof ClientboundCustomPayloadPacket custom && custom.payload() instanceof UiPayloads.TerritoryOverlay payload)
+                    territorySnapshots.add(payload.data().copy());
             }
         };
     }

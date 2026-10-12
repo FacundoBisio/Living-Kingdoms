@@ -401,6 +401,11 @@ public final class QuestExpansionGameTests {
     private static RecordingPlayer player(ServerLevel level, BlockPos board, UUID id) {
         RecordingPlayer player = new RecordingPlayer(level, id);
         move(player, board);
+        // These regression flows model collaborators upgrading from the pre-0.16 quest chapter.
+        SettlementSavedData.get(level.getServer()).at(level.dimension().location().toString(), board.getX(), board.getZ()).ifPresent(settlement -> {
+            dev.livingkingdoms.onboarding.persistence.KingdomOnboardingSavedData.get(level.getServer()).enrollLegacy(id, settlement.id(), settlement.name());
+            QuestSavedData.get(level.getServer()).preserveLegacyChapter(id, settlement.id());
+        });
         return player;
     }
     private static void move(RecordingPlayer player, BlockPos board) { player.setPos(board.getX() + 2.5, board.getY(), board.getZ() + 0.5); }

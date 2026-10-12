@@ -57,7 +57,7 @@ class EncounterReputationTest {
         assertEquals(mayor, migrated.mayor(settlement).orElseThrow());
         assertTrue(migrated.awardEncounterReputationOnce(UUID.randomUUID(), player, settlement, 2));
         assertEquals(12, migrated.reputation(player, settlement));
-        assertEquals(5, migrated.save(new CompoundTag(), null).getInt("schema_version"));
+        assertEquals(6, migrated.save(new CompoundTag(), null).getInt("schema_version"));
     }
 
     @Test void receiptAndReputationRoundTripThroughRealDiskStorage() {

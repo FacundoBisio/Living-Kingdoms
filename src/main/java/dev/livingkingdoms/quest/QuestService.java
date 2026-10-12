@@ -61,7 +61,16 @@ public final class QuestService {
                 LOGGER.error("Could not associate Mayor for settlement {}", settlement.id(), exception);
             }
         }
+        if (!dev.livingkingdoms.onboarding.KingdomOnboardingService.canHelp(player, settlement)) {
+            message(player, "quest.livingkingdoms.meet_mayor");
+            return;
+        }
         var progress = data.progress(player.getUUID(), settlement.id());
+        if (sneaking && progress.state() == QuestState.AVAILABLE
+                && !dev.livingkingdoms.quest.expansion.ExpandedQuestService.completedProgression(data, player.getUUID())
+                .contains(dev.livingkingdoms.quest.expansion.domain.QuestTemplate.MAIN_RESIDENTS)) {
+            message(player, "quest.livingkingdoms.residents_required"); return;
+        }
         if (!sneaking) {
             inspect(player, settlement, progress.state(), progress.terms(), progress.reputation());
             dev.livingkingdoms.quest.expansion.ExpandedQuestService.inspectBoard(player, settlement, board);

@@ -1,0 +1,6 @@
+interface:
+  display_name: "Minecraft World Generation"
+  short_description: "Version-matched biomes, features and structures"
+  default_prompt: "Use $minecraft-world-generation for the requested task, preserving Minecraft 1.21.1, NeoForge and Java 21."
+policy:
+  allow_implicit_invocation: false

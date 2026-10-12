@@ -149,6 +149,9 @@ public final class ImmigrationGameTests {
     }
     private static UiTestPlayer player(ServerLevel level,BlockPos pos) {
         var player=new UiTestPlayer(level) { @Override public boolean isFakePlayer() { return false; } };
-        player.getAbilities().mayBuild=true; player.setPos(pos.getX()+.5,pos.getY(),pos.getZ()+.5); return player;
+        player.getAbilities().mayBuild=true; player.setPos(pos.getX()+.5,pos.getY(),pos.getZ()+.5);
+        SettlementSavedData.get(level.getServer()).at(level.dimension().location().toString(),pos.getX(),pos.getZ())
+                .ifPresent(settlement -> OnboardingTestSupport.legacyCollaborator(player,settlement));
+        return player;
     }
 }

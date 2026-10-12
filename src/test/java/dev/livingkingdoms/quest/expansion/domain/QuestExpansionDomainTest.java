@@ -22,8 +22,8 @@ class QuestExpansionDomainTest {
 
     @Test
     void firstChapterIsOrderedAndOnlyTheNextQuestUnlocks() {
-        assertEquals(List.of(QuestTemplate.FIRST_MEETING, QuestTemplate.MAIN_IRON,
-                QuestTemplate.MAIN_PATROL, QuestTemplate.MAIN_RETURN), QuestCatalog.mainChain());
+        assertEquals(List.of(QuestTemplate.FIRST_MEETING, QuestTemplate.MAIN_RESIDENTS, QuestTemplate.MAIN_IRON,
+                QuestTemplate.MAIN_DEVELOPMENT, QuestTemplate.MAIN_WATCHTOWER, QuestTemplate.MAIN_PATROL, QuestTemplate.MAIN_RETURN), QuestCatalog.mainChain());
         Set<QuestTemplate> completed = new HashSet<>();
         for (QuestTemplate next : QuestCatalog.mainChain()) {
             assertEquals(next, QuestCatalog.nextMain(completed).orElseThrow());
@@ -40,7 +40,7 @@ class QuestExpansionDomainTest {
     @Test
     void prerequisitesRejectACompletionGapAndDynamicRequestsHaveNoPrerequisite() {
         assertFalse(QuestCatalog.prerequisitesMet(QuestTemplate.MAIN_RETURN, Set.of(QuestTemplate.MAIN_PATROL)));
-        assertEquals(QuestTemplate.MAIN_IRON, QuestCatalog.prerequisite(QuestTemplate.MAIN_PATROL).orElseThrow());
+        assertEquals(QuestTemplate.MAIN_WATCHTOWER, QuestCatalog.prerequisite(QuestTemplate.MAIN_PATROL).orElseThrow());
         assertTrue(QuestCatalog.prerequisite(QuestTemplate.FIRST_MEETING).isEmpty());
         assertTrue(QuestCatalog.prerequisitesMet(QuestTemplate.UNDEAD_REQUEST, Set.of()));
         assertEquals(QuestTemplate.FIRST_MEETING, QuestCatalog.nextMain(Set.of(QuestTemplate.MAIN_IRON)).orElseThrow());

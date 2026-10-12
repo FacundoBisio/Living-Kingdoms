@@ -3,12 +3,17 @@ package dev.livingkingdoms.gametest;
 import dev.livingkingdoms.config.SettlementGenerationConfig.Tolerance;
 import dev.livingkingdoms.settlement.domain.Territory;
 import dev.livingkingdoms.structure.*;
+import dev.livingkingdoms.block.KingdomBlocks;
+import dev.livingkingdoms.block.QuestBoardBlock;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.Rotation;
+import net.minecraft.world.level.block.DoorBlock;
+import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
+import net.minecraft.world.level.EmptyBlockGetter;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
@@ -62,6 +67,33 @@ public final class StructureQaGameTests {
                 BlockPos opening=building.position(new BlockPos(4,1,7));
                 helper.assertTrue(level.getBlockState(opening).isAir() && level.getBlockState(opening.above()).isAir(),"Temporary camp has an open south entrance");
             }
+            if(kind==BuildingKind.CORE || kind==BuildingKind.TOWN_HALL) {
+                int center=module.size().getX()/2;
+                int front=kind==BuildingKind.CORE?6:module.size().getZ()-2;
+                BlockPos door=building.position(new BlockPos(center,1,front));
+                var doorState=level.getBlockState(door);
+                helper.assertTrue(doorState.is(Blocks.SPRUCE_DOOR)
+                        && doorState.getValue(DoorBlock.FACING)==rotation.rotate(Direction.SOUTH)
+                        && doorState.getValue(DoorBlock.HALF)==DoubleBlockHalf.LOWER,"Civic door stays south-facing under all rotations");
+                for(int x:new int[]{center-2,center+2})for(int y:new int[]{2,3})
+                    helper.assertTrue(level.getBlockState(building.position(new BlockPos(x,y,front))).is(Blocks.GLASS_PANE),"Four visible front window panes survive the export/rotation");
+                for(int y:new int[]{1,2})for(int z:new int[]{front-1,front+1})
+                    helper.assertTrue(level.getBlockState(building.position(new BlockPos(center,y,z))).isAir(),"Entrance and approach have clear player/mayor headroom");
+                helper.assertTrue(level.getBlockState(building.position(new BlockPos(center-2,1,2))).is(Blocks.CARTOGRAPHY_TABLE),"Hall has administrative interior furniture");
+            }
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template="empty",timeoutTicks=40)
+    public static void questBoardKeepsFacingAndBoundedDirectionalInteractionShapes(GameTestHelper helper) {
+        for(Direction direction:Direction.Plane.HORIZONTAL) {
+            var state=KingdomBlocks.QUEST_BOARD.get().defaultBlockState().setValue(QuestBoardBlock.FACING,direction);
+            var bounds=state.getShape(EmptyBlockGetter.INSTANCE,BlockPos.ZERO).bounds();
+            helper.assertTrue(bounds.minX>=0 && bounds.minY>=0 && bounds.minZ>=0
+                    &&bounds.maxX<=1 && bounds.maxY<=1 && bounds.maxZ<=1,"Board never occupies adjacent blocks");
+            helper.assertTrue(direction.getAxis()==Direction.Axis.Z?bounds.getXsize()>bounds.getZsize():bounds.getZsize()>bounds.getXsize(),"Board interaction outline rotates with front face");
+            helper.assertTrue(state.rotate(Rotation.CLOCKWISE_90).getValue(QuestBoardBlock.FACING)==direction.getClockWise(),"Native blockstate rotation preserves board orientation");
         }
         helper.succeed();
     }

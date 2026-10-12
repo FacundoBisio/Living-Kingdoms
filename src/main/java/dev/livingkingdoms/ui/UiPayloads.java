@@ -17,8 +17,26 @@ public final class UiPayloads {
     private UiPayloads() {}
     public static Consumer<Snapshot> clientReceiver = ignored -> {};
     public static Consumer<HudSnapshot> hudReceiver = ignored -> {};
+    public static Consumer<TerritoryOverlay> territoryReceiver = ignored -> {};
     public enum Action { ACCEPT, CLAIM, TALK, BOARD, INFO, CLOSE, REFRESH, CONSTRUCTION, DEPOSIT, RETRY, PLAN,
         IMMIGRATION, ACCEPT_CITIZEN, DECLINE_CITIZEN, CITIZENS, ASSIGN_FARMER, REMOVE_PROFESSION, PLAN_FARM, ASSIGN_GUARD, PLAN_BARRACKS, PLAN_WATCHTOWER, ASSIGN_BUILDER, TRACK, UNTRACK }
+
+    /** Personal, temporary metadata overlay. This packet never requests chunk contents. */
+    public record TerritoryOverlay(CompoundTag data) implements CustomPacketPayload {
+        public static final Type<TerritoryOverlay> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(LivingKingdoms.MOD_ID, "territory_overlay"));
+        public static final StreamCodec<RegistryFriendlyByteBuf, TerritoryOverlay> CODEC = StreamCodec.of(
+                (buf, value) -> buf.writeNbt(value.data), buf -> new TerritoryOverlay(java.util.Objects.requireNonNull(buf.readNbt())));
+        @Override public Type<TerritoryOverlay> type() { return TYPE; }
+    }
+
+    /** Naming is bounded and carried separately from quest and management actions. */
+    public record MayorRequest(UUID session, String action, String name) implements CustomPacketPayload {
+        public static final Type<MayorRequest> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(LivingKingdoms.MOD_ID, "mayor_onboarding"));
+        public static final StreamCodec<RegistryFriendlyByteBuf, MayorRequest> CODEC = StreamCodec.of(
+                (buf, value) -> { buf.writeUUID(value.session); buf.writeUtf(value.action, 16); buf.writeUtf(value.name, 48); },
+                buf -> new MayorRequest(buf.readUUID(), buf.readUtf(16), buf.readUtf(48)));
+        @Override public Type<MayorRequest> type() { return TYPE; }
+    }
 
     public record HudSnapshot(CompoundTag data) implements CustomPacketPayload {
         public static final Type<HudSnapshot> TYPE=new Type<>(ResourceLocation.fromNamespaceAndPath(LivingKingdoms.MOD_ID,"kingdom_hud"));
@@ -50,7 +68,11 @@ public final class UiPayloads {
     }
 
     public static void register(RegisterPayloadHandlersEvent event) {
-        var registrar = event.registrar("8");
+        var registrar = event.registrar("9");
+        registrar.playToClient(TerritoryOverlay.TYPE, TerritoryOverlay.CODEC, (payload, context) -> territoryReceiver.accept(payload));
+        registrar.playToServer(MayorRequest.TYPE, MayorRequest.CODEC, (payload, context) -> {
+            if (context.player() instanceof ServerPlayer player) VillageUiService.handleMayor(player, payload);
+        });
         registrar.playToClient(HudSnapshot.TYPE,HudSnapshot.CODEC,(payload,context) -> hudReceiver.accept(payload));
         registrar.playToServer(Shortcut.TYPE,Shortcut.CODEC,(payload,context) -> {
             if(context.player() instanceof ServerPlayer player) QuestJournalService.shortcut(player,payload.action());

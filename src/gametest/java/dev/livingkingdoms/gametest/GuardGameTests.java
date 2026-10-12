@@ -188,7 +188,12 @@ public final class GuardGameTests {
     private static FunctionalBuilding barracks(Fixture f) { return ProfessionSavedData.get(f.player().server).buildings(f.s().id()).stream().filter(b -> b.kind()==BuildingKind.BARRACKS).findFirst().orElseThrow(); }
     private static Worker guard(GameTestHelper h,Fixture f) { var w=worker(h,f); h.assertTrue(ProfessionService.assignGuard(f.player(),f.s().id(),w.c().id()),"Guard assigned via real authority"); w.v().setPos(f.center().getX()+2.5,f.center().getY(),f.center().getZ()+.5); return w; }
     private static Worker worker(GameTestHelper h,Fixture f) { var candidate=ImmigrationService.attempt(h.getLevel(),f.s(),true).orElseThrow(); h.assertTrue(ImmigrationService.accept(f.player(),f.s().id(),candidate.id()),"Immigrant accepted into free home"); var c=CitizenSavedData.get(h.getLevel().getServer()).citizen(candidate.id()).orElseThrow(); ProfessionService.ensure(h.getLevel(),f.s()); return new Worker(c,(Villager)h.getLevel().getEntity(c.entityId())); }
-    private static UiTestPlayer player(ServerLevel level,BlockPos pos) { var p=new UiTestPlayer(level) { @Override public boolean isFakePlayer() { return false; } }; p.getAbilities().mayBuild=true; p.setPos(pos.getX()+.5,pos.getY(),pos.getZ()+.5); return p; }
+    private static UiTestPlayer player(ServerLevel level,BlockPos pos) {
+        var p=new UiTestPlayer(level) { @Override public boolean isFakePlayer() { return false; } }; p.getAbilities().mayBuild=true; p.setPos(pos.getX()+.5,pos.getY(),pos.getZ()+.5);
+        SettlementSavedData.get(level.getServer()).at(level.dimension().location().toString(),pos.getX(),pos.getZ())
+                .ifPresent(settlement -> OnboardingTestSupport.legacyCollaborator(p,settlement));
+        return p;
+    }
     private static Fixture fixture(GameTestHelper h,int coordinate,boolean barracks) {
         var level=h.getLevel(); var center=h.absolutePos(new BlockPos(coordinate,1,coordinate)); int radius=48;
         for(int x=(center.getX()-radius)>>4;x<=(center.getX()+radius)>>4;x++) for(int z=(center.getZ()-radius)>>4;z<=(center.getZ()+radius)>>4;z++) level.getChunk(x,z);

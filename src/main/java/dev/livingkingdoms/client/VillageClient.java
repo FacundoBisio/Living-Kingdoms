@@ -2,29 +2,59 @@ package dev.livingkingdoms.client;
 
 import dev.livingkingdoms.LivingKingdoms;
 import dev.livingkingdoms.ui.UiPayloads;
+import dev.livingkingdoms.ui.UiSessionClosures;
 import net.minecraft.client.Minecraft;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
+import java.util.UUID;
 
 /** Loaded exclusively on the physical client; dedicated servers never resolve screen/render classes. */
 @Mod(value = LivingKingdoms.MOD_ID, dist = Dist.CLIENT)
 public final class VillageClient {
+    private static final UiSessionClosures CLOSED_SESSIONS=new UiSessionClosures(64);
+    static void closeSession(UUID session) { CLOSED_SESSIONS.close(session); }
+    private static void onLogin(ClientPlayerNetworkEvent.LoggingIn event) { CLOSED_SESSIONS.clear(); }
+    private static void onLogout(ClientPlayerNetworkEvent.LoggingOut event) { CLOSED_SESSIONS.clear(); }
     public VillageClient(IEventBus bus,net.neoforged.fml.ModContainer container) {
         bus.addListener(MayorCircletLayer::register);
         bus.addListener(KingdomKeys::register);
         bus.addListener(KingdomHud::register);
         container.registerConfig(net.neoforged.fml.config.ModConfig.Type.CLIENT,dev.livingkingdoms.config.ClientHudConfig.SPEC);
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(KingdomKeys::tick);
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(KingdomHud::onTick);
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(KingdomHud::onLogout);
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(KingdomHud::onRenderGui);
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(KingdomHud::onBossProgress);
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(TerritoryOverlay::render);
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(TerritoryOverlay::onTick);
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(TerritoryOverlay::onLogout);
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(VillageClient::onLogin);
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(VillageClient::onLogout);
         UiPayloads.hudReceiver=payload -> KingdomHud.update(payload.data());
+        UiPayloads.territoryReceiver=payload -> TerritoryOverlay.update(payload.data());
         UiPayloads.clientReceiver = payload -> {
             Minecraft client = Minecraft.getInstance();
+            if(client.player==null || client.level==null) return;
+            var data=payload.data();
+            if(data.hasUUID("session") && CLOSED_SESSIONS.isClosed(data.getUUID("session"))) return;
             String kind = payload.data().getString("screen");
             if (kind.equals("closed")) {
-                if (client.screen instanceof VillageScreen) client.setScreen(null);
+                boolean matching=client.screen instanceof VillageScreen village && (!data.hasUUID("session") || village.sameSession(data))
+                        || client.screen instanceof MayorOnboardingScreen mayor && (!data.hasUUID("session") || mayor.sameSession(data));
+                if(data.hasUUID("session")) closeSession(data.getUUID("session"));
+                if(matching) client.setScreen(null);
+            } else if(!data.hasUUID("session")) {
+                return;
+            } else if (kind.equals("dialogue") && payload.data().contains("onboarding_stage")
+                    && !payload.data().getString("onboarding_stage").equals("JOINED")) {
+                if (client.screen instanceof MayorOnboardingScreen screen && screen.sameSession(payload.data())) screen.update(payload.data());
+                else client.setScreen(new MayorOnboardingScreen(payload.data()));
             } else if (client.screen instanceof VillageScreen screen && screen.sameSession(payload.data())) {
                 screen.update(payload.data());
-            } else if (kind.equals("board") || kind.equals("dialogue")) {
+            } else if (kind.equals("board") || kind.equals("dialogue") || kind.equals("construction")
+                    || kind.equals("citizens") || kind.equals("immigration")) {
                 client.setScreen(new VillageScreen(payload.data()));
             }
         };

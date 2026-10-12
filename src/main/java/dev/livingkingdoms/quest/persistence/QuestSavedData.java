@@ -33,7 +33,7 @@ import java.util.LinkedHashSet;
 /** Global Overworld storage for UUID relationships; production access is on the server thread. */
 public final class QuestSavedData extends SavedData {
     public static final String DATA_NAME = "livingkingdoms_quests";
-    private static final int SCHEMA_VERSION = 5;
+    private static final int SCHEMA_VERSION = 6;
     private static final int MAX_EXPANDED_QUESTS = 256;
     private static final int MAX_BOARDS = 1024;
     private final Map<RelationshipKey, Relationship> relationships = new LinkedHashMap<>();
@@ -141,6 +141,29 @@ public final class QuestSavedData extends SavedData {
         ExpandedProgress progress = expandedPlayers.get(Objects.requireNonNull(player, "player"));
         return progress == null ? List.of() : progress.quests.values().stream()
                 .filter(quest -> quest.source().settlementId().equals(settlement)).toList();
+    }
+
+    /** New prerequisite steps are bypassed only by a persisted migration receipt for pre-0.16 chapters. */
+    public Set<QuestTemplate> completedMain(UUID player, UUID settlement) {
+        var completed = new LinkedHashSet<QuestTemplate>();
+        var progress = expandedPlayers.get(Objects.requireNonNull(player));
+        if (progress == null || !settlement.equals(progress.mainSettlement)) return Set.of();
+        for (var quest : progress.quests.values()) if (quest.template().category() == QuestCategory.MAIN && quest.state() == QuestState.COMPLETED)
+            completed.add(quest.template());
+        if (progress.legacyChapter) for (var template : QuestTemplate.values()) if (template.introducedIn016()) completed.add(template);
+        return Set.copyOf(completed);
+    }
+
+    public boolean legacyChapter(UUID player) {
+        var progress = expandedPlayers.get(Objects.requireNonNull(player));
+        return progress != null && progress.legacyChapter;
+    }
+
+    /** Explicit compatibility import for old server integrations; never completes or rewards a quest. */
+    public void preserveLegacyChapter(UUID player, UUID settlement) {
+        if (!anchorMain(player, settlement)) return;
+        var progress = expandedPlayers.get(player);
+        if (!progress.legacyChapter) { progress.legacyChapter = true; setDirty(); }
     }
 
     public Optional<QuestInstance> quest(UUID player, UUID id) {
@@ -373,6 +396,7 @@ public final class QuestSavedData extends SavedData {
     private static boolean priorMainCompleted(ExpandedProgress progress, QuestTemplate template) {
         for (QuestTemplate prerequisite : QuestTemplate.values()) {
             if (prerequisite.category() != QuestCategory.MAIN || prerequisite.order() >= template.order()) continue;
+            if (progress.legacyChapter && prerequisite.introducedIn016()) continue;
             boolean completed = progress.quests.values().stream().anyMatch(quest -> quest.template() == prerequisite
                     && quest.state() == QuestState.COMPLETED);
             if (!completed) return false;
@@ -633,6 +657,7 @@ public final class QuestSavedData extends SavedData {
         expandedPlayers.forEach((player, progress) -> {
             CompoundTag entry = new CompoundTag();
             entry.putUUID("player", player);
+            entry.putBoolean("legacy_chapter", progress.legacyChapter);
             if (progress.mainSettlement != null) entry.putUUID("main_settlement", progress.mainSettlement);
             if (progress.trackedQuest != null) entry.putUUID("tracked_quest",progress.trackedQuest);
             ListTag quests = new ListTag();
@@ -661,6 +686,11 @@ public final class QuestSavedData extends SavedData {
             if (expandedPlayers.containsKey(player)) throw new IllegalArgumentException("Duplicate expanded quest player");
             ExpandedProgress progress = new ExpandedProgress();
             if (entry.contains("main_settlement")) progress.mainSettlement = uuid(entry, "main_settlement");
+            if (tag.getInt("schema_version") >= 6) {
+                require(entry, "legacy_chapter", Tag.TAG_BYTE);
+                if (entry.getByte("legacy_chapter") < 0 || entry.getByte("legacy_chapter") > 1) throw new IllegalArgumentException("Invalid legacy chapter receipt");
+                progress.legacyChapter = entry.getBoolean("legacy_chapter");
+            } else progress.legacyChapter = progress.mainSettlement != null;
             ListTag quests = compoundList(entry, "quests");
             if (quests.size() > MAX_EXPANDED_QUESTS) throw new IllegalArgumentException("Too many expanded quests");
             Set<QuestTemplate> mainTemplates = new HashSet<>();
@@ -732,6 +762,7 @@ public final class QuestSavedData extends SavedData {
     private record EncounterRewardReceipt(Set<UUID> players, UUID settlement, int amount) {}
     private static final class ExpandedProgress {
         private UUID mainSettlement;
+        private boolean legacyChapter;
         private UUID trackedQuest;
         private final Map<UUID, QuestInstance> quests = new LinkedHashMap<>();
         private final Map<UUID, BoardRotation> boards = new LinkedHashMap<>();

@@ -1,8 +1,10 @@
 # Living Kingdoms
 
-Minecraft Java **1.21.1**, **Java 21**, **NeoForge 21.1.252**. Version 0.15.1 adds outside threat approaches, a personal tracked quest HUD and remappable K/J/H shortcuts on top of the Builder profession, shared project queues and visible construction introduced in 0.15.0. Guards, Barracks, Security, Housing, Citizens, Immigration, Farmers/Farms/Food, local defense, founding, conversion, quests, reputation, factions, encounters and progression remain compatible with existing 0.14.0/0.15.0 saves. Blacksmith gameplay, raids, diplomacy, economy and conquest remain future milestones.
+Minecraft Java **1.21.1**, **Java 21**, **NeoForge 21.1.252**. Version **0.16.0** adds a persisted Mayor introduction and shared kingdom naming, a seven-step progression tied to residents/construction/defense, an upper-left tracked quest HUD, remodeled civic halls, a wooden Quest Board with pixel-art notices, and `/kingdom chunks`. Existing 0.15.1 quest, citizen, building, defense and reward data remain supported. Blacksmith gameplay, raids, diplomacy, economy and conquest remain future milestones.
 
 Living Kingdoms focuses on exploring, discovering settlements, gaining reputation and protecting the region. Registered citizens now help their settlement through explicit, shared profession assignments.
+
+Speak to the Mayor, choose to help, confirm your responsibilities and name the kingdom before formal administration. Other players join the same kingdom through their own conversation. Follow the main story to unlock supplies, development and defense; K/J/H remain remappable. See [0.16.0 architecture, migration, commands, limitations and gaming-PC QA](docs/kingdom-onboarding-v016.md) and [the house/board graphical checklist](docs/qa-v016-structures-board.md). Automated tests do not replace the pending in-game visual checks.
 
 When a real hostile party approaches an allied settlement, one local warning marks it **THREATENED**. Accept **Local Defense** at the Quest Board, fight the linked group alongside Guards, and claim your reward after victory. Standing nearby grants no credit; a Guard-only victory still returns the settlement to **SAFE**. Meaningful successful participation grants **Hold the Line / Mantener la línea** once. Build a Watchtower through Mayor → Construction for earlier detection. See [architecture, rewards, development commands, compatibility and the 16-step gamer QA](docs/local-defense-quests.md).
 
@@ -30,7 +32,9 @@ bash ./gradlew runGameTestServer
 bash ./gradlew runClient
 ```
 
-The client opens the Minecraft development environment. Survival establishment requires no cheats; enable them only for optional debug commands. The mod JAR is `build/libs/livingkingdoms-0.15.0.jar`; the `-sources.jar` is for developers, not installation. Use the same mod version on clients and dedicated servers. Python and development mods are not required for the ordinary Java build or runtime.
+The client opens the Minecraft development environment. Survival establishment requires no cheats; enable them only for optional debug commands. The mod JAR is `build/libs/livingkingdoms-0.16.0.jar`; the `-sources.jar` is for developers, not installation. Use the same mod version on clients and dedicated servers. Python and development mods are not required for the ordinary Java build or runtime.
+
+Repeated GameTests retain their world and encounter receipts. For an isolated run, choose an unused directory with `.\gradlew.bat -PgameTestDirectory=runs/gametest-v016-validation runGameTestServer`. The default remains `runs/gametest`; prior worlds stay in place. Reusing a populated test world can exhaust the real encounter cap and correctly prevent natural-spawn fixtures from creating more parties.
 
 The QA bugfix fixes an overlay that blurred the Quest Board/dialogue and a disconnected watchtower roof strip, adds responsive readers and validates every template at all four rotations. Earlier client attempts crashed in the AMD OpenGL driver before gameplay; screenshot acceptance and Save & Quit/reopen remain pending. See the [QA findings and exact manual checklist](docs/qa-ui-structure-bugfix.md).
 
@@ -100,24 +104,24 @@ Placement is checked before mutation; original states are retained for rollback 
 
 Territories are horizontal circles in a specific dimension, with an inclusive boundary; height does not affect lookup. `info` outside every territory reports no settlement. New names use immersive combinations such as `Oakford`; old UUID-derived default names receive a clean display alias in the GUI. Abstract creation stores the player position; physical generation stores the lodestone's position. Default radius is 48 blocks. Every full building footprint and path stays inside the configured territory; reducing its radius too far can produce an insufficient-plots/territory refusal.
 
-## Play Iron Shortage
+## First contact and iron delivery
 
-1. Right-click the **Mayor**. A dialogue screen shows the NPC, proper name, contextual welcome and Talk / Open Quest Board / Settlement Info / Leave options. Meeting the Mayor completes the first main step.
+1. Right-click the **Mayor**. Read the introduction, choose to help, confirm responsibilities and name the kingdom (or join its existing name). The same settlement UUID, buildings and territory remain. Reopening resumes unfinished introductions; joined players get the normal conversation.
 2. Right-click the **Quest Board**, with an empty hand or an item. The parchment screen has **Main quests**, **Requests** and **Active quests** tabs. Viewing or crouch-clicking never accepts a quest.
-3. Select **Iron Shortage** under Main quests and press **Accept**. Default terms are **16 Iron Ingots**, **8 Emeralds**, and **+10 reputation**.
+3. Complete **Meet our neighbors** with a registered resident and claim at the board. Then select **Tools for a growing kingdom** and press **Accept**. This uses the original iron delivery: **16 Iron Ingots**, **8 Emeralds**, and **+10 reputation** by default.
 4. Obtain the iron, then reopen the board or press **Refresh**. Item icons and counts show progress from main inventory and offhand; armor slots do not count. Scroll the right pane when the description does not fit.
-5. Select the active Iron Shortage and press **Claim**. The server validates inventory and reward capacity, consumes exactly the required resources, and pays once. Missing resources or insufficient capacity change nothing.
+5. Select the active iron delivery and press **Claim**. The server validates inventory and reward capacity, consumes exactly the required resources, and pays once. Missing resources or insufficient capacity change nothing.
 6. Reopen the Mayor dialogue: it acknowledges the completed delivery. Save/reload and repeat Claim: no duplicate reward is possible.
 
 The legacy delivery backend and `/kingdom quest` commands remain supported; normal play uses the GUI. See [village identity implementation and exact manual QA](docs/village-identity-ui-polish.md).
 
 The quest is offered once **per player, per allied settlement**, keyed by UUID. Another player can complete their own instance; completing it in one settlement does not complete it in another. Boards outside an allied territory refuse quests. A board elsewhere within the same territory accesses the same player/settlement quest, not another reward. Stay close to the board and inside its territory. No typed commands are needed for this loop.
 
-Existing Milestone 1 physical settlements gain a Mayor on first board use if their central lodestone is still present and a safe loaded plaza position is available. Newly generated settlements spawn the Mayor immediately. Abstract `create` records do not automatically spawn NPCs, but a manually placed board in an allied territory can offer the quest. Names are display values; renaming does not change UUID associations.
+Existing Milestone 1 physical settlements gain a Mayor on first board use if their central lodestone is still present and a safe loaded plaza position is available. Newly generated settlements spawn the Mayor immediately. Abstract `create` records do not automatically spawn NPCs; fresh players need a registered Mayor to join before formal quests are available. Names are display values; renaming does not change UUID associations.
 
 The Mayor is a vanilla Villager with a persisted Living Kingdoms role and settlement UUID, a visible name and no trades. It is stationary (`NoAI`), persistent and protected from ordinary combat for this prototype; creative players can still remove it and physical pushes can move it. `MAYOR`, `BLACKSMITH` and `GUARD` are identity concepts; the Mayor and two ordinary `RESIDENT` villagers are spawned at founding. Missing or unloaded recorded Mayors are not automatically replaced, which avoids duplicate NPCs. Citizens have persistent names, shared levels and automatic homes. Immigration approval creates new native villagers; profession work loops and complex schedules remain future work.
 
-Quest states are `AVAILABLE`, `ACTIVE`, `COMPLETED`, `FAILED`, `EXPIRED`. Original Iron Shortage still has no timer, abandonment or repeatable reset. Inventory progress is checked on interaction, not each tick. An accepted Iron quest snapshots its terms: changing settings affects new acceptances only.
+Quest instances persist `AVAILABLE`, `ACTIVE`, `COMPLETED`, `FAILED`, `EXPIRED`. The board also projects stable `LOCKED` main steps from persisted prerequisites. Original Iron Shortage still has no timer, abandonment or repeatable reset. Inventory progress is checked on interaction, not each tick. An accepted Iron quest snapshots its terms: changing settings affects new acceptances only.
 
 ## Main quests and regional requests
 
@@ -125,12 +129,15 @@ Right-click the board to open **Main quests**, **Requests** and **Active quests*
 
 One main chapter persists globally per player, anchored to their first Mayor-backed settlement:
 
-1. **Meet the Mayor:** a real main-hand interaction completes the first step.
-2. **Iron Shortage:** finish the existing delivery, default 16 iron for eight emeralds/+10 reputation. The chapter observes this same completion, including old saved completion; it does not pay again.
-3. **Secure the Roads:** accept a quest bound to an actual nearby non-debug Pillager Patrol. Contribute meaningfully to defeating that specific group, then confirm victory at the board. Approximate origin coordinates guide travel. A missing/retired target fails; the main step can bind a replacement later.
-4. **Return Home:** accept and claim at the chapter settlement's board for six emeralds/+5 reputation by default. The chapter never expires or repeats at another settlement.
+1. **A promise to the kingdom:** complete the Mayor introduction and registration.
+2. **Meet our neighbors:** accept, talk to a registered resident, then claim locally.
+3. **Tools for a growing kingdom:** finish the existing delivery, default 16 iron for eight emeralds/+10 reputation. Old saved completion is observed without paying again.
+4. **Room for our future:** complete a new construction project after the offer appeared and return to the board. Earlier completed buildings do not count.
+5. **Eyes on the horizon:** inspect a registered active Watchtower with a right-click, then claim the briefing at the board.
+6. **Protect our roads:** accept a quest bound to an actual nearby non-debug Pillager Patrol. Contribute to that group, then confirm victory locally. A missing/retired target fails; the main step can bind a replacement later.
+7. **A safer kingdom:** accept and claim at the chapter kingdom's board for six emeralds/+5 reputation by default. The chapter never expires or repeats at another kingdom.
 
-Abstract records without a Mayor do not lock a player's main chapter. Their boards can still offer delivery requests. The Mayor and two ordinary residents are spawned; other quest source roles are metadata for future NPCs, brokered by the board.
+Abstract records without a Mayor do not lock a player's main chapter. Existing participants are migrated; fresh players must first complete a Mayor introduction. Resource requests unlock after iron, building requests after development, and combat/Local Defense after the Watchtower briefing. Existing active quests remain supported. The Mayor and two ordinary residents are spawned; other quest source roles remain brokered by the board.
 
 | Dynamic request | Default objective | Source role |
 | --- | --- | --- |
@@ -153,6 +160,8 @@ Combat objectives become ready only on the recorded party's final defeat event, 
 Sources hold settlement UUID, optional NPC UUID and MAYOR/BLACKSMITH/FARMER/GUARD_CAPTAIN/CITIZEN role. Typed objectives and templates allow future quest handlers without dependence on placeholder building coordinates. Housing, functional NPC professions, rescue/escort AI and bosses remain out of scope.
 
 ## World storage and settings
+
+`<world>/data/livingkingdoms_onboarding.dat` stores shared kingdom registration and each player's Mayor conversation stage. Quest schema 6 retains old quests, tracking and reward receipts, with an explicit old-chapter prerequisite migration. Existing formal participants join automatically without renaming their kingdom or receiving old rewards again.
 
 Settlement data remains in `<world>/data/livingkingdoms_settlements.dat`. `<world>/data/livingkingdoms_quests.dat` stores player UUID → settlement UUID → quest ID/state/accepted terms, expanded quest UUIDs/objectives/sources/levels/rewards, main chapter anchors, board rotation clocks, settlement-specific reputation, Mayor associations and one-time encounter reward receipts for a batch of participating player UUIDs. `<world>/data/livingkingdoms_encounters.dat` stores party UUIDs, faction/type/origin, optional settlement association, roster/remaining UUIDs, state, threat, reward eligibility, lifecycle timestamps, damage contribution and per-dimension natural spawn cooldowns. All three use the Overworld store even for other dimensions. NPC/member identities also travel with vanilla entity NBT; health, equipment, AI and exact entity positions are not copied into party storage. There is no external database or player-object cache.
 
@@ -327,9 +336,9 @@ Regional difficulty now has a configurable pure calculation of distance, world a
 
 ## Tests and community workflow
 
-`test` uses JUnit 5 with ModDevGradle's NeoForge test environment. The current suite has **289 unit tests**, retaining all previous settlement/quest/faction/encounter/progression, housing/citizen/profession, construction, UI and reward coverage. Defense tests verify exact party/event/player linkage, strict additive serialization, bounded maintenance, same-tick ordering, one-time claims, Guard-only/debug restrictions and frozen multiplayer credit. Real `DimensionDataStorage` save/reopen tests verify persistence and that corrupt/future-schema files remain unchanged after rejected loads.
+`test` uses JUnit 5 with ModDevGradle's NeoForge test environment. The current suite has **364 unit tests**, retaining prior settlement/quest/faction/encounter/progression, citizen/profession, construction, UI and reward coverage. New tests cover onboarding names/stages/migration, prerequisite order, indexed territory selection, HUD layout, session closure, board presentation and packaged assets. Real `DimensionDataStorage` save/reopen tests verify persistence and that corrupt/future-schema files remain unchanged after rejected loads.
 
-`runGameTestServer` starts a headless Minecraft world and loads a separate test mod from `src/gametest`. The current suite has **115 GameTests**, including all 105 previous tests and ten local-defense/Watchtower tests for real combat, physical Board actions, multiplayer, missing links, native entity persistence and guarded building placement. All test-only terrain preparation, chunk tickets/loading, classes and test-mod resources are excluded from the production JAR and normal client/server runs. Its world lives in `runs/gametest`, separate from normal dev worlds. GitHub Actions runs `test build runGameTestServer` on Java 21 and uploads the JARs. The graphical Save and Quit/reopen check remains manual. See [the current report and exact QA](docs/local-defense-quests.md).
+`runGameTestServer` starts a headless Minecraft world and loads a separate test mod from `src/gametest`. The current suite has **143 GameTests**, preserving existing coverage and adding real Mayor registration/multiplayer/migration, resident/construction/Watchtower progression, HUD snapshots, territory commands and rotated civic geometry. All test-only terrain preparation, chunk tickets/loading, classes and test-mod resources are excluded from the production JAR and normal client/server runs. Its world lives in `runs/gametest`, separate from normal dev worlds. GitHub Actions runs `test build runGameTestServer` on Java 21 and uploads the JARs. The graphical Save and Quit/reopen check remains manual. See [0.16.0 validation and gaming-PC QA](docs/kingdom-onboarding-v016.md).
 
 Open an issue with Minecraft/NeoForge/mod versions, reproduction steps, and a relevant log excerpt. Keep contributions scoped and run `test build runGameTestServer` before submitting a pull request. The GitHub workflow is configured for pushes and pull requests. The mod currently reserves all rights; a community distribution license must be selected by the project owner before public release.
 

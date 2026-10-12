@@ -84,6 +84,45 @@ def frame(b, x0, z0, x1, z1, stone=False, cross=False, tall=False):
     lantern(b, x0+1, 1, z1-1)
 
 
+def town_hall(b, x0, z0, x1, z1):
+    """Vanilla-scale civic frontage; all details stay inside the existing plot."""
+    frame(b, x0, z0, x1, z1, tall=True)
+    center = (x0 + x1) // 2
+    # Two tall, framed front windows leave the door and its approach clear.
+    for x in (center - 2, center + 2):
+        put(b, x, 1, z1, "stone_bricks")
+        for y in (2, 3):
+            put(b, x, y, z1, "glass_pane", north="false", south="false",
+                east="true", west="true", waterlogged="false")
+        put(b, x, 4, z1, "spruce_stairs", facing="north", half="top",
+            shape="straight", waterlogged="false")
+        put(b, x, 1, z1 + 1, "stone_brick_slab", type="bottom", waterlogged="false")
+    # Deep entrance recess and porch lintel, without changing the south doorstep.
+    for x in (center - 1, center + 1):
+        for y in (1, 2, 3):
+            put(b, x, y, z1 + 1, "stripped_spruce_log", axis="y")
+    for x in range(center - 1, center + 2):
+        put(b, x, 4, z1 + 1, "spruce_slab", type="top", waterlogged="false")
+    for x in (x0, x1):
+        put(b, x, 1, z1 + 1, "chiseled_stone_bricks")
+        lantern(b, x, 2, z1 + 1)
+    # Paired side windows give the hall daylight, with sill and timber lintel.
+    for x in (x0, x1):
+        for z in (z0 + 1, z1 - 1):
+            for y in (2, 3):
+                put(b, x, y, z, "glass_pane", north="true", south="true",
+                    east="false", west="false", waterlogged="false")
+    # Clear center aisle into an administrative desk, a chair and records shelf.
+    for x in range(center - 1, center + 2):
+        put(b, x, 1, z0 + 2, "spruce_slab", type="top", waterlogged="false")
+    stair(b, center, 1, z0 + 1, "south", "oak")
+    put(b, center + 2, 1, z0 + 1, "bookshelf")
+    put(b, center + 2, 2, z0 + 1, "bookshelf")
+    put(b, center - 2, 1, z0 + 1, "cartography_table")
+    put(b, center - 2, 1, z1 - 1, "barrel", facing="up", open="false")
+    lantern(b, center + 1, 2, z0 + 2)
+
+
 def module(kind, width, depth, height):
     size = (width, height, depth)
     legacy.SIZE = size
@@ -92,14 +131,13 @@ def module(kind, width, depth, height):
         for z in range(depth):
             put(b, x, 0, z, "mossy_cobblestone" if (x*7+z*11)%19 == 0 else "cobblestone")
     if kind == "core":
-        frame(b, 2, 1, 10, 6, tall=True)
+        town_hall(b, 2, 1, 10, 6)
         for x in range(width):
             for z in range(8, depth):
                 put(b, x, 0, z, "chiseled_stone_bricks" if (x,z) in ((6,9),(3,9),(9,9)) else "stone_bricks")
         b.put(6, 1, 9, "minecraft:lodestone")
         b.put(9, 1, 9, "livingkingdoms:quest_board", facing="west")
-        b.sign(4, 2, 7, "south", "Town Hall")
-        put(b, 4, 2, 6, "stripped_oak_log", axis="y")
+        b.sign(6, 3, 7, "south", "Town Hall")
         for x in (0,12):
             for y in (1,2): put(b,x,y,7,"spruce_fence")
             lantern(b,x,3,7)
@@ -110,13 +148,7 @@ def module(kind, width, depth, height):
         put(b,11,2,9,"lantern",hanging="true",waterlogged="false")
         for x in (2,3): stair(b,x,1,11,"north")
         put(b,11,1,11,"barrel",facing="up",open="false")
-        for x in (3,9):
-            put(b,x,3,7,"blue_wall_banner",facing="south")
-            stair(b,x,1,3,"east" if x==3 else "west")
-        for z in (2,3,4): put(b,6,1,z,"oak_slab",type="top",waterlogged="false")
-        put(b,8,1,2,"bookshelf")
-        put(b,3,1,2,"crafting_table")
-        lantern(b,6,2,3)
+        for x in (3,9): put(b,x,3,7,"blue_wall_banner",facing="south")
     elif kind == "founding_camp":
         for x in range(width):
             for z in range(depth): put(b, x, 0, z, "spruce_planks")
@@ -181,7 +213,10 @@ def module(kind, width, depth, height):
         put(b, 5, 1, 7, "barrel", facing="up", open="false")
         lantern(b, 3, 1, 7)
     else:
-        frame(b,1,1,width-2,depth-2,stone=kind=="blacksmith",cross=kind=="house_variant",tall=kind=="town_hall")
+        if kind == "town_hall":
+            town_hall(b,1,1,width-2,depth-2)
+        else:
+            frame(b,1,1,width-2,depth-2,stone=kind=="blacksmith",cross=kind=="house_variant")
         put(b,width-3,1,2,"barrel",facing="up",open="false")
         if kind.startswith("house"):
             bed(b,2,2,"white" if kind=="house" else "light_blue")
@@ -212,9 +247,7 @@ def module(kind, width, depth, height):
                 put(b,x,2,depth-2,"blue_wall_banner",facing="south")
             put(b,width-2,1,depth-1,"spruce_fence")
         if kind=="town_hall":
-            for z in (2,3,4): put(b,width//2,1,z,"oak_slab",type="top",waterlogged="false")
             for x in (2,width-3):
-                stair(b,x,1,3,"east" if x==2 else "west")
                 put(b,x,3,depth-1,"blue_wall_banner",facing="south")
     return encode(b, size)
 

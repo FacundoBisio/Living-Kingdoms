@@ -96,7 +96,7 @@ public final class PhysicalSettlementGameTests {
         var smithModule = BuildingCatalog.load(level, ArchitectureStyle.PLAINS).get(BuildingKind.BLACKSMITH);
         helper.assertTrue(level.getBlockState(smithModule.worldPosition(new BlockPos(5, 1, 1), smith.origin(), smith.rotation()))
                 .is(Blocks.FURNACE), "Blacksmith furnace must exist");
-        SignBlockEntity sign = (SignBlockEntity) level.getBlockEntity(origin.offset(4, 2, 7));
+        SignBlockEntity sign = (SignBlockEntity) level.getBlockEntity(origin.offset(6, 3, 7));
         helper.assertTrue(sign != null && sign.getFrontText().getMessage(1, false).getString().equals("Town Hall"),
                 "Town Hall must have a visible, serialized sign");
         BlockPos board = origin.offset(9, 1, 9);
@@ -134,6 +134,9 @@ public final class PhysicalSettlementGameTests {
                 "Vanilla entity NBT must preserve the Mayor UUID, role and settlement association");
 
         player.messages.clear();
+        // This preserves the old per-player before/after resource-dialogue regression; fresh introductions are tested separately.
+        dev.livingkingdoms.onboarding.persistence.KingdomOnboardingSavedData.get(level.getServer()).enrollLegacy(player.getUUID(),created.id(),created.name());
+        quests.preserveLegacyChapter(player.getUUID(),created.id());
         var welcome = new PlayerInteractEvent.EntityInteract(player, InteractionHand.MAIN_HAND, mayor);
         NpcInteractions.onInteract(welcome);
         helper.assertTrue(welcome.isCanceled() && player.snapshots.getLast().getString("dialogue").equals("npc.livingkingdoms.mayor.before"),
@@ -168,6 +171,8 @@ public final class PhysicalSettlementGameTests {
         player.messages.clear();
         RecordingPlayer newcomer = new RecordingPlayer(level);
         newcomer.setPos(player.getX(), player.getY(), player.getZ());
+        dev.livingkingdoms.onboarding.persistence.KingdomOnboardingSavedData.get(level.getServer()).enrollLegacy(newcomer.getUUID(),created.id(),created.name());
+        quests.preserveLegacyChapter(newcomer.getUUID(),created.id());
         NpcInteractions.onInteract(new PlayerInteractEvent.EntityInteract(newcomer, InteractionHand.MAIN_HAND, mayor));
         helper.assertTrue(newcomer.snapshots.getLast().getString("dialogue").equals("npc.livingkingdoms.mayor.before"),
                 "Another player's Mayor dialogue must remain independent of the completed player");

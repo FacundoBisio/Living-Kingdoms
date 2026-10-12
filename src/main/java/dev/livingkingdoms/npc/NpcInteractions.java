@@ -24,14 +24,16 @@ public final class NpcInteractions {
     }
 
     public static void onInteract(PlayerInteractEvent.EntityInteract event) {
+        if (event.getHand() == InteractionHand.MAIN_HAND && event.getEntity() instanceof net.minecraft.server.level.ServerPlayer player) {
+            dev.livingkingdoms.quest.expansion.ExpandedQuestService.meetCitizen(player, event.getTarget());
+        }
         if (!isLivingKingdomsNpc(event.getTarget())) return;
         event.setCanceled(true);
         event.setCancellationResult(InteractionResult.sidedSuccess(event.getLevel().isClientSide));
         if (!(event.getLevel() instanceof ServerLevel level) || event.getHand() != InteractionHand.MAIN_HAND) return;
         NpcIdentity identity = NpcIdentity.read(event.getTarget()).orElseThrow();
         if (identity.role() != NpcRole.MAYOR) return;
-        var settlement = SettlementSavedData.get(level.getServer()).settlements().stream()
-                .filter(candidate -> candidate.id().equals(identity.settlementId())).findFirst();
+        var settlement = SettlementSavedData.get(level.getServer()).get(identity.settlementId());
         if (settlement.isEmpty()) return;
         QuestSavedData quests = QuestSavedData.get(level.getServer());
         if (quests.mayor(identity.settlementId()).filter(event.getTarget().getUUID()::equals).isEmpty()) return;

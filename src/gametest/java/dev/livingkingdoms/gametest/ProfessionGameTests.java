@@ -236,7 +236,10 @@ public final class ProfessionGameTests {
         var c=CitizenSavedData.get(h.getLevel().getServer()).citizen(candidate.id()).orElseThrow(); ProfessionService.ensure(h.getLevel(),f.settlement()); return new Worker(c,(Villager)h.getLevel().getEntity(c.entityId()));
     }
     private static UiTestPlayer player(ServerLevel level,BlockPos pos) {
-        var p=new UiTestPlayer(level) { @Override public boolean isFakePlayer() { return false; } }; p.getAbilities().mayBuild=true; p.setPos(pos.getX()+.5,pos.getY(),pos.getZ()+.5); return p;
+        var p=new UiTestPlayer(level) { @Override public boolean isFakePlayer() { return false; } }; p.getAbilities().mayBuild=true; p.setPos(pos.getX()+.5,pos.getY(),pos.getZ()+.5);
+        SettlementSavedData.get(level.getServer()).at(level.dimension().location().toString(),pos.getX(),pos.getZ())
+                .ifPresent(settlement -> OnboardingTestSupport.legacyCollaborator(p,settlement));
+        return p;
     }
     private static SettlementLayoutMetadata.Building description(BuildingTemplate m,BlockPos origin) {
         return new SettlementLayoutMetadata.Building(m.kind(),m.id(),origin,Rotation.NONE,new PlotBounds(origin.getX(),origin.getZ(),origin.getX()+m.size().getX()-1,origin.getZ()+m.size().getZ()-1),origin.offset(m.entrance()));

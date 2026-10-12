@@ -1,0 +1,6 @@
+interface:
+  display_name: "Minecraft Testing"
+  short_description: "Unit tests and NeoForge GameTests for the mod"
+  default_prompt: "Use $minecraft-testing for the requested task, preserving Minecraft 1.21.1, NeoForge and Java 21."
+policy:
+  allow_implicit_invocation: false

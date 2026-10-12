@@ -11,23 +11,38 @@ import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
 import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
 import net.minecraft.resources.ResourceLocation;
 import java.util.ArrayList;
+import java.util.List;
+import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
+import net.neoforged.neoforge.client.event.CustomizeGuiOverlayEvent;
+import net.neoforged.neoforge.client.event.RenderGuiEvent;
 import static dev.livingkingdoms.client.VillageTheme.*;
 
 /** Minecraft font/theme with a compact parchment strip; rendering never searches world metadata. */
-final class KingdomHud {
+public final class KingdomHud {
     private record Line(Component text,int color) {}
     private static CompoundTag data=new CompoundTag();
+    private static List<Line> lines=List.of();
     private static float opacity;
     private static long previousFrame;
+    private static int bossBarBottom;
     private KingdomHud() {}
-    static void update(CompoundTag next) { data=next.copy(); }
-    static void clear() { data=new CompoundTag(); opacity=0; previousFrame=0; }
-    static void register(RegisterGuiLayersEvent event) {
-        event.registerAbove(VanillaGuiLayers.EXPERIENCE_LEVEL,ResourceLocation.parse("livingkingdoms:kingdom_quest_hud"),(graphics,delta) -> render(graphics));
-    }
-    private static void render(GuiGraphics g) {
+    static void update(CompoundTag next) { data=next.copy(); lines=describe(data); }
+    public static void clear() { data=new CompoundTag(); lines=List.of(); opacity=0; previousFrame=0; }
+    public static void onTick(ClientTickEvent.Post event) {
         var client=Minecraft.getInstance();
-        if(client.player==null || client.options.hideGui || client.screen!=null) return;
+        if(client.player==null || client.level==null
+                || data.contains("dimension") && !data.getString("dimension").equals(client.level.dimension().location().toString())) clear();
+    }
+    public static void onLogout(ClientPlayerNetworkEvent.LoggingOut event) { clear(); }
+    public static void onRenderGui(RenderGuiEvent.Pre event) { bossBarBottom=0; }
+    public static void onBossProgress(CustomizeGuiOverlayEvent.BossEventProgress event) {
+        if(!event.isCanceled()) bossBarBottom=Math.max(bossBarBottom,event.getY()+event.getIncrement());
+    }
+    static void register(RegisterGuiLayersEvent event) {
+        event.registerAbove(VanillaGuiLayers.BOSS_OVERLAY,ResourceLocation.parse("livingkingdoms:kingdom_quest_hud"),(graphics,delta) -> render(graphics));
+    }
+    private static List<Line> describe(CompoundTag data) {
         var lines=new ArrayList<Line>();
         if(data.contains("settlement",10)) {
             var s=data.getCompound("settlement");
@@ -44,13 +59,18 @@ final class KingdomHud {
             lines.add(new Line(title,q.getBoolean("ready")?SUCCESS:INK));
             lines.add(new Line(objective(q),q.getBoolean("ready")?SUCCESS:q.getBoolean("defense")?ERROR:MUTED));
         }
+        return List.copyOf(lines);
+    }
+    private static void render(GuiGraphics g) {
+        var client=Minecraft.getInstance();
+        if(client.player==null || client.options.hideGui || client.screen!=null || client.gui.getDebugOverlay().showDebugScreen()) return;
         long now=net.minecraft.Util.getMillis();
         float elapsed=previousFrame==0?1:Math.min(1,(now-previousFrame)/200f); previousFrame=now;
         float target=ClientHudConfig.HUD_ENABLED.get() && !lines.isEmpty()?1:0;
-        opacity=Math.clamp(opacity+(target>opacity?elapsed:-elapsed),0,1);
+        if(target>opacity) opacity=Math.min(target,opacity+elapsed);
+        else if(target<opacity) opacity=Math.max(target,opacity-elapsed);
         if(opacity<.05f || lines.isEmpty()) return;
-        int chatHeight=(int)Math.ceil(client.gui.getChat().getHeight()*client.gui.getChat().getScale());
-        var layout=KingdomHudLayout.of(g.guiWidth(),g.guiHeight(),chatHeight,lines.size());
+        var layout=KingdomHudLayout.belowBossBars(g.guiWidth(),g.guiHeight(),bossBarBottom,lines.size());
         if(!layout.visible()) return;
         g.fill(layout.x(),layout.y(),layout.x()+layout.width(),layout.y()+layout.height(),alpha(HUD_PARCHMENT,opacity));
         g.fill(layout.x(),layout.y(),layout.x()+2,layout.y()+layout.height(),alpha(GOLD,opacity));
@@ -74,6 +94,7 @@ final class KingdomHud {
             return tr("resource",selected.getInt("count"),selected.getInt("required"),item.getDescription());
         }
         if(q.contains("party_remaining")) return tr("remaining",q.getInt("party_remaining"));
+        if(q.getBoolean("ready")) return tr("ready");
         return Component.translatable(q.getString("objective"),Component.translatable(q.getString("target")));
     }
     private static Component tr(String key,Object... args) { return Component.translatable("hud.livingkingdoms."+key,args); }

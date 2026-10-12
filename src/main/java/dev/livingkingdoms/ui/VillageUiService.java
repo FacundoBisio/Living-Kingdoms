@@ -11,6 +11,7 @@ import dev.livingkingdoms.quest.domain.QuestState;
 import dev.livingkingdoms.quest.expansion.ExpandedQuestService;
 import dev.livingkingdoms.quest.expansion.domain.*;
 import dev.livingkingdoms.quest.persistence.QuestSavedData;
+import dev.livingkingdoms.onboarding.KingdomOnboardingService;
 import dev.livingkingdoms.settlement.domain.Settlement;
 import dev.livingkingdoms.settlement.persistence.SettlementSavedData;
 import net.minecraft.core.BlockPos;
@@ -90,11 +91,28 @@ public final class VillageUiService {
         if (settlement.isEmpty() || !settlement.get().faction().isAllied() || !inside(player, settlement.get())
                 || QuestSavedData.get(player.server).mayor(settlement.get().id()).filter(npc.getUUID()::equals).isEmpty()) return false;
         MayorPresentation.apply(npc);
-        ExpandedQuestService.meetMayor(player, settlement.get(), npc);
+        if (!KingdomOnboardingService.begin(player, settlement.get(), npc)) return false;
         Session session = new Session(UUID.randomUUID(), settlement.get().id(), player.level().dimension().location().toString(), null, npc.getUUID(), now(player));
         SESSIONS.put(player, session);
         sendDialogue(player, session, settlement.get(), npc, false);
         return true;
+    }
+
+    /** The normal mayor capability also anchors the narrative/name transaction. */
+    public static boolean handleMayor(ServerPlayer player, UiPayloads.MayorRequest request) {
+        if (!player.server.isSameThread()) throw new IllegalStateException("Mayor actions require server thread");
+        Session session = SESSIONS.get(player);
+        if (session == null || !session.token.equals(request.session()) || session.npc == null
+                || session.shortcut || session.marker != null || session.board != null) return false;
+        var settlement = SettlementSavedData.get(player.server).get(session.settlement).orElse(null);
+        if (settlement == null || !player.isAlive() || player.isSpectator() || now(player) - session.opened > 12000
+                || !session.dimension.equals(player.level().dimension().location().toString())
+                || !inside(player, settlement) || !validMayor(player, session)) return invalidate(player);
+        var mayor = (Villager) player.serverLevel().getEntity(session.npc);
+        boolean result = KingdomOnboardingService.advance(player, settlement, mayor, request.action(), request.name());
+        var current = SettlementSavedData.get(player.server).get(session.settlement).orElseThrow();
+        sendDialogue(player, session, current, mayor, false, !result);
+        return result;
     }
 
     public static boolean handle(ServerPlayer player, UiPayloads.Request request) {
@@ -121,6 +139,16 @@ public final class VillageUiService {
         // A construction view retains its original physical anchor and all reach/ownership checks.
         if (session.npc != null && !validMayor(player,session)) return invalidate(player);
         if (session.board != null && ExpandedQuestService.boardSettlement(player,session.board).filter(s -> s.id().equals(session.settlement)).isEmpty()) return invalidate(player);
+        if (!KingdomOnboardingService.canHelp(player, settlement) && switch (request.action()) {
+            case INFO, TALK, REFRESH, BOARD, TRACK, UNTRACK -> false;
+            default -> true;
+        }) {
+            player.displayClientMessage(Component.translatable("onboarding.livingkingdoms.required"), true);
+            if (session.npc != null) sendDialogue(player, session, settlement, (Villager)player.serverLevel().getEntity(session.npc), false);
+            else if (session.board != null) sendBoard(player, session, settlement, true);
+            else if (session.marker != null || session.construction) sendConstruction(player, session, settlement, true);
+            return false;
+        }
         if(request.action()==UiPayloads.Action.TRACK || request.action()==UiPayloads.Action.UNTRACK) {
             if(session.board==null || session.construction || session.citizens || session.immigration) return false;
             var quests=QuestSavedData.get(player.server);
@@ -240,8 +268,9 @@ public final class VillageUiService {
     }
 
     private static boolean invalidate(ServerPlayer player) {
-        SESSIONS.remove(player);
+        Session session = SESSIONS.remove(player);
         CompoundTag closed = new CompoundTag(); closed.putString("screen", "closed");
+        if (session != null) closed.putUUID("session", session.token);
         PacketDistributor.sendToPlayer(player, new UiPayloads.Snapshot(closed));
         return false;
     }
@@ -265,6 +294,7 @@ public final class VillageUiService {
         tag.putInt("reputation", QuestSavedData.get(player.server).reputation(player.getUUID(), settlement.id()));
         tag.putString("lifecycle",settlement.lifecycle().name());
         tag.putBoolean("construction",true);
+        tag.putBoolean("can_help", KingdomOnboardingService.canHelp(player, settlement));
         tag.putInt("population",CitizenService.population(player.server,settlement));
         tag.putInt("housing_total",housing.total()); tag.putInt("housing_occupied",housing.occupied()); tag.putInt("housing_free",housing.free());
         tag.putInt("immigration_pending",candidates.size());
@@ -282,11 +312,15 @@ public final class VillageUiService {
     }
 
     private static void sendDialogue(ServerPlayer player, Session session, Settlement settlement, Villager npc, boolean info) {
+        sendDialogue(player, session, settlement, npc, info, false);
+    }
+
+    private static void sendDialogue(ServerPlayer player, Session session, Settlement settlement, Villager npc, boolean info, boolean rejected) {
         CompoundTag tag = base(player, session, settlement, "dialogue");
         tag.putInt("entity", npc==null?-1:npc.getId());
         tag.putString("name", npc==null?VillageNames.display(settlement):MayorPresentation.name(npc));
         tag.putBoolean("shortcut",session.shortcut);
-        tag.putBoolean("readonly",!inside(player,settlement));
+        tag.putBoolean("readonly",!inside(player,settlement) || !tag.getBoolean("can_help"));
         tag.putString("role", "mayor");
         tag.putBoolean("info",info);
         tag.putString("dialogue", info ? "ui.livingkingdoms.dialogue.info"
@@ -298,6 +332,8 @@ public final class VillageUiService {
                 .filter(e -> e.state()!=dev.livingkingdoms.defense.domain.ThreatState.APPROACHING)
                 .ifPresent(event -> tag.putString("dialogue",DefenseUiState.dialogue(event,player.getUUID())));
         tag.putInt("level", settlement.level());
+        if (npc != null) KingdomOnboardingService.writeView(player, settlement, tag);
+        if (rejected) tag.putString("notice", "onboarding.livingkingdoms.rejected");
         PacketDistributor.sendToPlayer(player, new UiPayloads.Snapshot(tag));
     }
 
@@ -411,9 +447,25 @@ public final class VillageUiService {
         ListTag entries = new ListTag();
         QuestSavedData data = QuestSavedData.get(player.server);
         for (QuestInstance quest : data.quests(player.getUUID(), settlement.id())) entries.add(questView(player, quest));
+        if (data.mainSettlement(player.getUUID()).isEmpty() || data.mainSettlement(player.getUUID()).filter(settlement.id()::equals).isPresent()) {
+            var completed = data.completedMain(player.getUUID(), settlement.id());
+            var offered = data.quests(player.getUUID(), settlement.id()).stream().map(QuestInstance::template).collect(java.util.stream.Collectors.toSet());
+            for (var template : QuestCatalog.mainChain()) {
+                if (completed.contains(template) || offered.contains(template)) continue;
+                CompoundTag locked = new CompoundTag();
+                locked.putUUID("id", UUID.nameUUIDFromBytes((settlement.id() + ":locked:" + template.id()).getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+                locked.putString("template", template.id()); locked.putString("category", "MAIN"); locked.putString("state", "LOCKED");
+                locked.putInt("stage", template.stage()); locked.putInt("level", Math.max(1, template.order()));
+                locked.putString("difficulty", QuestDifficulty.VERY_EASY.titleKey()); locked.putLong("expires", -1);
+                locked.putString("objective", "quest.livingkingdoms." + template.id() + ".objective");
+                locked.putString("locked_reason", !tag.getBoolean("can_help") ? "onboarding.livingkingdoms.required"
+                        : QuestCatalog.prerequisitesMet(template, completed) ? "quest.livingkingdoms.waiting_context" : "quest.livingkingdoms.previous_step");
+                entries.add(locked);
+            }
+        }
         tag.put("quests", entries);
         var anchor = data.mainSettlement(player.getUUID());
-        tag.putString("hint", anchor.filter(settlement.id()::equals).isPresent() ? "quest.livingkingdoms.waiting_patrol" : "quest.livingkingdoms.meet_mayor");
+        tag.putString("hint", anchor.filter(settlement.id()::equals).isPresent() ? "quest.livingkingdoms.follow_chapter" : "quest.livingkingdoms.meet_mayor");
         if (anchor.isPresent() && !anchor.get().equals(settlement.id())) {
             tag.putString("hint", "ui.livingkingdoms.main_elsewhere");
         }
@@ -423,6 +475,7 @@ public final class VillageUiService {
     public static CompoundTag questView(ServerPlayer player, QuestInstance quest) {
         CompoundTag tag = new CompoundTag();
         tag.putUUID("id", quest.id()); tag.putString("template", quest.template().id());
+        tag.putInt("stage", quest.template().stage());
         tag.putString("category", quest.template().category().name()); tag.putString("state", quest.state().name());
         tag.putString("difficulty", quest.difficulty().titleKey()); tag.putInt("level", quest.recommendedLevel().value());
         tag.putLong("expires", quest.state() == QuestState.AVAILABLE && quest.expiresAt() >= 0 ? Math.max(0, (quest.expiresAt()-now(player))/20) : -1);
@@ -461,13 +514,16 @@ public final class VillageUiService {
                     tag.putString("objective","quest.livingkingdoms.local_defense.objective");
                 }
             }
-            case QuestObjective.Meet ignored -> tag.putString("objective", "quest.livingkingdoms.meet_mayor");
-            case QuestObjective.Return ignored -> tag.putString("objective", "quest.livingkingdoms.return_objective");
+            case QuestObjective.Meet ignored -> tag.putString("objective", quest.template() == QuestTemplate.MAIN_RESIDENTS
+                    ? "quest.livingkingdoms.main_residents.objective" : "quest.livingkingdoms.meet_mayor");
+            case QuestObjective.Return ignored -> tag.putString("objective", quest.template() == QuestTemplate.MAIN_DEVELOPMENT
+                    || quest.template() == QuestTemplate.MAIN_WATCHTOWER ? "quest.livingkingdoms." + quest.template().id() + ".objective"
+                    : "quest.livingkingdoms.return_objective");
         }
         tag.put("requirements", requirements); tag.putBoolean("ready", ready);
         boolean tracked=QuestSavedData.get(player.server).tracked(player.getUUID()).map(q -> q.id().equals(quest.id())).orElse(false);
         tag.putBoolean("tracked",tracked); tag.putBoolean("track",quest.state()==QuestState.ACTIVE); tag.putBoolean("untrack",tracked);
-        tag.putBoolean("accept", quest.state() == QuestState.AVAILABLE && !(quest.objective() instanceof QuestObjective.Meet));
+        tag.putBoolean("accept", ExpandedQuestService.canAccept(player, quest));
         tag.putBoolean("claim", quest.state() == QuestState.ACTIVE && ready);
         return tag;
     }

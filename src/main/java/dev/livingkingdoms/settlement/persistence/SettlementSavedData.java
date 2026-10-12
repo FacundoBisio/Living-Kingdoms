@@ -65,6 +65,11 @@ public final class SettlementSavedData extends SavedData {
 
     public Optional<SettlementLayoutMetadata> layout(UUID id) { return Optional.ofNullable(layouts.get(id)); }
 
+    /** Renames the existing aggregate, preserving physical layout, identity, territory and all relationships. */
+    public boolean rename(Settlement expected, String name) {
+        return replace(expected, expected.withName(name));
+    }
+
     public boolean replace(Settlement expected, Settlement replacement) {
         if (!expected.id().equals(replacement.id()) || !expected.territory().equals(replacement.territory()))
             throw new IllegalArgumentException("Settlement identity and territory cannot change");
@@ -128,6 +133,27 @@ public final class SettlementSavedData extends SavedData {
     public Optional<Settlement> at(String dimension, int x, int z) {
         return settlements.values().stream()
                 .filter(settlement -> settlement.territory().contains(dimension, x, z)).findFirst();
+    }
+
+    /** Indexed local HUD/overlay lookup. Imported oversized circles are handled separately. */
+    public Optional<Settlement> alliedAt(String dimension, int x, int z) {
+        Map<Bucket, List<UUID>> index = alliedCenters.get(Objects.requireNonNull(dimension));
+        if (index == null) return Optional.empty();
+        for (int bx = bucketCoordinate((long) x - 1024); bx <= bucketCoordinate((long) x + 1024); bx++) {
+            for (int bz = bucketCoordinate((long) z - 1024); bz <= bucketCoordinate((long) z + 1024); bz++) {
+                List<UUID> ids = index.get(new Bucket(bx, bz));
+                if (ids == null) continue;
+                for (UUID id : ids) {
+                    Settlement settlement = settlements.get(id);
+                    if (settlement.territory().contains(dimension, x, z)) return Optional.of(settlement);
+                }
+            }
+        }
+        for (UUID id : oversizedAlliedTerritories.getOrDefault(dimension, List.of())) {
+            Settlement settlement = settlements.get(id);
+            if (settlement.territory().contains(dimension, x, z)) return Optional.of(settlement);
+        }
+        return Optional.empty();
     }
 
     /** Natural encounter exclusion includes every allied territory radius and a group-sized margin. */

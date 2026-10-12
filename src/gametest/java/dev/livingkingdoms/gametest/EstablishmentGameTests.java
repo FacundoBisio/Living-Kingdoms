@@ -107,14 +107,17 @@ public final class EstablishmentGameTests {
                     && level.getBlockState(center.offset(-8,0,3)).is(Blocks.RED_BED),"House, inventory, bell and beds survive conversion");
             assertInteractions(helper,player,settlement,mayor);
             var saved = SettlementSavedData.get(level.getServer());
+            var named = saved.get(settlement.id()).orElseThrow();
             var reopened = SettlementSavedData.load(saved.save(new CompoundTag(),level.registryAccess()),level.registryAccess());
             var quests = QuestSavedData.get(level.getServer());
             quests.awardEncounterReputationOnce(UUID.randomUUID(),player.getUUID(),settlement.id(),4);
             var reopenedQuests = QuestSavedData.load(quests.save(new CompoundTag(),level.registryAccess()),level.registryAccess());
-            helper.assertTrue(reopened.get(settlement.id()).orElseThrow().equals(settlement)
+            helper.assertTrue(reopened.get(settlement.id()).orElseThrow().equals(named)
+                    && named.name().equals("Realm "+settlement.id().toString().substring(0,8))
+                    && named.territory().equals(settlement.territory()) && named.provenance().equals(settlement.provenance())
                     && reopenedQuests.mayor(settlement.id()).orElseThrow().equals(mayor.getUUID())
                     && reopenedQuests.reputation(player.getUUID(),settlement.id())==4
-                    && !reopenedQuests.quests(player.getUUID(),settlement.id()).isEmpty(),"Settlement, Mayor, quests and regional rewards reload with the same UUID");
+                    && !reopenedQuests.quests(player.getUUID(),settlement.id()).isEmpty(),"Named settlement, Mayor, quests and regional rewards reload with the same UUID, territory and provenance");
             var reloadedMayor = EntityType.VILLAGER.create(level); reloadedMayor.load(mayor.saveWithoutId(new CompoundTag()));
             helper.assertTrue(NpcIdentity.read(reloadedMayor).equals(NpcIdentity.read(mayor)) && reloadedMayor.getUUID().equals(mayor.getUUID()),"Promoted entity identity persists");
             helper.succeed();
@@ -324,11 +327,14 @@ public final class EstablishmentGameTests {
     private static void assertInteractions(GameTestHelper helper,UiTestPlayer player,Settlement settlement,Villager mayor) {
         player.setPos(mayor.getX()+2,mayor.getY(),mayor.getZ());
         helper.assertTrue(VillageUiService.openDialogue(player,mayor),"Mayor dialogue opens through existing UI service");
+        for(String action:java.util.List.of("NEXT","NEXT","HELP","ACCEPT"))
+            helper.assertTrue(dev.livingkingdoms.onboarding.KingdomOnboardingService.advance(player,settlement,mayor,action,""),"New founder completes the required mayor narrative");
+        helper.assertTrue(dev.livingkingdoms.onboarding.KingdomOnboardingService.advance(player,settlement,mayor,"REGISTER","Realm "+settlement.id().toString().substring(0,8)),"New founder registers the existing physical settlement");
         var marker=new BlockPos(settlement.territory().x(),settlement.territory().y(),settlement.territory().z());
         var board=marker.east(settlement.provenance().origin()==SettlementOrigin.CONVERTED?2:3);
         player.setPos(board.getX()+0.5,board.getY(),board.getZ()+1.5);
         helper.assertTrue(helper.getLevel().getBlockState(board).is(KingdomBlocks.QUEST_BOARD)
-                && VillageUiService.openBoard(player,board) && !QuestSavedData.get(helper.getLevel().getServer()).quests(player.getUUID(),settlement.id()).isEmpty(),"Existing board GUI and main/dynamic quests are immediately available");
+                && VillageUiService.openBoard(player,board) && !QuestSavedData.get(helper.getLevel().getServer()).quests(player.getUUID(),settlement.id()).isEmpty(),"Existing board GUI and progressive quests become available after formal mayor contact");
     }
 
     private static UiTestPlayer player(ServerLevel level,BlockPos center,int charters) {
