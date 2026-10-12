@@ -35,7 +35,7 @@ class EncounterBatchRewardTest {
         QuestSavedData migrated = QuestSavedData.load(legacy, null);
         assertEquals(2, migrated.reputation(player, settlement));
         assertFalse(migrated.awardEncounterReputationOnce(party, Set.of(UUID.randomUUID()), settlement, 4));
-        assertEquals(5, migrated.save(new CompoundTag(), null).getInt("schema_version"));
+        assertEquals(6, migrated.save(new CompoundTag(), null).getInt("schema_version"));
     }
 
     @Test void cleanupRemovesOnlyReceiptsAndPreservesPlayerReputation() {

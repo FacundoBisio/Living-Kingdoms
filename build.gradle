@@ -45,7 +45,8 @@ neoForge {
             sourceSet = sourceSets.gameTest
             loadedMods = [mods.livingkingdoms, mods.livingkingdoms_tests]
             systemProperty 'neoforge.enabledGameTestNamespaces', 'livingkingdoms_tests'
-            gameDirectory = project.file('runs/gametest')
+            // Repeated suites can use a fresh isolated world without deleting prior test saves.
+            gameDirectory = project.file(providers.gradleProperty('gameTestDirectory').orElse('runs/gametest').get())
         }
     }
     unitTest {

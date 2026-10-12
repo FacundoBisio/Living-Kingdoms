@@ -115,6 +115,7 @@ public final class DefenseWatchtowerGameTests {
         var mayor=NpcService.ensureMayor(level,settlement).orElseThrow(); ProfessionService.ensure(level,settlement);
         var player=new UiTestPlayer(level) { @Override public boolean isFakePlayer() { return false; } };
         player.getAbilities().mayBuild=true; player.setPos(mayor.getX()+2,mayor.getY(),mayor.getZ());
+        OnboardingTestSupport.legacyCollaborator(player,settlement);
         return new Fixture(center,settlement,player,mayor);
     }
 }

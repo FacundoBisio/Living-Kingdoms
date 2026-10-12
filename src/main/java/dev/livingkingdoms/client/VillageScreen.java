@@ -3,6 +3,7 @@ package dev.livingkingdoms.client;
 import dev.livingkingdoms.ui.UiPayloads;
 import dev.livingkingdoms.ui.VillageUiLayout;
 import dev.livingkingdoms.ui.QuestBoardState;
+import dev.livingkingdoms.ui.QuestBoardPresentation;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Tooltip;
 import org.lwjgl.glfw.GLFW;
@@ -18,10 +19,13 @@ import net.minecraft.world.item.Items;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 /** Shared parchment shell for Mayor dialogue, quests, construction and citizen approval. */
 public final class VillageScreen extends Screen {
+    private static final Set<String> MANAGEMENT_BUTTONS=Set.of("quest_action","profession_picker","farmer_assign","guard_assign","builder_assign",
+            "building_picker","plan_house","plan_farm","plan_barracks","plan_watchtower","citizen_accept","citizen_decline");
     private CompoundTag data;
     private int left, top, panelWidth, panelHeight, listWidth;
     private int section, offset, detailScroll, detailHeight;
@@ -48,6 +52,7 @@ public final class VillageScreen extends Screen {
         constructionTicks = 0;
         if (changedScreen) { detailScroll = 0; focusKey = null; buildingPicker = false; professionPicker = false; selectDefense(); }
         if(!data.getBoolean("plan")) buildingPicker = false;
+        if(!data.getBoolean("can_help")) { buildingPicker=false; professionPicker=false; }
         if (pendingQuest != null) selected = pendingQuest;
         if(citizens() && selectedQuest()!=null && selectedQuest().getBoolean("remove")) professionPicker=false;
         // Keep the accepted request visible when it moves from Requests to Active.
@@ -98,6 +103,7 @@ public final class VillageScreen extends Screen {
                     .append(". ").append(Component.translatable(quest.getString("objective"), Component.translatable(quest.getString("target"))))
                     .append(". ").append(tr("reward_value", quest.getInt("emeralds"), quest.getInt("reward_reputation")));
             if(quest.getBoolean("tracked")) message.append(". ").append(tr("tracked"));
+            if(quest.contains("locked_reason")) message.append(". ").append(Component.translatable(quest.getString("locked_reason")));
             if(quest.getBoolean("defense")) {
                 for(Component detail:defenseDetails(quest)) message.append(". ").append(detail);
             }
@@ -135,6 +141,7 @@ public final class VillageScreen extends Screen {
             if(!data.getBoolean("info")) narrateSettlementMetrics(message);
         }
         if (pending) message.append(". ").append(tr("working"));
+        if(!data.getBoolean("can_help") && !data.getBoolean("remote")) message.append(". ").append(Component.translatable("onboarding.livingkingdoms.required"));
         if (data.contains("notice")) message.append(". ").append(Component.translatable(data.getString("notice")));
         return message;
     }
@@ -164,6 +171,19 @@ public final class VillageScreen extends Screen {
         int scrollX = left + panelWidth - 27;
         scrollUp = button(tr("scroll_up"), scrollX, layout.contentTop(), 20, () -> scrollDetail(-33)).glyph("^");
         scrollDown = button(tr("scroll_down"), scrollX, layout.contentTop() + 23, 20, () -> scrollDetail(33)).glyph("v");
+        gateManagementButtons();
+    }
+
+    /** Reflect the server's onboarding capability even for direct construction-marker views. */
+    private void gateManagementButtons() {
+        if(data.getBoolean("can_help") || data.getBoolean("remote")) return;
+        String constructionLabel=tr("construction").getString(),immigrationLabel=tr("immigration").getString(),citizensLabel=tr("citizens").getString();
+        for(var child:children()) if(child instanceof VillageButton button
+                && (MANAGEMENT_BUTTONS.contains(button.key) || button.key.equals(constructionLabel)
+                    || button.key.equals(immigrationLabel) || button.key.equals(citizensLabel))) {
+            button.active=false;
+            button.setTooltip(Tooltip.create(Component.translatable("onboarding.livingkingdoms.required")));
+        }
     }
 
     private VillageButton button(Component label, int x, int y, int w, Runnable action) {
@@ -192,6 +212,7 @@ public final class VillageScreen extends Screen {
             var row = button(q.getUUID("id").toString(), questTitle(q), left+8, layout.contentTop()+(i-offset)*34, listWidth-12,
                     () -> {selected=q.getUUID("id");detailScroll=0;buildingPicker=false;professionPicker=false;rebuildWidgets();});
             row.selected(q.getUUID("id").equals(selected));
+            if (board()) row.stateMark(QuestBoardPresentation.status(q).mark(), questColor(q));
             row.setTooltip(Tooltip.create(questTitle(q).copy().append("\n").append(construction()?queueStatus(q):state(q))));
         }
         int navWidth=board()?Math.clamp((listWidth-24)/5,16,20):20;
@@ -321,6 +342,7 @@ public final class VillageScreen extends Screen {
         rebuildWidgets();
     }
     @Override public void onClose() {
+        VillageClient.closeSession(data.getUUID("session"));
         PacketDistributor.sendToServer(new UiPayloads.Request(data.getUUID("session"),new UUID(0,0),UiPayloads.Action.CLOSE));
         super.onClose();
     }
@@ -353,6 +375,15 @@ public final class VillageScreen extends Screen {
             "quest.livingkingdoms."+q.getString("template")+".title"); }
     private Component state(CompoundTag q) { return citizens()?tr("citizens.summary",profession(q),q.getInt("profession_level")):immigration()?tr("citizen_level",q.getInt("level")):Component.translatable((construction()?"construction.livingkingdoms.state.":"quest.livingkingdoms.state.")+
             q.getString("state").toLowerCase(java.util.Locale.ROOT)); }
+    private static int questColor(CompoundTag quest) {
+        return switch (QuestBoardPresentation.status(quest)) {
+            case LOCKED -> LOCKED;
+            case AVAILABLE -> AVAILABLE;
+            case ACTIVE -> ACTIVE;
+            case COMPLETED -> SUCCESS;
+            case FAILED -> ERROR;
+        };
+    }
     private Component queueStatus(CompoundTag project) {
         return project.getString("queue").isEmpty()?state(project):tr("construction_queue."+project.getString("queue")).append(" · ").append(state(project));
     }
@@ -379,6 +410,8 @@ public final class VillageScreen extends Screen {
         g.fill(0,0,width,height,0x880C151B);
         g.fill(left-2,top-2,left+panelWidth+2,top+panelHeight+2,WOOD);
         g.fill(left,top,left+panelWidth,top+panelHeight,PARCHMENT);
+        g.fill(left,top,left+panelWidth,top+1,HOVER);
+        g.fill(left,top+panelHeight-1,left+panelWidth,top+panelHeight,WOOD_LIGHT);
         g.fill(left+4,top+4,left+panelWidth-4,top+27,BLUE);
         Component rep=tr("reputation",data.getInt("reputation"));
         if(data.getString("safety").equals("threatened")) rep=safety();
@@ -405,11 +438,23 @@ public final class VillageScreen extends Screen {
     private void renderBoard(GuiGraphics g) {
         int divider=left+listWidth;
         g.fill(divider,top+56,divider+1,layout.contentBottom(),WOOD);
-        g.fill(divider+4,top+56,left+panelWidth-5,layout.contentBottom(),PAPER);
+        g.fill(divider+3,top+55,left+panelWidth-5,layout.contentBottom()+1,WOOD_LIGHT);
+        g.fill(divider+5,top+57,left+panelWidth-7,layout.contentBottom()-1,PAPER);
+        // Small iron tacks connect the detail parchment to the in-world board's appearance.
+        g.fill(divider+7,top+58,divider+9,top+60,MUTED);
+        g.fill(left+panelWidth-11,top+58,left+panelWidth-9,top+60,MUTED);
         var quests=visibleQuests(); int rows=layout.rows();
         for(int i=offset;i<Math.min(quests.size(),offset+rows);i++) {
             var q=quests.get(i); int y=layout.contentTop()+23+(i-offset)*34;
-            g.drawString(font,ellipsize(state(q),listWidth-20),left+11,y,q.getUUID("id").equals(selected)?SUCCESS:MUTED,false);
+            var progress=QuestBoardPresentation.progress(q);
+            Component label=state(q);
+            if(progress!=null) label=label.copy().append(" " + progress.current() + "/" + progress.total());
+            g.drawString(font,ellipsize(label,listWidth-20),left+11,y,questColor(q),false);
+            if(progress!=null) {
+                int barWidth=listWidth-24;
+                g.fill(left+11,y+9,left+11+barWidth,y+11,INSET);
+                g.fill(left+11,y+9,left+11+(int)(barWidth*progress.fraction()),y+11,questColor(q));
+            }
         }
         int x=layout.detailX(),y=layout.contentTop()-detailScroll,w=layout.detailWidth()-24;
         g.enableScissor(x,layout.contentTop(),x+w,layout.contentBottom());
@@ -428,7 +473,15 @@ public final class VillageScreen extends Screen {
             if(data.getBoolean("remote")) y=paragraph(g,tr("journal.read_only"),x,y,w,MUTED);
             y=paragraph(g,tr("difficulty",Component.translatable(q.getString("difficulty")),q.getInt("level"))
                     .append(" · ").append(tr(q.getString("category").equals("MAIN")?"main":"requests")),x,y,w,MUTED);
-            y=paragraph(g,state(q),x,y,w,q.getBoolean("claim")?SUCCESS:INK);
+            y=paragraph(g,state(q).copy().withStyle(net.minecraft.ChatFormatting.BOLD),x,y,w,questColor(q));
+            if(q.contains("locked_reason")) y=paragraph(g,Component.translatable(q.getString("locked_reason")),x,y,w,MUTED);
+            var progress=QuestBoardPresentation.progress(q);
+            if(progress!=null) {
+                y=paragraph(g,tr("progress",progress.current(),progress.total()),x,y,w,MUTED);
+                g.fill(x,y,x+w,y+4,INSET);
+                g.fill(x,y,x+(int)(w*progress.fraction()),y+4,questColor(q));
+                y+=11;
+            }
             if(q.getBoolean("defense")) for(Component detail:defenseDetails(q)) y=paragraph(g,detail,x,y,w,INK);
             if(data.contains("notice")) y=paragraph(g,Component.translatable(data.getString("notice")),x,y,w,ERROR);
             y=paragraph(g,Component.translatable("ui.livingkingdoms.description."+q.getString("template")),x,y,w,INK);
@@ -440,6 +493,9 @@ public final class VillageScreen extends Screen {
             for(int i=0;i<items.size();i++) {
                 var item=items.getCompound(i); ItemStack stack=icon(item.getString("item"));
                 y=itemRow(g,stack,tr("progress",item.getInt("count"),item.getInt("required")).append(" ").append(stack.getHoverName()),x,y,w);
+                int required=Math.max(1,item.getInt("required"));
+                g.fill(x+22,y-3,x+w,y-1,INSET);
+                g.fill(x+22,y-3,x+22+(int)((w-22)*(double)Math.clamp(item.getInt("count"),0,required)/required),y-1,SUCCESS);
             }
             y+=3;
             y=sectionHeader(g,tr("rewards"),x,y,w);

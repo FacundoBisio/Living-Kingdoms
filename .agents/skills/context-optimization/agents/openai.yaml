@@ -1,0 +1,6 @@
+interface:
+  display_name: "Context Optimization"
+  short_description: "Focused retrieval, context budgets and compaction"
+  default_prompt: "Use $context-optimization for the requested task, preserving Minecraft 1.21.1, NeoForge and Java 21."
+policy:
+  allow_implicit_invocation: false

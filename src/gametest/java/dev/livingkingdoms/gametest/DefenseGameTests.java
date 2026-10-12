@@ -209,6 +209,7 @@ public final class DefenseGameTests {
     private static boolean advancement(UiTestPlayer player) { var adv=player.server.getAdvancements().get(KingdomMilestone.FIRST_DEFENSE.id()); return adv!=null && player.getAdvancements().getOrStartProgress(adv).isDone(); }
     private static int emeralds(UiTestPlayer player) { return player.getInventory().items.stream().filter(s -> s.is(Items.EMERALD)).mapToInt(ItemStack::getCount).sum(); }
     private static QuestInstance accept(GameTestHelper h,Fixture f,UiTestPlayer player) {
+        OnboardingTestSupport.legacyCollaborator(player,f.settlement());
         h.assertTrue(VillageUiService.openBoard(player,f.board()),"Board opens through physical anchor");
         var quest=QuestSavedData.get(player.server).quests(player.getUUID(),f.settlement().id()).stream().filter(q -> q.template()==QuestTemplate.LOCAL_DEFENSE && q.state()==QuestState.AVAILABLE).findFirst().orElseThrow();
         h.assertTrue(VillageUiService.handle(player,new UiPayloads.Request(player.snapshots.getLast().getUUID("session"),quest.id(),UiPayloads.Action.ACCEPT)),"Contextual quest accepted in normal Board"); return quest;
@@ -248,6 +249,7 @@ public final class DefenseGameTests {
         }
         SettlementSavedData.get(level.getServer()).add(s,new SettlementLayoutMetadata(ArchitectureStyle.PLAINS,buildings,List.of(center.east().below()),List.of())); level.setBlock(center,Blocks.LODESTONE.defaultBlockState(),18);
         var mayor=NpcService.ensureMayor(level,s).orElseThrow(); ProfessionService.ensure(level,s); var board=center.south(3); level.setBlock(board,KingdomBlocks.QUEST_BOARD.get().defaultBlockState(),18);
-        return new Fixture(center,s,player(level,center.east(2)),mayor,board);
+        var player=player(level,center.east(2)); OnboardingTestSupport.legacyCollaborator(player,s);
+        return new Fixture(center,s,player,mayor,board);
     }
 }

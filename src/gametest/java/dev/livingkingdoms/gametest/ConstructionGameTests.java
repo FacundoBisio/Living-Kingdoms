@@ -110,7 +110,7 @@ public final class ConstructionGameTests {
             h.assertTrue(layout.buildings().stream().anyMatch(b -> b.kind()==BuildingKind.HOUSE && b.origin().equals(house.plan().buildings().getFirst().origin())),"Completed House kind/position registered for future housing");
             h.assertTrue(settlement.id().equals(f.settlement().id()) && settlement.provenance().equals(f.settlement().provenance()) && settlement.population()==f.settlement().population(),"Progress preserves identity, founder and abstract population");
             ExpandedQuestService.prepare(f.player(),settlement);
-            h.assertTrue(QuestSavedData.get(server).quests(f.player().getUUID(),settlement.id()).stream().anyMatch(q -> q.template()==QuestTemplate.MAIN_IRON),"Existing main quests resume after establishment"); h.succeed();
+            h.assertTrue(QuestSavedData.get(server).quests(f.player().getUUID(),settlement.id()).stream().anyMatch(q -> q.template()==QuestTemplate.MAIN_RESIDENTS),"The inhabitant introduction unlocks when the camp becomes an established settlement"); h.succeed();
         });
         var mayor=NpcService.ensureMayor(h.getLevel(),f.settlement()).orElseThrow(); f.player().setPos(mayor.getX()+2,mayor.getY(),mayor.getZ());
         VillageUiService.openDialogue(f.player(),mayor);
@@ -231,7 +231,15 @@ public final class ConstructionGameTests {
         var center=fixture(h,coordinate); var player=player(h.getLevel(),center);
         player.setItemInHand(InteractionHand.MAIN_HAND,new ItemStack(KingdomItems.KINGDOM_CHARTER.get()));
         var result=SettlementEstablishmentService.useCharter(player,InteractionHand.MAIN_HAND,center.below(),SettlementEstablishmentService.Mode.AUTO);
-        h.assertTrue(result.successful(),"Progressive founding: "+result.message().getString()+" / "+result.diagnostics()); return new Founded(result.settlement(),player);
+        h.assertTrue(result.successful(),"Progressive founding: "+result.message().getString()+" / "+result.diagnostics());
+        var mayor=NpcService.ensureMayor(h.getLevel(),result.settlement()).orElseThrow();
+        player.setPos(mayor.getX()+2,mayor.getY(),mayor.getZ());
+        h.assertTrue(dev.livingkingdoms.onboarding.KingdomOnboardingService.begin(player,result.settlement(),mayor),"A new charter founder still meets the real mayor before formal assistance");
+        for(String action:List.of("NEXT","NEXT","HELP","ACCEPT"))
+            h.assertTrue(dev.livingkingdoms.onboarding.KingdomOnboardingService.advance(player,result.settlement(),mayor,action,""),"Fresh founder completes the narrative step "+action);
+        h.assertTrue(dev.livingkingdoms.onboarding.KingdomOnboardingService.advance(player,result.settlement(),mayor,"REGISTER","Realm "+result.settlement().id().toString().substring(0,8)),"Fresh charter founder names the same physical kingdom");
+        player.setPos(center.getX()+.5,center.getY(),center.getZ()+2.5);
+        return new Founded(SettlementSavedData.get(player.server).get(result.settlement().id()).orElseThrow(),player);
     }
     private static UiTestPlayer player(ServerLevel level,BlockPos center) {
         // NeoForge's default FakePlayerAdvancements intentionally refuses all awards.

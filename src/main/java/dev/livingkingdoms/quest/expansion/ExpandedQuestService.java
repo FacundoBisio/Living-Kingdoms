@@ -48,6 +48,7 @@ public final class ExpandedQuestService {
                 || !settlement.faction().isAllied() || !inTerritory(player, settlement)) return;
         var data = QuestSavedData.get(player.server);
         if (data.mayor(settlement.id()).filter(mayor.getUUID()::equals).isEmpty()) return;
+        if (!dev.livingkingdoms.onboarding.KingdomOnboardingService.canHelp(player, settlement)) return;
         ensureMain(player, settlement);
         main(data, player.getUUID(), settlement.id(), QuestTemplate.FIRST_MEETING).ifPresent(quest -> {
             if (quest.state() == QuestState.AVAILABLE) data.acceptExpanded(player.getUUID(), quest.id());
@@ -65,6 +66,9 @@ public final class ExpandedQuestService {
         var found = boardSettlement(player, board);
         if (found.isEmpty()) { message(player, "quest.livingkingdoms.no_settlement"); return false; }
         Settlement settlement = found.orElseThrow();
+        if (!action.equals("inspect") && !dev.livingkingdoms.onboarding.KingdomOnboardingService.canHelp(player, settlement)) {
+            message(player, "quest.livingkingdoms.meet_mayor"); return false;
+        }
         prepare(player, settlement);
         var data = QuestSavedData.get(player.server);
         QuestInstance quest = data.quest(player.getUUID(), questId)
@@ -86,10 +90,11 @@ public final class ExpandedQuestService {
         }
         boolean success;
         if (action.equals("accept")) {
+            if (!canAccept(player, quest)) return false;
             if (quest.template() == QuestTemplate.LOCAL_DEFENSE
                     && !dev.livingkingdoms.defense.DefenseQuestService.canAccept(player, quest)) return false;
             success = data.acceptExpanded(player.getUUID(), questId);
-            if (success && quest.objective() instanceof QuestObjective.Return) data.markObjective(player.getUUID(), questId);
+            if (success && quest.template() == QuestTemplate.MAIN_RETURN) data.markObjective(player.getUUID(), questId);
             if (success) message(player, "quest.livingkingdoms.accepted", Component.translatable(quest.template().titleKey()));
         } else if (action.equals("claim")) {
             success = claim(player, data, quest);
@@ -139,7 +144,10 @@ public final class ExpandedQuestService {
     public static void prepare(ServerPlayer player, Settlement settlement) {
         var data = QuestSavedData.get(player.server);
         long now = now(player);
-        dev.livingkingdoms.defense.DefenseQuestService.prepare(player, settlement);
+        if (!dev.livingkingdoms.onboarding.KingdomOnboardingService.canHelp(player, settlement)) return;
+        refreshDevelopment(player, settlement);
+        if (completedProgression(data, player.getUUID()).contains(QuestTemplate.MAIN_WATCHTOWER))
+            dev.livingkingdoms.defense.DefenseQuestService.prepare(player, settlement);
         data.expireOffers(player.getUUID(), settlement.id(), now);
         var encounters = EncounterSavedData.get(player.server);
         for (QuestInstance quest : data.quests(player.getUUID(), settlement.id())) {
@@ -154,6 +162,8 @@ public final class ExpandedQuestService {
             }
         }
         ensureMain(player, settlement);
+        Set<QuestTemplate> completedMain = completedProgression(data, player.getUUID());
+        if (!completedMain.contains(QuestTemplate.MAIN_IRON)) return;
         var rules = QuestExpansionConfig.rules();
         long refreshed = data.boardRefreshAt(player.getUUID(), settlement.id());
         if (refreshed >= 0 && (now < refreshed || now - refreshed < rules.refreshTicks())) return;
@@ -175,6 +185,8 @@ public final class ExpandedQuestService {
                 dev.livingkingdoms.profession.SecurityService.questWeights(player.server,settlement.id()),rules, new Random(seed), now);
         int slots = Math.max(0, rules.dynamicCount() - (int) active);
         data.rotateBoard(player.getUUID(), settlement.id(), now, rules.refreshTicks(), offers.stream()
+                .filter(quest -> quest.template() != QuestTemplate.BUILDING_REQUEST || completedMain.contains(QuestTemplate.MAIN_DEVELOPMENT))
+                .filter(quest -> !(quest.objective() instanceof QuestObjective.Party) || completedMain.contains(QuestTemplate.MAIN_WATCHTOWER))
                 .filter(quest -> settlement.lifecycle() != dev.livingkingdoms.settlement.domain.SettlementLifecycle.FOUNDING
                         || quest.template() == QuestTemplate.FOOD_REQUEST || quest.template() == QuestTemplate.BUILDING_REQUEST)
                 .limit(slots).toList());
@@ -188,9 +200,7 @@ public final class ExpandedQuestService {
         if (!data.anchorMain(owner, settlement.id())) return;
         var rules = QuestExpansionConfig.rules();
         for (int step = 0; step < QuestCatalog.mainChain().size(); step++) {
-            Set<QuestTemplate> completed = data.quests(owner, settlement.id()).stream()
-                    .filter(quest -> quest.state() == QuestState.COMPLETED && quest.template().category() == QuestCategory.MAIN)
-                    .map(QuestInstance::template).collect(Collectors.toSet());
+            Set<QuestTemplate> completed = data.completedMain(owner, settlement.id());
             var next = QuestCatalog.nextMain(completed);
             if (next.isEmpty()) return;
             QuestTemplate template = next.orElseThrow();
@@ -201,6 +211,7 @@ public final class ExpandedQuestService {
                 LevelValue level = RegionalDifficultyService.at(player.serverLevel(), center(settlement)).level();
                 switch (template) {
                     case FIRST_MEETING -> objective = new QuestObjective.Meet(QuestSourceRole.MAYOR);
+                    case MAIN_RESIDENTS -> objective = new QuestObjective.Meet(QuestSourceRole.CITIZEN);
                     case MAIN_IRON -> {
                         var legacy = data.progress(owner, settlement.id());
                         int amount = legacy.terms() == null ? QuestService.currentTerms().requiredIron() : legacy.terms().requiredIron();
@@ -214,7 +225,7 @@ public final class ExpandedQuestService {
                         objective = new QuestObjective.Party(party.id(), party.faction(), party.type());
                         level = new LevelValue((int) Math.ceil(party.levels().average()));
                     }
-                    case MAIN_RETURN -> objective = new QuestObjective.Return();
+                    case MAIN_RETURN, MAIN_DEVELOPMENT, MAIN_WATCHTOWER -> objective = new QuestObjective.Return();
                     default -> throw new IllegalStateException("Unexpected main template");
                 }
                 QuestDifficulty difficulty = QuestDifficulty.fromLevel(level);
@@ -239,6 +250,77 @@ public final class ExpandedQuestService {
 
     private static Optional<QuestInstance> main(QuestSavedData data, UUID player, UUID settlement, QuestTemplate template) {
         return data.quests(player, settlement).stream().filter(quest -> quest.template() == template).findFirst();
+    }
+
+    /** The existing global chapter teaches skills once; joined kingdoms keep their own local offers and rewards. */
+    public static Set<QuestTemplate> completedProgression(QuestSavedData data, UUID player) {
+        return data.mainSettlement(player).map(settlement -> data.completedMain(player, settlement)).orElse(Set.of());
+    }
+
+    /** Offer generation and packet/command acceptance share the same learned-stage requirements. */
+    public static boolean canAccept(ServerPlayer player, QuestInstance quest) {
+        if (quest.state() != QuestState.AVAILABLE || quest.template() == QuestTemplate.FIRST_MEETING) return false;
+        var data = QuestSavedData.get(player.server);
+        if (quest.template().category() == QuestCategory.MAIN || data.legacyChapter(player.getUUID())) return true;
+        var completed = completedProgression(data, player.getUUID());
+        if (quest.template() == QuestTemplate.BUILDING_REQUEST) return completed.contains(QuestTemplate.MAIN_DEVELOPMENT);
+        if (quest.objective() instanceof QuestObjective.Party) return completed.contains(QuestTemplate.MAIN_WATCHTOWER);
+        return completed.contains(QuestTemplate.MAIN_IRON);
+    }
+
+    /** Actual resident interactions progress a role objective without scanning loaded villagers. */
+    public static void meetCitizen(ServerPlayer player, Entity entity) {
+        authority(player);
+        if (!(entity instanceof net.minecraft.world.entity.npc.Villager) || entity.level() != player.serverLevel()
+                || player.isSpectator() || !player.isAlive() || !entity.isAlive() || player.distanceToSqr(entity) > 64) return;
+        var citizen = dev.livingkingdoms.citizen.persistence.CitizenSavedData.get(player.server).byEntity(entity.getUUID()).orElse(null);
+        if (citizen == null || citizen.role() == dev.livingkingdoms.citizen.domain.CitizenRole.MAYOR
+                || citizen.state() != dev.livingkingdoms.citizen.domain.CitizenState.ACTIVE) return;
+        var settlement = SettlementSavedData.get(player.server).get(citizen.settlementId()).orElse(null);
+        if (settlement == null || !inTerritory(player, settlement)
+                || !dev.livingkingdoms.onboarding.KingdomOnboardingService.canHelp(player, settlement)) return;
+        var data = QuestSavedData.get(player.server);
+        main(data, player.getUUID(), settlement.id(), QuestTemplate.MAIN_RESIDENTS)
+                .filter(quest -> quest.state() == QuestState.ACTIVE).ifPresent(quest -> {
+                    if (data.markObjective(player.getUUID(), quest.id())) {
+                        message(player, "quest.livingkingdoms.resident_greeting", citizen.name(), dev.livingkingdoms.ui.VillageNames.display(settlement));
+                    }
+                });
+    }
+
+    /** Board/mayor refreshes inspect persisted projects and buildings only; there is no new tick loop. */
+    public static void refreshDevelopment(ServerPlayer player, Settlement settlement) {
+        var data = QuestSavedData.get(player.server);
+        main(data, player.getUUID(), settlement.id(), QuestTemplate.MAIN_DEVELOPMENT)
+                .filter(quest -> quest.state() == QuestState.ACTIVE && !quest.objectiveSatisfied()).ifPresent(quest -> {
+                    boolean finished = dev.livingkingdoms.construction.persistence.ConstructionSavedData.get(player.server).projects(settlement.id()).stream()
+                            .anyMatch(entry -> entry.project().state() == dev.livingkingdoms.construction.domain.ConstructionState.COMPLETED
+                                    && entry.project().completedAt() >= quest.createdAt());
+                    if (finished) data.markObjective(player.getUUID(), quest.id());
+                });
+    }
+
+    /** Inspecting a real registered tower provides defense knowledge; generic blocks cannot complete this step. */
+    public static void onWatchtowerInteract(net.neoforged.neoforge.event.entity.player.PlayerInteractEvent.RightClickBlock event) {
+        if (event.getHand() != net.minecraft.world.InteractionHand.MAIN_HAND
+                || !(event.getEntity() instanceof ServerPlayer player) || player.isSpectator() || !player.isAlive()
+                || player.distanceToSqr(Vec3.atCenterOf(event.getPos())) > 64
+                || !player.serverLevel().getChunkSource().hasChunk(event.getPos().getX() >> 4, event.getPos().getZ() >> 4)) return;
+        var data = QuestSavedData.get(player.server);
+        var tracked = data.quests(player.getUUID()).stream().filter(quest -> quest.template() == QuestTemplate.MAIN_WATCHTOWER
+                && quest.state() == QuestState.ACTIVE && !quest.objectiveSatisfied()).findFirst();
+        if (tracked.isEmpty()) return;
+        var quest = tracked.get();
+        var settlement = SettlementSavedData.get(player.server).get(quest.source().settlementId()).orElse(null);
+        if (settlement == null || !inTerritory(player, settlement)) return;
+        var position = event.getPos();
+        boolean realTower = dev.livingkingdoms.profession.persistence.ProfessionSavedData.get(player.server).buildings(settlement.id()).stream()
+                .anyMatch(building -> building.active() && building.kind() == dev.livingkingdoms.structure.BuildingKind.WATCHTOWER
+                        && building.dimension().equals(player.level().dimension().location().toString())
+                        && building.bounds().contains(position.getX(), position.getZ())
+                        && position.getY() >= building.origin().getY() && position.getY() <= building.origin().getY() + 16);
+        if (realTower && !player.serverLevel().getBlockState(position).isAir() && data.markObjective(player.getUUID(), quest.id()))
+            message(player, "quest.livingkingdoms.watchtower_briefing", dev.livingkingdoms.ui.VillageNames.display(settlement));
     }
 
     private static List<HostileParty> nearby(ServerPlayer player, Settlement settlement) {

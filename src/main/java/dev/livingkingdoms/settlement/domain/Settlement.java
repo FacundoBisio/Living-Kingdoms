@@ -16,6 +16,9 @@ public record Settlement(UUID id, String name, Faction faction, int level, int p
     public Settlement withLifecycle(SettlementLifecycle next) {
         return new Settlement(id, name, faction, level, population, territory, provenance, next);
     }
+    public Settlement withName(String next) {
+        return new Settlement(id, next, faction, level, population, territory, provenance, lifecycle);
+    }
     /** Source compatibility for old integrations and records with unknown provenance. */
     public Settlement(UUID id, String name, Faction faction, int level, int population, Territory territory) {
         this(id, name, faction, level, population, territory, SettlementProvenance.legacy());

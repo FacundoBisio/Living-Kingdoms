@@ -167,6 +167,7 @@ public final class ThreatApproachHudGameTests {
         var at=center.offset(12,-1,12); var house=new SettlementLayoutMetadata.Building(BuildingKind.HOUSE,ResourceLocation.parse("livingkingdoms:plains/house"),at,Rotation.NONE,new PlotBounds(at.getX(),at.getZ(),at.getX()+6,at.getZ()+6),at.above());
         SettlementSavedData.get(level.getServer()).add(settlement,new SettlementLayoutMetadata(ArchitectureStyle.PLAINS,List.of(house),List.of(center.east().below()),List.of()));
         var player=new UiTestPlayer(level) { @Override public boolean isFakePlayer() { return false; } }; player.getAbilities().mayBuild=true; player.setPos(center.getX()+.5,center.getY(),center.getZ()+.5);
+        OnboardingTestSupport.legacyCollaborator(player,settlement);
         return new Fixture(center,settlement,player);
     }
 }

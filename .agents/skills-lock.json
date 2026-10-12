@@ -1,0 +1,81 @@
+{
+  "codex_version": "0.162.0-alpha.17.2",
+  "installed_on": "2026-10-11",
+  "policy": "explicit invocation only",
+  "sources": [
+    {
+      "name": "context-optimization",
+      "repository": "muratcankoylan/Agent-Skills-for-Context-Engineering",
+      "commit": "58b55a8921758d13453b440704fb1b5b208c0b0e",
+      "path": "skills/context-optimization",
+      "files": {
+        "SKILL.md": "96fbd47c16d163857b92d477ba5c7ec3ae947127772e327b8236d05d64d5b123",
+        "references/optimization_techniques.md": "8fa1c2eaca5965d5e9bdf1823236514f83ed8cf0f6b5a21511c139ffce061bec",
+        "scripts/compaction.py": "7d7986d82639e60cf6c8aca470fc8d2b80507e33340dc208b00d7727a168a978"
+      }
+    },
+    {
+      "name": "minecraft-modding",
+      "repository": "Jahrome907/minecraft-agent-skills",
+      "commit": "dd57c5a97741cdc0eb5bb3a8f876581a4f09eeb0",
+      "path": ".agents/skills/minecraft-modding",
+      "files": {
+        "SKILL.md": "ee5ba4fff3cbce8cb5c2b9be56fbad23da24811d8e5fd07e7d1b4ec26027a801",
+        "references/common-patterns.md": "09e96ae2641fff3525f939efdf045dfd6888ac2941888ef68964b29629c8898d",
+        "references/fabric-api.md": "c503ddd2bf44c9a5f0003544c56d8cff5af503fc447774e53effd9332673b5ca",
+        "references/forge-1.20.1-api.md": "746374cb2df5c4f3d8666b7bac16f6b3b0d07ba66c1078785f6c0306c425641e",
+        "references/neoforge-api.md": "16a6a5f21f119bc5a851db512b0aa62943a3b1bedbb00283e6a2ea467ced5226",
+        "scripts/check-build.sh": "545903fcf6cb730907d886c929385e5c0ed51d8789f6b07d99f5dd3a0b5b6776"
+      }
+    },
+    {
+      "name": "minecraft-resource-pack",
+      "repository": "Jahrome907/minecraft-agent-skills",
+      "commit": "dd57c5a97741cdc0eb5bb3a8f876581a4f09eeb0",
+      "path": ".agents/skills/minecraft-resource-pack",
+      "files": {
+        "SKILL.md": "18b19130309ec3d29819fc14533040a97526a903f860c88c6d6d79faa146a60e",
+        "references/conditional-assets.md": "c86c77c0bf1160f9545167e238104e34b80de4d48fcfdc30066e125844ab2d63",
+        "scripts/jq-shim.mjs": "1cc4499e038916e8cc18d804f00767a3db90d7780eaf0f810cc3d191a9f2c9d6",
+        "scripts/validate-resource-pack.sh": "88a88f0f7cc84b6fd529d352e25146a60360050efb1be6a6840716d1a86f85e1"
+      }
+    },
+    {
+      "name": "minecraft-testing",
+      "repository": "Jahrome907/minecraft-agent-skills",
+      "commit": "dd57c5a97741cdc0eb5bb3a8f876581a4f09eeb0",
+      "path": ".agents/skills/minecraft-testing",
+      "files": {
+        "SKILL.md": "602ef1d62d3ede12276e256639323824bb36a2fc227b9ae5804687f9ffe94a6b",
+        "references/test-layouts.md": "7cd837ff3553cdc13b478da165d832e440c99fe4a028da15bca307bdf73310bd",
+        "scripts/validate-test-layout.sh": "2736e2cd57a90418d7eb0bbcbdb6a8f88fd0765f98968b18699012e0bcbbcecd"
+      }
+    },
+    {
+      "name": "minecraft-world-generation",
+      "repository": "Jahrome907/minecraft-agent-skills",
+      "commit": "dd57c5a97741cdc0eb5bb3a8f876581a4f09eeb0",
+      "path": ".agents/skills/minecraft-world-generation",
+      "files": {
+        "SKILL.md": "290606dd82b661d622d27554310bf734ddf5ad054bfac80324ff651576f3372e",
+        "references/legacy-1.21-worldgen-json.md": "eb172652ce4b500f2c3fb421ed186055677005742ac44b4917499c794f5783eb",
+        "scripts/jq-shim.mjs": "789aae263e723aa369b91fd5912dae9482db1310da465e21c9ffb6d118321559",
+        "scripts/validate-worldgen-json.sh": "28225893fa511f469716f46a3033d82e64e35d524eea8ad527c6570fbf90d3e2"
+      }
+    },
+    {
+      "name": "token-optimization",
+      "repository": "bm629/agent-skills",
+      "commit": "4e007907d97baaa35099b50cd6bc1a332c386c98",
+      "path": "skills/token-optimization",
+      "files": {
+        "SKILL.md": "f643b72b632a0e822851de889788a4edebbcceed58101ea78209ac7a50010867",
+        "references/agent-loop-patterns.md": "a3bd4ebbf98e12e4bd945f7c37728176b6fad74d5e50e3702cd4f0594e7b773e",
+        "references/context-management.md": "fcda7cdbd92ed0c1a4a01721fc5e3e4b7d04f92748d01a523f818a7cf2d6da82",
+        "references/measurement-and-budgets.md": "2157dfd307a557b0223bdfe8027e97ff60e06563948993543f3e96e4971d3d95",
+        "references/output-and-verification.md": "29798c17e82337c04843a1978002c6a775fb9a586e94a9c0af9d108092d165de",
+        "references/prompt-caching.md": "a18c7fd4d4156d54e3a5f6e111b32d9c6302babc54b912c947b29df91a55acbc"
+      }
+    }
+  ]
+}

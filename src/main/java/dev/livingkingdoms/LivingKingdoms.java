@@ -32,6 +32,12 @@ public final class LivingKingdoms {
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.npc.MayorPresentation::onJoin);
         container.registerConfig(ModConfig.Type.SERVER, KingdomConfig.SPEC);
         NeoForge.EVENT_BUS.addListener(SettlementCommands::register);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.command.TerritoryCommands::register);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.ui.KingdomHudService::onLogin);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.ui.KingdomHudService::onLogout);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.ui.KingdomHudService::onRespawn);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.ui.KingdomHudService::onDimensionChange);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.quest.expansion.ExpandedQuestService::onWatchtowerInteract);
         NeoForge.EVENT_BUS.addListener(EncounterCommands::register);
         NeoForge.EVENT_BUS.addListener(ProgressionCommands::register);
         NeoForge.EVENT_BUS.addListener(QuestCommands::register);

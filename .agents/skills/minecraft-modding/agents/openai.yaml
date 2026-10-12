@@ -1,0 +1,6 @@
+interface:
+  display_name: "Minecraft Modding"
+  short_description: "NeoForge mod development for Living Kingdoms"
+  default_prompt: "Use $minecraft-modding for the requested task, preserving Minecraft 1.21.1, NeoForge and Java 21."
+policy:
+  allow_implicit_invocation: false

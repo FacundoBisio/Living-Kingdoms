@@ -7,6 +7,7 @@ import dev.livingkingdoms.settlement.persistence.SettlementSavedData;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 import java.util.Map;
 import java.util.WeakHashMap;
@@ -19,8 +20,8 @@ public final class KingdomHudService {
         var tag=new CompoundTag();
         if(!player.isAlive() || player.isSpectator()) return tag;
         var pos=player.blockPosition(); var quests=QuestSavedData.get(player.server);
-        SettlementSavedData.get(player.server).at(player.level().dimension().location().toString(),pos.getX(),pos.getZ())
-                .filter(s -> s.faction().isAllied()).ifPresent(s -> {
+        SettlementSavedData.get(player.server).alliedAt(player.level().dimension().location().toString(),pos.getX(),pos.getZ())
+                .ifPresent(s -> {
                     var settlement=new CompoundTag(); settlement.putString("name",VillageNames.display(s));
                     int reputation=Math.max(0,quests.reputation(player.getUUID(),s.id()));
                     // Display bands only: no new settlement tiers, reward multipliers or progression rules.
@@ -30,6 +31,7 @@ public final class KingdomHudService {
                     tag.put("settlement",settlement);
                 });
         quests.tracked(player.getUUID()).ifPresent(q -> tag.put("quest",VillageUiService.questView(player,q)));
+        if(!tag.isEmpty()) tag.putString("dimension",player.level().dimension().location().toString());
         return tag;
     }
     public static boolean update(ServerPlayer player) {
@@ -40,5 +42,17 @@ public final class KingdomHudService {
     public static void onTick(ServerTickEvent.Post event) {
         if(event.getServer().overworld().getGameTime()%20!=0) return;
         for(var player:event.getServer().getPlayerList().getPlayers()) update(player);
+    }
+    public static void onLogin(PlayerEvent.PlayerLoggedInEvent event) { refresh(event); }
+    public static void onRespawn(PlayerEvent.PlayerRespawnEvent event) { refresh(event); }
+    public static void onDimensionChange(PlayerEvent.PlayerChangedDimensionEvent event) { refresh(event); }
+    public static void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
+        if(event.getEntity() instanceof ServerPlayer player) LAST_SENT.remove(player);
+    }
+    private static void refresh(PlayerEvent event) {
+        if(event.getEntity() instanceof ServerPlayer player) {
+            LAST_SENT.remove(player);
+            update(player);
+        }
     }
 }

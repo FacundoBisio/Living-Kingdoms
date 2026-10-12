@@ -36,7 +36,8 @@ class ExpandedQuestSavedDataTest {
     private QuestInstance offered(QuestTemplate template, UUID origin, long created, long expires, QuestRewards rewards) {
         QuestObjective objective = switch (template) {
             case FIRST_MEETING -> new QuestObjective.Meet(QuestSourceRole.MAYOR);
-            case MAIN_RETURN -> new QuestObjective.Return();
+            case MAIN_RESIDENTS -> new QuestObjective.Meet(QuestSourceRole.CITIZEN);
+            case MAIN_RETURN, MAIN_DEVELOPMENT, MAIN_WATCHTOWER -> new QuestObjective.Return();
             case MAIN_PATROL, PILLAGER_REQUEST, LOCAL_DEFENSE -> new QuestObjective.Party(target, Faction.PILLAGER, PartyType.PILLAGER_PATROL);
             case UNDEAD_REQUEST -> new QuestObjective.Party(target, Faction.UNDEAD, PartyType.UNDEAD_HORDE);
             case FOOD_REQUEST -> new QuestObjective.Resource(List.of(new ResourceRequirement(ResourceKind.WHEAT, 32)));
@@ -57,7 +58,7 @@ class ExpandedQuestSavedDataTest {
     }
 
     private void firstTwo(QuestSavedData data) {
-        assertTrue(data.anchorMain(player, settlement));
+        data.preserveLegacyChapter(player, settlement);
         finish(data, offered(QuestTemplate.FIRST_MEETING));
         finish(data, offered(QuestTemplate.MAIN_IRON));
     }
@@ -76,7 +77,26 @@ class ExpandedQuestSavedDataTest {
         assertEquals(0, data.boardGeneration(player, settlement));
         assertFalse(data.acceptExpanded(player, UUID.randomUUID()));
         assertFalse(data.isDirty());
-        assertEquals(5, data.save(new CompoundTag(), null).getInt("schema_version"));
+        assertEquals(6, data.save(new CompoundTag(), null).getInt("schema_version"));
+    }
+
+    @Test
+    void pre016ActiveChapterKeepsItsTrackedQuestAndDoesNotInventNewRewards() {
+        QuestSavedData old = new QuestSavedData();
+        firstTwo(old);
+        QuestInstance patrol = offered(QuestTemplate.MAIN_PATROL);
+        assertTrue(old.offer(player, patrol)); assertTrue(old.acceptExpanded(player, patrol.id()));
+        CompoundTag tag = old.save(new CompoundTag(), null);
+        tag.putInt("schema_version", 5);
+        tag.getList("expanded_players", Tag.TAG_COMPOUND).getCompound(0).remove("legacy_chapter");
+        QuestSavedData migrated = QuestSavedData.load(tag, null);
+        assertEquals(patrol.id(), migrated.tracked(player).orElseThrow().id());
+        assertEquals(QuestState.ACTIVE, migrated.quest(player, patrol.id()).orElseThrow().state());
+        assertTrue(migrated.completedMain(player, settlement).containsAll(Set.of(QuestTemplate.MAIN_RESIDENTS,
+                QuestTemplate.MAIN_DEVELOPMENT, QuestTemplate.MAIN_WATCHTOWER)));
+        assertEquals(old.reputation(player, settlement), migrated.reputation(player, settlement));
+        assertEquals(migrated.completedMain(player, settlement), reload(migrated).completedMain(player, settlement));
+        assertEquals(QuestTemplate.MAIN_PATROL, QuestCatalog.nextMain(migrated.completedMain(player, settlement)).orElseThrow());
     }
 
     @Test
@@ -98,7 +118,12 @@ class ExpandedQuestSavedDataTest {
         assertFalse(data.offer(player, offered(QuestTemplate.MAIN_IRON)));
         assertTrue(data.markObjective(player, meeting.id()));
         assertTrue(data.completeExpanded(player, meeting.id()));
+        assertFalse(data.offer(player, offered(QuestTemplate.MAIN_IRON)));
+        finish(data, offered(QuestTemplate.MAIN_RESIDENTS));
         finish(data, offered(QuestTemplate.MAIN_IRON));
+        assertFalse(data.offer(player, offered(QuestTemplate.MAIN_PATROL)));
+        finish(data, offered(QuestTemplate.MAIN_DEVELOPMENT));
+        finish(data, offered(QuestTemplate.MAIN_WATCHTOWER));
         QuestInstance patrol = offered(QuestTemplate.MAIN_PATROL);
         assertTrue(data.offer(player, patrol));
         assertTrue(data.acceptExpanded(player, patrol.id()));
@@ -107,9 +132,9 @@ class ExpandedQuestSavedDataTest {
         finish(data, offered(QuestTemplate.MAIN_RETURN));
         QuestSavedData reopened = reload(data);
         assertEquals(settlement, reopened.mainSettlement(player).orElseThrow());
-        assertEquals(4, reopened.quests(player, settlement).size());
+        assertEquals(7, reopened.quests(player, settlement).size());
         assertTrue(reopened.quests(player, settlement).stream().allMatch(quest -> quest.state() == QuestState.COMPLETED));
-        assertEquals(12, reopened.reputation(player, settlement));
+        assertEquals(21, reopened.reputation(player, settlement));
     }
 
     @Test
@@ -332,7 +357,7 @@ class ExpandedQuestSavedDataTest {
             assertEquals(mayor, reopened.mayor(settlement).orElseThrow());
             assertTrue(reopened.quests(player, settlement).isEmpty());
             assertTrue(reopened.mainSettlement(player).isEmpty());
-            assertEquals(5, reopened.save(new CompoundTag(), null).getInt("schema_version"));
+            assertEquals(6, reopened.save(new CompoundTag(), null).getInt("schema_version"));
         }
     }
 
@@ -354,7 +379,9 @@ class ExpandedQuestSavedDataTest {
         QuestSavedData data = new QuestSavedData();
         assertTrue(data.offer(player, offered(QuestTemplate.PILLAGER_REQUEST)));
         CompoundTag valid = data.save(new CompoundTag(), null);
-        malformed(valid, tag -> tag.putInt("schema_version", 6));
+        malformed(valid, tag -> tag.putInt("schema_version", 7));
+        malformed(valid, tag -> expandedPlayer(tag).remove("legacy_chapter"));
+        malformed(valid, tag -> expandedPlayer(tag).putByte("legacy_chapter", (byte)2));
         malformed(valid, tag -> tag.remove("expanded_players"));
         malformed(valid, tag -> expandedPlayer(tag).remove("player"));
         malformed(valid, tag -> expandedPlayer(tag).remove("boards"));

@@ -37,10 +37,14 @@ public final class VillageUiGameTests {
         SettlementSavedData.get(level.getServer()).add(settlement);
         UiTestPlayer owner=new UiTestPlayer(level), other=new UiTestPlayer(level);
         owner.setPos(board.getX()+2.5,board.getY(),board.getZ()+0.5);other.setPos(owner.position());
+        OnboardingTestSupport.legacyCollaborator(owner,settlement);
+        OnboardingTestSupport.legacyCollaborator(other,settlement);
         helper.assertTrue(VillageUiService.openBoard(owner,board),"A nearby real board opens a payload");
         var snapshot=owner.snapshots.getLast(); UUID token=snapshot.getUUID("session");
         var data=QuestSavedData.get(level.getServer());
-        var quest=data.quests(owner.getUUID(),settlement.id()).stream().filter(q->q.objective() instanceof QuestObjective.Resource).findFirst().orElseThrow();
+        var quest=data.quests(owner.getUUID(),settlement.id()).stream()
+                .filter(q->q.state()==QuestState.AVAILABLE && q.template().category()==QuestCategory.DYNAMIC
+                        && q.objective() instanceof QuestObjective.Resource).findFirst().orElseThrow();
         helper.assertTrue(!VillageUiService.handle(owner,new UiPayloads.Request(UUID.randomUUID(),quest.id(),UiPayloads.Action.ACCEPT)),"Forged sessions are rejected");
         helper.assertTrue(!VillageUiService.handle(other,new UiPayloads.Request(token,quest.id(),UiPayloads.Action.ACCEPT)),"A session cannot be transferred to another player");
         VillageUiService.openBoard(other,board);

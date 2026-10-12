@@ -7,7 +7,8 @@ import java.util.Set;
 
 /** Deterministic chapter order, shared by board presentation and server acceptance validation. */
 public final class QuestCatalog {
-    private static final List<QuestTemplate> MAIN = List.of(QuestTemplate.FIRST_MEETING, QuestTemplate.MAIN_IRON,
+    private static final List<QuestTemplate> MAIN = List.of(QuestTemplate.FIRST_MEETING, QuestTemplate.MAIN_RESIDENTS,
+            QuestTemplate.MAIN_IRON, QuestTemplate.MAIN_DEVELOPMENT, QuestTemplate.MAIN_WATCHTOWER,
             QuestTemplate.MAIN_PATROL, QuestTemplate.MAIN_RETURN);
     private QuestCatalog() {}
     public static List<QuestTemplate> mainChain() { return MAIN; }

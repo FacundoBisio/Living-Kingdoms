@@ -305,6 +305,11 @@ public final class QuestGameTests {
 
     private static void moveToBoard(RecordingPlayer player, BlockPos board) {
         player.setPos(board.getX() + 2.5, board.getY(), board.getZ() + 0.5);
+        // Preserve existing delivery regressions as a pre-0.16 collaborator; fresh onboarding has its own GameTests.
+        SettlementSavedData.get(player.server).at(player.level().dimension().location().toString(), board.getX(), board.getZ()).ifPresent(settlement -> {
+            dev.livingkingdoms.onboarding.persistence.KingdomOnboardingSavedData.get(player.server).enrollLegacy(player.getUUID(), settlement.id(), settlement.name());
+            QuestSavedData.get(player.server).preserveLegacyChapter(player.getUUID(), settlement.id());
+        });
     }
 
     private static BlockHitResult hit(BlockPos board) {

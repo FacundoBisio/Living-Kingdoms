@@ -264,7 +264,7 @@ class LocalDefenseQuestTest {
                         PartyType.UNDEAD_HORDE, LevelSummary.uniform(5, 8)));
         assertTrue(QuestGenerator.candidates(new LevelValue(8), targets, Map.of(), QuestRules.defaults())
                 .stream().noneMatch(candidate -> candidate.template() == QuestTemplate.LOCAL_DEFENSE));
-        assertEquals(List.of(QuestTemplate.FIRST_MEETING, QuestTemplate.MAIN_IRON,
-                QuestTemplate.MAIN_PATROL, QuestTemplate.MAIN_RETURN), QuestCatalog.mainChain());
+        assertEquals(List.of(QuestTemplate.FIRST_MEETING, QuestTemplate.MAIN_RESIDENTS, QuestTemplate.MAIN_IRON,
+                QuestTemplate.MAIN_DEVELOPMENT, QuestTemplate.MAIN_WATCHTOWER, QuestTemplate.MAIN_PATROL, QuestTemplate.MAIN_RETURN), QuestCatalog.mainChain());
     }
 }

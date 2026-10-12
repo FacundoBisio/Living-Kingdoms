@@ -1,0 +1,6 @@
+interface:
+  display_name: "Token Optimization"
+  short_description: "Measure and reduce task token and loop overhead"
+  default_prompt: "Use $token-optimization for the requested task, preserving Minecraft 1.21.1, NeoForge and Java 21."
+policy:
+  allow_implicit_invocation: false
