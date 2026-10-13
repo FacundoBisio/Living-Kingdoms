@@ -221,7 +221,9 @@ public final class ProfessionGameTests {
         var quests=QuestSavedData.get(server); h.assertTrue(quests.offer(f.player().getUUID(),quest),"Existing board stores food request");
         f.player().getInventory().items.set(0,new ItemStack(Items.WHEAT,40)); h.assertTrue(ExpandedQuestService.act(f.player(),board,quest.id(),"accept",false) && ExpandedQuestService.act(f.player(),board,quest.id(),"claim",false),"Existing delivery and claim receipt contributes real Food");
         h.assertTrue(!ExpandedQuestService.act(f.player(),board,quest.id(),"claim",false) && data.food(f.settlement().id(),500).stock()==80,"Replay cannot add food twice");
-        h.assertTrue(ProfessionService.immigrationModifier(server,f.settlement().id())==1 && ProfessionService.shortageWeights(server,f.settlement().id()).isEmpty(),"Healthy food restores normal chance and clears shortage condition"); h.succeed();
+        h.assertTrue(ProfessionService.immigrationModifier(server,f.settlement().id())==1 && ProfessionService.shortageWeights(server,f.settlement().id()).isEmpty(),"Healthy food restores normal chance and clears shortage condition");
+        h.assertTrue(dev.livingkingdoms.economy.KingdomEconomy.withdraw(f.player(),f.settlement().id(),dev.livingkingdoms.economy.StockResource.FOOD,64)==40
+                && dev.livingkingdoms.quest.DeliveryInventory.count(f.player().getInventory(),ResourceKind.WHEAT)==40 && data.food(f.settlement().id(),500).stock()==0,"Quest wheat becomes nutrition and withdraws only the original forty wheat, never extra items");h.succeed();
     }
 
     private static UiPayloads.Request request(UUID token,Worker w,UiPayloads.Action action) { return new UiPayloads.Request(token,w.citizen().id(),action); }

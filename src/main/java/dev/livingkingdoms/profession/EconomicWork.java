@@ -98,7 +98,7 @@ public final class EconomicWork {
         jobs.economicExperience(scheduled,5,ProfessionConfig.LEVEL_CAP.get(),ProfessionConfig.XP_STEP.get());worker.swing(InteractionHand.MAIN_HAND);return true;
     }
     public static boolean stationPresent(ServerLevel level,FunctionalBuilding workplace,ProfessionType type) {
-        var module=WorkSites.template(level,workplace);
+        var resolved=WorkSites.resolve(level,workplace);if(resolved.isEmpty()) return false;var module=resolved.orElseThrow();
         var local=switch(type) {case LUMBERJACK,MINER->new BlockPos(2,1,module.size().getZ()-3);case BLACKSMITH->new BlockPos(2,1,2);default->null;};
         if(local==null) return false;var pos=module.worldPosition(local,workplace.origin(),workplace.rotation());if(!WorkSites.loaded(level,pos)) return false;
         return level.getBlockState(pos).is(switch(type) {case LUMBERJACK->Blocks.CRAFTING_TABLE;case MINER->Blocks.STONECUTTER;default->Blocks.SMITHING_TABLE;});
@@ -110,6 +110,8 @@ public final class EconomicWork {
         for(var p:jobs.professions(settlement)) if(p.active() && p.type()==ProfessionType.BLACKSMITH && now>=p.nextWorkAt()) {
             var citizen=CitizenSavedData.get(player.server).citizen(p.citizenId()).orElse(null);if(citizen==null) continue;
             if(!(player.serverLevel().getEntity(citizen.entityId()) instanceof Villager worker) || !assigned(worker) || CitizenRoutine.threatened(worker,citizen)) continue;
+            if(worker.isNoAi() || worker.isPassenger() || worker.isLeashed() || worker.isTrading() || worker.isSleeping()
+                    || !ConvertedBuilderHomes.homeAvailable(player.serverLevel(),citizen)) continue;
             var workplace=jobs.building(p.workplaceId()).orElse(null);
             if(workplace==null || !WorkSites.loaded(player.serverLevel(),workplace) || !stationPresent(player.serverLevel(),workplace,p.type())
                     || worker.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(workplace.entrance().above()))>9) continue;

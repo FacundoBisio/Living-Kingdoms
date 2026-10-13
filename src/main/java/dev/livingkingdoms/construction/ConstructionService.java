@@ -104,8 +104,8 @@ public final class ConstructionService {
         var costs=new EnumMap<dev.livingkingdoms.economy.StockResource,Integer>(dev.livingkingdoms.economy.StockResource.class);
         for(var kind:p.required().keySet()) {
             var resource=dev.livingkingdoms.economy.StockResource.of(kind);
-            int amount=Math.min(p.missing(kind),dev.livingkingdoms.economy.KingdomEconomy.count(player.server,settlementId,resource));
-            if(amount>0) {delivery.put(kind,amount);costs.put(resource,amount);}
+            int amount=Math.min(p.missing(kind),dev.livingkingdoms.economy.KingdomEconomy.itemCount(player.server,settlementId,resource));
+            if(amount>0) {delivery.put(kind,amount);costs.put(resource,resource.unitsForItems(amount,dev.livingkingdoms.config.ProfessionConfig.WHEAT_FOOD.get()));}
         }
         if(delivery.isEmpty()) return false;
         var transfer=dev.livingkingdoms.economy.KingdomEconomy.plan(player.server,settlementId,costs,Map.of(),false).orElseThrow();
@@ -222,6 +222,7 @@ public final class ConstructionService {
         catch(RuntimeException failure) { LogUtils.getLogger().warn("Next construction plot unavailable for {}; inspect construction to retry",settlement.id(),failure); }
         dev.livingkingdoms.citizen.CitizenService.ensureInitialized(level,settlements.get(settlement.id()).orElseThrow());
         dev.livingkingdoms.profession.ProfessionService.ensure(level,settlements.get(settlement.id()).orElseThrow());
+        dev.livingkingdoms.quest.persistence.QuestSavedData.get(server).resolveDevelopment(settlement.id(),now);
         for(ServerPlayer player:level.players()) if(canContribute(player,settlement))
             player.displayClientMessage(Component.translatable("construction.livingkingdoms.completed_in",Component.translatable("construction.livingkingdoms.building."+entry.project().building().name().toLowerCase(Locale.ROOT)),settlement.name()),true);
         assignReady(server,settlement.id());

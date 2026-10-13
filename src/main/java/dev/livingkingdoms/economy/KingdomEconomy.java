@@ -34,6 +34,9 @@ public final class KingdomEconomy {
     public static int count(MinecraftServer server,UUID settlement,StockResource resource) {
         return resource==StockResource.FOOD?ProfessionService.food(server,settlement).stock():EconomySavedData.get(server).account(settlement).map(s->s.balance(resource)).orElse(0);
     }
+    public static int itemCount(MinecraftServer server,UUID settlement,StockResource resource) {
+        return resource.itemsFromUnits(count(server,settlement,resource),ProfessionConfig.WHEAT_FOOD.get());
+    }
     public static Optional<Transfer> plan(MinecraftServer server,UUID settlement,Map<StockResource,Integer> spent,Map<StockResource,Integer> gained,boolean production) {
         var account=ensure(server,settlement);var food=ProfessionService.food(server,settlement);
         var costs=nonFood(spent);var outputs=nonFood(gained);
@@ -63,20 +66,22 @@ public final class KingdomEconomy {
         if(!authorized(player,settlement) || resource.material()==null || limit<1 || limit>64) return 0;
         var account=ensure(player.server,settlement);var food=ProfessionService.food(player.server,settlement);
         int room=resource==StockResource.FOOD?food.capacity()-food.stock():account.room(resource);
-        int amount=Math.min(Math.min(room,limit),DeliveryInventory.count(player.getInventory(),resource.material()));
+        int wheatUnits=ProfessionConfig.WHEAT_FOOD.get();
+        int amount=Math.min(Math.min(resource.itemsFromUnits(room,wheatUnits),limit),DeliveryInventory.count(player.getInventory(),resource.material()));
         if(amount<1) return 0;
         var inventory=DeliveryInventory.plan(player.getInventory(),List.of(new ResourceRequirement(resource.material(),amount)),0).orElseThrow();
-        var transfer=plan(player.server,settlement,Map.of(),Map.of(resource,amount),false).orElseThrow();
+        var transfer=plan(player.server,settlement,Map.of(),Map.of(resource,resource.unitsForItems(amount,wheatUnits)),false).orElseThrow();
         if(!commit(player.server,transfer)) return 0;
         inventory.apply(player.getInventory());sync(player);return amount;
     }
     public static int withdraw(ServerPlayer player,UUID settlement,StockResource resource,int limit) {
         if(!authorized(player,settlement) || limit<1 || limit>64) return 0;
-        ensure(player.server,settlement);int amount=Math.min(limit,count(player.server,settlement,resource));
+        ensure(player.server,settlement);int wheatUnits=ProfessionConfig.WHEAT_FOOD.get();
+        int amount=Math.min(limit,resource.itemsFromUnits(count(player.server,settlement,resource),wheatUnits));
         if(amount<1) return 0;
         var inventory=DeliveryInventory.planReward(player.getInventory(),new ItemStack(resource.item()),amount);
         if(inventory.isEmpty()) return 0;
-        var transfer=plan(player.server,settlement,Map.of(resource,amount),Map.of(),false).orElseThrow();
+        var transfer=plan(player.server,settlement,Map.of(resource,resource.unitsForItems(amount,wheatUnits)),Map.of(),false).orElseThrow();
         if(!commit(player.server,transfer)) return 0;
         inventory.orElseThrow().apply(player.getInventory());sync(player);return amount;
     }

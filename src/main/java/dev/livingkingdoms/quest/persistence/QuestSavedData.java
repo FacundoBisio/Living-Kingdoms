@@ -44,6 +44,7 @@ public final class QuestSavedData extends SavedData {
     private final Map<UUID, Set<QuestReference>> partyQuests = new LinkedHashMap<>();
     /** Contextual offers and accepted defenses, including ready rewards, stay linked to their exact event party. */
     private final Map<UUID, Set<QuestReference>> defenseQuests = new LinkedHashMap<>();
+    private final Map<UUID, Set<QuestReference>> developmentQuests = new LinkedHashMap<>();
     private java.util.function.Consumer<dev.livingkingdoms.quest.domain.QuestNotice.Transition> transitionSink;
 
     public static QuestSavedData get(MinecraftServer server) {
@@ -421,7 +422,20 @@ public final class QuestSavedData extends SavedData {
                 && quest.source().settlementId().equals(settlement);
     }
 
+    /** Local event subscribers are derived from persisted active quests, including after reload. */
+    public int resolveDevelopment(UUID settlement,long completedAt) {
+        Objects.requireNonNull(settlement);if(completedAt<0) throw new IllegalArgumentException("Invalid completion clock");
+        int resolved=0;
+        for(var ref:List.copyOf(developmentQuests.getOrDefault(settlement,Set.of()))) {
+            var q=quest(ref.player,ref.quest).orElse(null);
+            if(q!=null && q.createdAt()<=completedAt && markObjective(ref.player,ref.quest)) resolved++;
+        }
+        return resolved;
+    }
+
     private void index(UUID player, QuestInstance quest) {
+        if(quest.template()==QuestTemplate.MAIN_DEVELOPMENT && quest.state()==QuestState.ACTIVE && !quest.objectiveSatisfied())
+            developmentQuests.computeIfAbsent(quest.source().settlementId(),ignored->new LinkedHashSet<>()).add(new QuestReference(player,quest.id()));
         if (quest.template() == QuestTemplate.LOCAL_DEFENSE) {
             if ((quest.state() == QuestState.AVAILABLE || quest.state() == QuestState.ACTIVE)
                     && quest.objective() instanceof QuestObjective.Party party) {
@@ -436,6 +450,10 @@ public final class QuestSavedData extends SavedData {
     }
 
     private void unindex(UUID player, QuestInstance quest) {
+        if(quest.template()==QuestTemplate.MAIN_DEVELOPMENT) {
+            var refs=developmentQuests.get(quest.source().settlementId());
+            if(refs!=null) {refs.remove(new QuestReference(player,quest.id()));if(refs.isEmpty()) developmentQuests.remove(quest.source().settlementId());}
+        }
         if (quest.objective() instanceof QuestObjective.Party party) {
             Map<UUID, Set<QuestReference>> targetIndex = quest.template() == QuestTemplate.LOCAL_DEFENSE ? defenseQuests : partyQuests;
             Set<QuestReference> references = targetIndex.get(party.partyId());

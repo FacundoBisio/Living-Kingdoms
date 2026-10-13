@@ -21,7 +21,7 @@ public final class UiPayloads {
     public static Consumer<QuestNotification> notificationReceiver = ignored -> {};
     public enum Action { ACCEPT, CLAIM, TALK, BOARD, INFO, CLOSE, REFRESH, CONSTRUCTION, DEPOSIT, RETRY, PLAN,
         IMMIGRATION, ACCEPT_CITIZEN, DECLINE_CITIZEN, CITIZENS, ASSIGN_FARMER, REMOVE_PROFESSION, PLAN_FARM, ASSIGN_GUARD, PLAN_BARRACKS, PLAN_WATCHTOWER, ASSIGN_BUILDER, TRACK, UNTRACK,
-        ASSIGN_LUMBERJACK,ASSIGN_MINER,ASSIGN_BLACKSMITH,PLAN_WAREHOUSE,PLAN_LUMBERJACK_HUT,PLAN_MINE,PLAN_BLACKSMITH }
+        ASSIGN_LUMBERJACK,ASSIGN_MINER,ASSIGN_BLACKSMITH,PLAN_WAREHOUSE,PLAN_LUMBERJACK_HUT,PLAN_MINE,PLAN_BLACKSMITH,DEPOSIT_STOCK }
 
     /** Personal, temporary metadata overlay. This packet never requests chunk contents. */
     public record TerritoryOverlay(CompoundTag data) implements CustomPacketPayload {
@@ -47,11 +47,15 @@ public final class UiPayloads {
         @Override public Type<HudSnapshot> type() { return TYPE; }
     }
     public record QuestNotification(dev.livingkingdoms.quest.domain.QuestNotice notice,String settlementName) implements CustomPacketPayload {
+        public QuestNotification {
+            java.util.Objects.requireNonNull(notice);java.util.Objects.requireNonNull(settlementName);
+            if(settlementName.length()>128) throw new IllegalArgumentException("Notice settlement name exceeds persisted settlement limit");
+        }
         public static final Type<QuestNotification> TYPE=new Type<>(ResourceLocation.parse("livingkingdoms:quest_notification"));
         public static final StreamCodec<RegistryFriendlyByteBuf,QuestNotification> CODEC=StreamCodec.of(
-                (buf,value)-> {var n=value.notice();buf.writeUUID(n.quest());buf.writeEnum(n.kind());buf.writeEnum(n.template());buf.writeUUID(n.settlement());buf.writeVarInt(n.emeralds());buf.writeVarInt(n.reputation());buf.writeUtf(value.settlementName(),64);},
+                (buf,value)-> {var n=value.notice();buf.writeUUID(n.quest());buf.writeEnum(n.kind());buf.writeEnum(n.template());buf.writeUUID(n.settlement());buf.writeVarInt(n.emeralds());buf.writeVarInt(n.reputation());buf.writeUtf(value.settlementName(),128);},
                 buf->new QuestNotification(new dev.livingkingdoms.quest.domain.QuestNotice(buf.readUUID(),buf.readEnum(dev.livingkingdoms.quest.domain.QuestNotice.Kind.class),
-                        buf.readEnum(dev.livingkingdoms.quest.expansion.domain.QuestTemplate.class),buf.readUUID(),buf.readVarInt(),buf.readVarInt()),buf.readUtf(64)));
+                        buf.readEnum(dev.livingkingdoms.quest.expansion.domain.QuestTemplate.class),buf.readUUID(),buf.readVarInt(),buf.readVarInt()),buf.readUtf(128)));
         @Override public Type<QuestNotification> type() {return TYPE;}
     }
     public record Shortcut(ShortcutAction action) implements CustomPacketPayload {
@@ -78,7 +82,7 @@ public final class UiPayloads {
     }
 
     public static void register(RegisterPayloadHandlersEvent event) {
-        var registrar = event.registrar("11");
+        var registrar = event.registrar("12");
         registrar.playToClient(QuestNotification.TYPE,QuestNotification.CODEC,(payload,context)->notificationReceiver.accept(payload));
         registrar.playToClient(TerritoryOverlay.TYPE, TerritoryOverlay.CODEC, (payload, context) -> territoryReceiver.accept(payload));
         registrar.playToServer(MayorRequest.TYPE, MayorRequest.CODEC, (payload, context) -> {

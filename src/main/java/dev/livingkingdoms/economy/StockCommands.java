@@ -29,7 +29,9 @@ public final class StockCommands {
                         StockResource resource;try {resource=StockResource.valueOf(StringArgumentType.getString(context,"resource").toUpperCase(java.util.Locale.ROOT));}
                         catch(IllegalArgumentException invalid) {return 0;}
                         int count=settlement==null?0:verb.equals("deposit")?KingdomEconomy.deposit(player,settlement.id(),resource,16):KingdomEconomy.withdraw(player,settlement.id(),resource,resource==StockResource.EQUIPMENT?1:16);
-                        player.displayClientMessage(Component.translatable("economy.livingkingdoms."+(count>0?verb:"refused"),count,Component.translatable(resource.key())),false);return count>0?1:0;
+                        player.displayClientMessage(resource==StockResource.FOOD && count>0
+                                ? Component.translatable("economy.livingkingdoms.food_"+verb,count,resource.unitsForItems(count,dev.livingkingdoms.config.ProfessionConfig.WHEAT_FOOD.get()))
+                                : Component.translatable("economy.livingkingdoms."+(count>0?verb:"refused"),count,Component.translatable(resource.key())),false);return count>0?1:0;
                     })));
         }
         event.getDispatcher().register(Commands.literal("kingdom").then(branch));

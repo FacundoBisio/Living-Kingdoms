@@ -8,6 +8,17 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 
 class EconomyTest {
+    @Test void nutritionConversionConservesWheatAcrossDepositsQuestSuppliesAndWithdrawals() {
+        for(int nutrition:new int[]{1,2,100}) for(int items=0;items<=64;items++) {
+            int units=StockResource.FOOD.unitsForItems(items,nutrition);
+            assertEquals(items,StockResource.FOOD.itemsFromUnits(units,nutrition));
+            for(var material:StockResource.values()) if(material!=StockResource.FOOD) assertEquals(items,material.unitsForItems(items,nutrition));
+        }
+        assertEquals(0,StockResource.FOOD.itemsFromUnits(1,2));assertEquals(2,StockResource.FOOD.itemsFromUnits(5,2));
+        assertEquals(4,StockResource.FOOD.unitsForItems(StockResource.FOOD.itemsFromUnits(5,2),2));
+        assertThrows(IllegalArgumentException.class,()->StockResource.FOOD.unitsPerItem(0));
+        assertThrows(ArithmeticException.class,()->StockResource.FOOD.unitsForItems(Integer.MAX_VALUE,100));
+    }
     @Test void inputConsumptionAndProductionAreBoundedAndAtomic() {
         var initial=StockAccount.empty(64,10).exchange(Map.of(),Map.of(StockResource.WOOD,32),false).orElseThrow();
         assertTrue(initial.produced().isEmpty());

@@ -553,5 +553,12 @@
   "notification.livingkingdoms.progress": "Avance del capítulo principal.",
   "ui.livingkingdoms.picker_page": "Página %s/%s — siguientes opciones",
   "economy.livingkingdoms.building_id": "Edificio %s — %s (clic para copiar)",
-  "economy.livingkingdoms.citizen_id": "Habitante %s — %s (clic para copiar)"
+  "economy.livingkingdoms.citizen_id": "Habitante %s — %s (clic para copiar)",
+  "ui.livingkingdoms.construction_inventory": "Mochila",
+  "ui.livingkingdoms.construction_stock": "Almacén",
+  "ui.livingkingdoms.construction_inventory_help": "Aportar materiales pendientes desde tu inventario.",
+  "ui.livingkingdoms.construction_stock_help": "Aportar materiales pendientes desde el almacén compartido del reino. Los recursos se gastan una vez, sin retirarlos a tu inventario.",
+  "ui.livingkingdoms.construction_stored": "En el almacén: %s",
+  "economy.livingkingdoms.food_deposit": "Aportaste %s de trigo: %s unidades de comida almacenadas.",
+  "economy.livingkingdoms.food_withdraw": "Retiraste %s de trigo: %s unidades de comida gastadas."
 }

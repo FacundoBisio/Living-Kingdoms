@@ -25,10 +25,18 @@ public final class QuestJournalService {
     public static boolean open(ServerPlayer player) {
         if(!player.server.isSameThread() || !player.isAlive() || player.isSpectator()) return false;
         var session=new Session(UUID.randomUUID(),player.server.overworld().getGameTime(),player.level().dimension().location().toString());
+        VillageUiService.dismiss(player);
         SESSIONS.put(player,session); send(player,session,false); return true;
     }
     public static boolean owns(ServerPlayer player,UUID token) {
         var session=SESSIONS.get(player); return session!=null && session.token().equals(token);
+    }
+    public static void dismiss(ServerPlayer player) {SESSIONS.remove(player);}
+    public static boolean refreshIfOpen(ServerPlayer player) {
+        var session=SESSIONS.get(player);
+        if(session==null || !player.isAlive() || player.isSpectator() || player.server.overworld().getGameTime()-session.opened()>12000
+                || !session.dimension().equals(player.level().dimension().location().toString())) return false;
+        send(player,session,false);return true;
     }
     public static boolean handle(ServerPlayer player,UiPayloads.Request request) {
         var session=SESSIONS.get(player);

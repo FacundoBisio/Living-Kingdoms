@@ -53,7 +53,7 @@ public final class EconomyGameTests {
         h.assertTrue(!KingdomEconomy.consume(server,s),"New realms receive a full initial consumption interval");
         h.runAfterDelay(dev.livingkingdoms.config.EconomyConfig.CONSUMPTION_INTERVAL.get()+1,()-> {
             h.assertTrue(KingdomEconomy.consume(server,s) && !KingdomEconomy.consume(server,s),"Each elapsed consumption receipt is applied once");
-            h.assertTrue(ProfessionService.food(server,s.id()).stock()==14 && ProfessionService.food(server,s.id()).produced()==0,"Population eight consumes two existing units without changing harvest totals");
+            h.assertTrue(ProfessionService.food(server,s.id()).stock()==16*dev.livingkingdoms.config.ProfessionConfig.WHEAT_FOOD.get()-2 && ProfessionService.food(server,s.id()).produced()==0,"Population eight consumes two nutrition units without changing harvest totals");
             player.setPos(s.territory().x()+100,s.territory().y(),s.territory().z());
             h.assertTrue(KingdomEconomy.withdraw(player,s.id(),StockResource.FOOD,1)==0,"Remote and wrong-territory withdrawal is refused");h.succeed();
         });

@@ -28,7 +28,7 @@ import java.util.UUID;
 /** Shared parchment shell for Mayor dialogue, quests, construction and citizen approval. */
 public final class VillageScreen extends KingdomScreen {
     private static final Set<String> MANAGEMENT_BUTTONS=Set.of("quest_action","profession_picker","farmer_assign","guard_assign","builder_assign","lumberjack_assign","miner_assign","blacksmith_assign",
-            "building_picker","plan_house","plan_farm","plan_barracks","plan_watchtower","plan_warehouse","plan_lumberjack_hut","plan_mine","plan_blacksmith","citizen_accept","citizen_decline");
+            "building_picker","plan_house","plan_farm","plan_barracks","plan_watchtower","plan_warehouse","plan_lumberjack_hut","plan_mine","plan_blacksmith","construction_inventory","construction_stock","citizen_accept","citizen_decline");
     private CompoundTag data;
     private int left, top, panelWidth, panelHeight, listWidth;
     private int section, offset, detailScroll, detailHeight;
@@ -343,6 +343,14 @@ public final class VillageScreen extends KingdomScreen {
             return;
         }
         boolean foundingPlan=construction() && data.getBoolean("plan") && data.getString("lifecycle").equals("FOUNDING");
+        if(construction() && !foundingPlan && q!=null && q.getString("state").equals("WAITING_FOR_RESOURCES")) {
+            int w=(available-8)/3;
+            var inventory=button("construction_inventory",tr("construction_inventory"),x,layout.footerTop(),w,()->send(UiPayloads.Action.DEPOSIT,q.getUUID("id")));
+            inventory.primary();inventory.active=!pending && q.getBoolean("carried_available");inventory.setTooltip(Tooltip.create(tr("construction_inventory_help")));
+            var stock=button("construction_stock",tr("construction_stock"),x+w+4,layout.footerTop(),w,()->send(UiPayloads.Action.DEPOSIT_STOCK,q.getUUID("id")));
+            stock.active=!pending && q.getBoolean("stock_available");stock.setTooltip(Tooltip.create(tr("construction_stock_help")));
+            button(tr("leave"),x+(w+4)*2,layout.footerTop(),w,this::onClose);return;
+        }
         String constructionAction=foundingPlan?"plan":q!=null&&q.getString("state").equals("FAILED")?"retry":"deposit";
         VillageButton action=button("quest_action",tr(pending?"working":construction()?constructionAction:q!=null&&q.getBoolean("accept")?"accept":"claim"),x,layout.footerTop(),available/2-3,()->{
             if(construction()) {
@@ -661,6 +669,7 @@ public final class VillageScreen extends KingdomScreen {
                 var cost=costs.getCompound(i); var stack=icon(cost.getString("item"));
                 y=itemRow(g,stack,tr("progress",cost.getInt("count"),cost.getInt("required")).append(" ").append(stack.getHoverName()),x,y,w);
                 y=paragraph(g,tr("construction_carried",cost.getInt("carried")),x+22,y,w-22,MUTED);
+                y=paragraph(g,tr("construction_stored",cost.getInt("stored")),x+22,y,w-22,MUTED);
             }
             if(p.getBoolean("builder_required") && !p.getString("state").equals("COMPLETED")) y=paragraph(g,tr("construction_snapshot"),x,y,w,MUTED);
         }

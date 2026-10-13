@@ -553,5 +553,12 @@
   "notification.livingkingdoms.progress": "Main chapter progressed.",
   "ui.livingkingdoms.picker_page": "Page %s/%s — next choices",
   "economy.livingkingdoms.building_id": "Building %s — %s (click to copy)",
-  "economy.livingkingdoms.citizen_id": "Citizen %s — %s (click to copy)"
+  "economy.livingkingdoms.citizen_id": "Citizen %s — %s (click to copy)",
+  "ui.livingkingdoms.construction_inventory": "Items",
+  "ui.livingkingdoms.construction_stock": "Stock",
+  "ui.livingkingdoms.construction_inventory_help": "Supply missing materials carried in your inventory.",
+  "ui.livingkingdoms.construction_stock_help": "Supply missing materials from this kingdom’s shared stock. Stored resources are spent once; no items are withdrawn into your inventory.",
+  "ui.livingkingdoms.construction_stored": "In shared stock: %s",
+  "economy.livingkingdoms.food_deposit": "Deposited %s wheat: %s food units stored.",
+  "economy.livingkingdoms.food_withdraw": "Withdrew %s wheat: %s food units spent."
 }

@@ -122,6 +122,8 @@ public final class LivingVillagersGameTests {
         GuardEquipment.apply(guard.entity(),jobs.profession(guard.citizen().id()).orElseThrow());h.assertTrue(guard.entity().getItemBySlot(EquipmentSlot.CHEST).is(Items.IRON_CHESTPLATE),"Routine low-level equipment refresh preserves paid iron plate");
         var stranger=new UiTestPlayer(level);place(stranger,f.center());h.assertTrue(!GuardEquipment.forge(stranger,f.settlement().id(),guard.citizen().id()),"Unjoined player cannot equip guards from shared stock");
         var sword=new ItemStack(Items.IRON_SWORD);sword.setDamageValue(80);f.player().setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND,sword);prime(jobs,p.citizenId(),level);
+        smith.entity().setNoAi(true);int unchangedIron=KingdomEconomy.count(server,f.settlement().id(),StockResource.IRON);
+        h.assertTrue(!EconomicWork.repairHeld(f.player(),f.settlement().id()) && sword.getDamageValue()==80 && KingdomEconomy.count(server,f.settlement().id(),StockResource.IRON)==unchangedIron,"Disabled AI cannot silently perform forge work or spend stock");smith.entity().setNoAi(false);
         int iron=KingdomEconomy.count(server,f.settlement().id(),StockResource.IRON);h.assertTrue(EconomicWork.repairHeld(f.player(),f.settlement().id()) && sword.getDamageValue()==40
                 && KingdomEconomy.count(server,f.settlement().id(),StockResource.IRON)==iron-1,"Real smith repair preserves stack and spends existing iron/food");
         h.assertTrue(!EconomicWork.repairHeld(f.player(),f.settlement().id()),"Repair cannot bypass production cooldown");h.succeed();
@@ -147,6 +149,79 @@ public final class LivingVillagersGameTests {
         h.assertTrue(!RepairWork.structural(Blocks.BARREL.defaultBlockState()) && !RepairWork.structural(Blocks.SMITHING_TABLE.defaultBlockState()) && !RepairWork.structural(Blocks.RED_BED.defaultBlockState()),"Maintenance cannot manufacture inventories or workstations");h.succeed();
     }
 
+    @GameTest(template="empty",timeoutTicks=600)
+    public static void absentWorkplaceModulePausesWorkerWithoutSpendingOrCrashing(GameTestHelper h) {
+        var alias=net.minecraft.resources.ResourceLocation.parse("livingkingdoms:test/missing_"+UUID.randomUUID());var f=fixture(h,956144,alias);fill(f);var w=worker(h,f);var server=h.getLevel().getServer();var jobs=ProfessionSavedData.get(server);
+        h.assertTrue(ProfessionService.assignEconomic(f.player(),f.settlement().id(),w.citizen().id(),ProfessionType.LUMBERJACK),"Existing citizen assignment remains valid while module resource is unavailable");
+        var p=jobs.profession(w.citizen().id()).orElseThrow();place(w.entity(),jobs.building(p.workplaceId()).orElseThrow().entrance().above());var before=KingdomEconomy.ensure(server,f.settlement().id());
+        h.assertTrue(!EconomicWork.tick(w.entity()) && jobs.profession(w.citizen().id()).orElseThrow().workState()==WorkState.BLOCKED
+                && KingdomEconomy.ensure(server,f.settlement().id()).equals(before),"Missing NBT safely blocks a job without stock or XP changes");h.succeed();
+    }
+
+    @GameTest(template="empty",timeoutTicks=600)
+    public static void changedModuleCannotRepairOutsideSavedFootprintAndRotatedContractsStillMatch(GameTestHelper h) {
+        var level=h.getLevel();var alias=net.minecraft.resources.ResourceLocation.parse("livingkingdoms:test/larger_"+UUID.randomUUID());var catalog=BuildingCatalog.load(level,ArchitectureStyle.PLAINS);
+        var larger=level.getStructureManager().getOrCreate(alias);larger.load(level.registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.BLOCK),catalog.get(BuildingKind.WAREHOUSE).template().save(new CompoundTag()));
+        h.assertTrue(BuildingTemplate.validate(BuildingKind.LUMBERJACK_HUT,alias,larger).size().getX()==9,"Fixture is a valid larger native module, not corrupt NBT");
+        var f=fixture(h,957168,alias);fill(f);var w=worker(h,f);var server=level.getServer();var jobs=ProfessionSavedData.get(server);
+        h.assertTrue(ProfessionService.assignBuilder(f.player(),f.settlement().id(),w.citizen().id()),"Normal Builder assigned");
+        var building=jobs.buildings(f.settlement().id()).stream().filter(b->b.kind()==BuildingKind.LUMBERJACK_HUT).findFirst().orElseThrow();place(w.entity(),building.entrance().above());
+        h.assertTrue(BuildingDevelopment.repair(f.player(),f.settlement().id(),building.id()),"Explicit repair order queued");var before=KingdomEconomy.ensure(server,f.settlement().id());var outside=building.origin().offset(8,1,0);var state=level.getBlockState(outside);
+        h.assertTrue(!RepairWork.tick(w.entity(),jobs.profession(w.citizen().id()).orElseThrow()) && jobs.profession(w.citizen().id()).orElseThrow().workState()==WorkState.BLOCKED
+                && KingdomEconomy.ensure(server,f.settlement().id()).equals(before) && level.getBlockState(outside).equals(state),"Changed dimensions cannot write or spend resources outside the persisted reservation");
+        var rectangle=catalog.get(BuildingKind.HOUSE_THIRD);
+        for(var rotation:Rotation.values()) {
+            var size=rectangle.rotatedSize(rotation);var at=f.center().offset(0,-1,0);var desc=new SettlementLayoutMetadata.Building(rectangle.kind(),rectangle.id(),at,rotation,
+                    new PlotBounds(at.getX(),at.getZ(),at.getX()+size.getX()-1,at.getZ()+size.getZ()-1),rectangle.worldPosition(rectangle.entrance(),at,rotation));
+            h.assertTrue(WorkSites.resolve(level,FunctionalBuilding.from(f.settlement().id(),level.dimension().location().toString(),desc,0)).isPresent(),"Valid rectangular footprints and entrances resolve for every rotation");
+        }
+        h.succeed();
+    }
+
+    @GameTest(template="empty",timeoutTicks=600)
+    public static void repairRejectsSameBlockStateChangesFromPlacementListeners(GameTestHelper h) {
+        var f=fixture(h,958192);fill(f);var level=h.getLevel();var jobs=ProfessionSavedData.get(level.getServer());var w=worker(h,f);h.assertTrue(ProfessionService.assignBuilder(f.player(),f.settlement().id(),w.citizen().id()),"Builder assigned");
+        var b=jobs.buildings(f.settlement().id()).stream().filter(v->v.kind()==BuildingKind.LUMBERJACK_HUT).findFirst().orElseThrow();place(w.entity(),b.entrance().above());var module=WorkSites.template(level,b);
+        var original=module.blocks().stream().filter(v->v.pos().getY()==1 && v.state().hasProperty(RotatedPillarBlock.AXIS)).findFirst().orElseThrow();var at=module.worldPosition(original.pos(),b.origin(),b.rotation());level.setBlock(at,Blocks.AIR.defaultBlockState(),18);
+        h.assertTrue(BuildingDevelopment.repair(f.player(),f.settlement().id(),b.id()),"Repair queued");var before=KingdomEconomy.ensure(level.getServer(),f.settlement().id());
+        Consumer<BlockEvent.EntityPlaceEvent> alter=event->{if(event.getEntity()==w.entity() && event.getPos().equals(at)) {
+            var placed=level.getBlockState(at);var axis=placed.getValue(RotatedPillarBlock.AXIS)==net.minecraft.core.Direction.Axis.X?net.minecraft.core.Direction.Axis.Z:net.minecraft.core.Direction.Axis.X;
+            level.setBlock(at,placed.setValue(RotatedPillarBlock.AXIS,axis),3);
+        }};NeoForge.EVENT_BUS.addListener(alter);
+        try {for(int i=0;i<100;i++) {prime(jobs,w.citizen().id(),level);RepairWork.tick(w.entity(),jobs.profession(w.citizen().id()).orElseThrow());if(jobs.profession(w.citizen().id()).orElseThrow().workState()==WorkState.BLOCKED) break;}}
+        finally {NeoForge.EVENT_BUS.unregister(alter);}
+        h.assertTrue(level.getBlockState(at).isAir() && KingdomEconomy.ensure(level.getServer(),f.settlement().id()).equals(before) && jobs.profession(w.citizen().id()).orElseThrow().experience()==0,"Changing properties of the same block cannot earn XP or consume stock for an altered placement");
+        prime(jobs,w.citizen().id(),level);h.assertTrue(RepairWork.tick(w.entity(),jobs.profession(w.citizen().id()).orElseThrow()),"Correct native state repairs normally after listener removal");h.succeed();
+    }
+
+    @GameTest(template="empty",timeoutTicks=700)
+    public static void sharedFundingAndConstructionObjectiveUpdateThroughNormalUiCapabilities(GameTestHelper h) {
+        var f=fixture(h,959216);fill(f);var level=h.getLevel();var server=level.getServer();var data=dev.livingkingdoms.quest.persistence.QuestSavedData.get(server);var player=f.player();
+        var board=f.center().east(3);level.setBlock(board,dev.livingkingdoms.block.KingdomBlocks.QUEST_BOARD.get().defaultBlockState(),18);
+        var q=new dev.livingkingdoms.quest.expansion.domain.QuestInstance(UUID.randomUUID(),dev.livingkingdoms.quest.expansion.domain.QuestTemplate.MAIN_DEVELOPMENT,
+                new dev.livingkingdoms.quest.expansion.domain.QuestSource(f.settlement().id(),null,dev.livingkingdoms.quest.expansion.domain.QuestSourceRole.MAYOR),new dev.livingkingdoms.quest.expansion.domain.QuestObjective.Return(),
+                new dev.livingkingdoms.progression.domain.LevelValue(1),dev.livingkingdoms.quest.expansion.domain.QuestDifficulty.VERY_EASY,new dev.livingkingdoms.quest.expansion.domain.QuestRewards(0,0),dev.livingkingdoms.quest.domain.QuestState.AVAILABLE,false,server.overworld().getGameTime(),-1);
+        h.assertTrue(data.offer(player.getUUID(),q) && data.acceptExpanded(player.getUUID(),q.id()),"Existing development objective accepted before construction");
+        h.assertTrue(dev.livingkingdoms.construction.ConstructionService.planHouse(level,f.settlement().id(),player),"Real safe building plan created");var entry=dev.livingkingdoms.construction.persistence.ConstructionSavedData.get(server).projects(f.settlement().id()).getFirst();
+        var mayor=(Villager)level.getEntity(data.mayor(f.settlement().id()).orElseThrow());dev.livingkingdoms.ui.VillageUiService.openDialogue(player,mayor);var session=player.snapshots.getLast().getUUID("session");
+        h.assertTrue(!dev.livingkingdoms.ui.VillageUiService.handle(player,new dev.livingkingdoms.ui.UiPayloads.Request(session,entry.project().id(),dev.livingkingdoms.ui.UiPayloads.Action.DEPOSIT_STOCK)),"Stock funding requires the construction view");
+        dev.livingkingdoms.ui.VillageUiService.handle(player,new dev.livingkingdoms.ui.UiPayloads.Request(session,new UUID(0,0),dev.livingkingdoms.ui.UiPayloads.Action.CONSTRUCTION));
+        h.assertTrue(player.snapshots.getLast().getList("projects",10).getCompound(0).getBoolean("stock_available"),"Snapshot enables funding from actual shared materials");
+        h.assertTrue(dev.livingkingdoms.ui.VillageUiService.handle(player,new dev.livingkingdoms.ui.UiPayloads.Request(session,entry.project().id(),dev.livingkingdoms.ui.UiPayloads.Action.DEPOSIT_STOCK))
+                && !dev.livingkingdoms.ui.VillageUiService.handle(player,new dev.livingkingdoms.ui.UiPayloads.Request(session,entry.project().id(),dev.livingkingdoms.ui.UiPayloads.Action.DEPOSIT_STOCK)),"Normal UI funds the selected project once without moving stock through player inventory");
+        place(player,board.east());h.assertTrue(dev.livingkingdoms.ui.VillageUiService.openBoard(player,board),"Local physical Quest Board opened");var boardToken=player.snapshots.getLast().getUUID("session");
+        dev.livingkingdoms.ui.QuestJournalService.open(player);var journalToken=player.snapshots.getLast().getUUID("session");h.assertTrue(!dev.livingkingdoms.ui.VillageUiService.handle(player,new dev.livingkingdoms.ui.UiPayloads.Request(boardToken,new UUID(0,0),dev.livingkingdoms.ui.UiPayloads.Action.REFRESH)),"Opening journal invalidates old world UI capability");
+        dev.livingkingdoms.ui.VillageUiService.openBoard(player,board);h.assertTrue(!dev.livingkingdoms.ui.QuestJournalService.owns(player,journalToken),"Reopening physical UI dismisses stale journal capability");
+        data.observeTransitions(event->dev.livingkingdoms.ui.QuestNotificationService.deliver(player,event));
+        try {
+            h.assertTrue(dev.livingkingdoms.construction.ConstructionService.resolve(server,entry.project().id(),player,true),"Native debug completion places the paid structure for event integration test");
+            h.assertTrue(data.quest(player.getUUID(),q.id()).orElseThrow().objectiveSatisfied() && player.questNotices.size()==1 && player.questNotices.getFirst().notice().kind()==dev.livingkingdoms.quest.domain.QuestNotice.Kind.OBJECTIVE_COMPLETED,"Physical project completion immediately readies the existing objective and emits one personal notice");
+            h.assertTrue(player.hudSnapshots.getLast().getCompound("quest").getBoolean("ready") && !player.snapshots.getLast().getBoolean("remote"),"HUD and the active local board refresh without reopening a stale journal");
+            h.assertTrue(!dev.livingkingdoms.construction.ConstructionService.resolve(server,entry.project().id(),player,true) && player.questNotices.size()==1,"Completed project cannot emit another notice");
+        } finally {data.observeTransitions(event->dev.livingkingdoms.ui.QuestNotificationService.send(server,event));}
+        h.succeed();
+    }
+
     private static void prime(ProfessionSavedData jobs,UUID id,ServerLevel level) {var p=jobs.profession(id).orElseThrow();jobs.replace(p,p.work(WorkState.IDLE,Math.max(0,level.getServer().overworld().getGameTime()),0,0));}
     private static void place(Entity entity,BlockPos pos) {entity.setPos(pos.getX()+.5,pos.getY(),pos.getZ()+.5);}
     private static Worker worker(GameTestHelper h,Fixture f) {
@@ -156,6 +231,9 @@ public final class LivingVillagersGameTests {
     private static void fill(Fixture f) {int slot=0;for(var resource:List.of(StockResource.FOOD,StockResource.WOOD,StockResource.STONE,StockResource.IRON)) {f.player().getInventory().setItem(slot++,new ItemStack(resource.item(),64));KingdomEconomy.deposit(f.player(),f.settlement().id(),resource,64);}}
     private static SettlementLayoutMetadata.Building description(BuildingTemplate module,BlockPos at) {return new SettlementLayoutMetadata.Building(module.kind(),module.id(),at,Rotation.NONE,new PlotBounds(at.getX(),at.getZ(),at.getX()+module.size().getX()-1,at.getZ()+module.size().getZ()-1),at.offset(module.entrance()));}
     private static Fixture fixture(GameTestHelper h,int coordinate) {
+        return fixture(h,coordinate,null);
+    }
+    private static Fixture fixture(GameTestHelper h,int coordinate,net.minecraft.resources.ResourceLocation hutTemplate) {
         var level=h.getLevel();var center=h.absolutePos(new BlockPos(coordinate,1,coordinate));int radius=48;
         for(int x=(center.getX()-radius)>>4;x<=(center.getX()+radius)>>4;x++) for(int z=(center.getZ()-radius)>>4;z<=(center.getZ()+radius)>>4;z++) level.getChunk(x,z);
         var chunk=new ChunkPos(center);level.getChunkSource().addRegionTicket(FIXTURE,chunk,5,chunk);
@@ -163,7 +241,8 @@ public final class LivingVillagersGameTests {
         var catalog=BuildingCatalog.load(level,ArchitectureStyle.PLAINS);var buildings=new ArrayList<SettlementLayoutMetadata.Building>();
         for(int i=0;i<8;i++) {
             var kind=i<4?BuildingKind.HOUSE:List.of(BuildingKind.LUMBERJACK_HUT,BuildingKind.MINE,BuildingKind.BLACKSMITH,BuildingKind.BARRACKS).get(i-4);
-            var module=catalog.get(kind);var at=center.offset(-32+(i%4)*20,-1,i<4?-26:6);module.template().placeInWorld(level,at,at,SettlementTemplate.settings(),level.random,18);buildings.add(description(module,at));
+            var module=catalog.get(kind);var at=center.offset(-32+(i%4)*20,-1,i<4?-26:6);module.template().placeInWorld(level,at,at,SettlementTemplate.settings(),level.random,18);
+            var desc=description(module,at);if(kind==BuildingKind.LUMBERJACK_HUT && hutTemplate!=null) desc=new SettlementLayoutMetadata.Building(kind,hutTemplate,at,desc.rotation(),desc.bounds(),desc.entrance());buildings.add(desc);
         }
         var s=Settlement.established(UUID.randomUUID(),new Territory(level.dimension().location().toString(),center.getX(),center.getY(),center.getZ(),radius),1,SettlementOrigin.CONVERTED,UUID.randomUUID());
         SettlementSavedData.get(level.getServer()).add(s,new SettlementLayoutMetadata(ArchitectureStyle.PLAINS,buildings,List.of(center.east().below()),List.of()));level.setBlock(center,Blocks.LODESTONE.defaultBlockState(),18);

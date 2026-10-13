@@ -18,8 +18,13 @@ public final class QuestNotificationService {
         var server=player.server;
         {
             String name=dev.livingkingdoms.settlement.persistence.SettlementSavedData.get(server).get(transition.notice().settlement()).map(VillageNames::display).orElse("");
-            try {PacketDistributor.sendToPlayer(player,new UiPayloads.QuestNotification(transition.notice(),name));}
-            catch(RuntimeException unavailable) {com.mojang.logging.LogUtils.getLogger().warn("Could not deliver quest notice to {}; gameplay receipt is retained",player.getUUID(),unavailable);}
+            try {
+                PacketDistributor.sendToPlayer(player,new UiPayloads.QuestNotification(transition.notice(),name));
+            if(transition.notice().kind()==QuestNotice.Kind.OBJECTIVE_COMPLETED
+                    && transition.notice().template().type()!=dev.livingkingdoms.quest.domain.QuestType.RESOURCE_DELIVERY) {
+                VillageUiService.refreshQuestViews(player,transition.notice().settlement());KingdomHudService.update(player);
+            }
+            } catch(RuntimeException unavailable) {com.mojang.logging.LogUtils.getLogger().warn("Could not refresh quest presentation for {}; gameplay receipt is retained",player.getUUID(),unavailable);}
         }
     }
 }
