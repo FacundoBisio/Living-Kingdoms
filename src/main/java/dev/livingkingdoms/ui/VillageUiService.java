@@ -475,6 +475,7 @@ public final class VillageUiService {
     public static CompoundTag questView(ServerPlayer player, QuestInstance quest) {
         CompoundTag tag = new CompoundTag();
         tag.putUUID("id", quest.id()); tag.putString("template", quest.template().id());
+        tag.putString("settlement", SettlementSavedData.get(player.server).get(quest.source().settlementId()).map(VillageNames::display).orElse(""));
         tag.putInt("stage", quest.template().stage());
         tag.putString("category", quest.template().category().name()); tag.putString("state", quest.state().name());
         tag.putString("difficulty", quest.difficulty().titleKey()); tag.putInt("level", quest.recommendedLevel().value());
@@ -504,6 +505,7 @@ public final class VillageUiService {
                 dev.livingkingdoms.encounter.persistence.EncounterSavedData.get(player.server).get(party.partyId()).ifPresent(target -> {
                     tag.putInt("target_x", target.origin().x()); tag.putInt("target_z", target.origin().z());
                     tag.putInt("party_remaining",target.remainingMembers().size());
+                    tag.putInt("party_total",target.memberIds().size());
                 });
                 if(quest.template()==QuestTemplate.LOCAL_DEFENSE) {
                     tag.putString("settlement",SettlementSavedData.get(player.server).get(quest.source().settlementId())

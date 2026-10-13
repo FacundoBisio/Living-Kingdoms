@@ -4,15 +4,18 @@ import dev.livingkingdoms.ui.UiPayloads;
 import dev.livingkingdoms.ui.VillageUiLayout;
 import dev.livingkingdoms.ui.QuestBoardState;
 import dev.livingkingdoms.ui.QuestBoardPresentation;
+import dev.livingkingdoms.ui.DialoguePages;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Tooltip;
 import org.lwjgl.glfw.GLFW;
 
 import static dev.livingkingdoms.client.VillageTheme.*;
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.FormattedText;
+import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.locale.Language;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -23,7 +26,7 @@ import java.util.Set;
 import java.util.UUID;
 
 /** Shared parchment shell for Mayor dialogue, quests, construction and citizen approval. */
-public final class VillageScreen extends Screen {
+public final class VillageScreen extends KingdomScreen {
     private static final Set<String> MANAGEMENT_BUTTONS=Set.of("quest_action","profession_picker","farmer_assign","guard_assign","builder_assign",
             "building_picker","plan_house","plan_farm","plan_barracks","plan_watchtower","citizen_accept","citizen_decline");
     private CompoundTag data;
@@ -35,20 +38,39 @@ public final class VillageScreen extends Screen {
     private UUID pendingQuest;
     private String focusKey;
     private int dialogueStart;
+    private int dialoguePage;
+    private List<List<FormattedText>> dialoguePages = List.of(List.of());
+    private List<List<FormattedCharSequence>> visualDialoguePages = List.of(List.of());
+    private FormattedCharSequence dialoguePageCaption;
     private VillageUiLayout layout;
     private VillageButton scrollUp, scrollDown;
     private long constructionTicks;
     private boolean buildingPicker;
     private boolean professionPicker;
+    private boolean history;
+    private CompoundTag cachedData;
+    private int cachedSection = -1;
+    private boolean cachedHistory;
+    private List<CompoundTag> cachedRows = List.of();
+    private final VillageTextCache textCache = new VillageTextCache();
+    private List<CompoundTag> selectionRows;
+    private UUID cachedSelection;
+    private CompoundTag selectionView;
+    private static final java.util.Map<String, ItemStack> ITEM_ICONS = java.util.Map.of(
+            "iron_ingot",new ItemStack(Items.IRON_INGOT),"wheat",new ItemStack(Items.WHEAT),
+            "logs",new ItemStack(Items.OAK_LOG),"stone",new ItemStack(Items.STONE));
+    private static final ItemStack EMERALD_ICON = new ItemStack(Items.EMERALD);
 
     public VillageScreen(CompoundTag data) {
-        super(tr("board")); this.data = data; selectDefense();
+        super(tr("board")); this.data = data.copy(); selectDefense();
         if(data.getBoolean("remote")) section=2;
     }
     public boolean sameSession(CompoundTag next) { return next.hasUUID("session") && data.getUUID("session").equals(next.getUUID("session")); }
     public void update(CompoundTag next) {
         boolean changedScreen = !data.getString("screen").equals(next.getString("screen"));
-        data = next;
+        if(changedScreen || !data.getString("dialogue").equals(next.getString("dialogue")) || data.getBoolean("info")!=next.getBoolean("info")) dialoguePage=0;
+        data = next.copy();
+        textCache.clear();
         constructionTicks = 0;
         if (changedScreen) { detailScroll = 0; focusKey = null; buildingPicker = false; professionPicker = false; selectDefense(); }
         if(!data.getBoolean("plan")) buildingPicker = false;
@@ -94,6 +116,7 @@ public final class VillageScreen extends Screen {
     }
 
     @Override public Component getNarrationMessage() {
+        if (!readable()) return tr("window_small");
         Component context = citizens() ? tr("citizens") : immigration() ? tr("immigration") : construction() ? tr("construction") : board() ? tr("board") : Component.translatable(
                 "npc.livingkingdoms." + data.getString("role") + ".name", data.getString("name"));
         var message = context.copy().append(". ").append(data.getString("settlement"));
@@ -135,10 +158,13 @@ public final class VillageScreen extends Screen {
                         .append(tr("progress",cost.getInt("count"),cost.getInt("required")));
             }
         } else if (!wide()) {
-            if(data.getBoolean("info")) narrateSettlementMetrics(message);
-            message.append(". ").append(Component.translatable(data.getString("dialogue"), data.getString("settlement"),
-                    data.getInt("level"), data.getInt("reputation")));
-            if(!data.getBoolean("info")) narrateSettlementMetrics(message);
+            if(data.getBoolean("info")) {
+                narrateSettlementMetrics(message);
+                message.append(". ").append(dialogueText());
+            } else {
+                for(var line:dialoguePages.get(dialoguePage)) message.append(". ").append(line.getString());
+                message.append(". ").append(Component.translatable("onboarding.livingkingdoms.page",dialoguePage+1,dialoguePages.size()));
+            }
         }
         if (pending) message.append(". ").append(tr("working"));
         if(!data.getBoolean("can_help") && !data.getBoolean("remote")) message.append(". ").append(Component.translatable("onboarding.livingkingdoms.required"));
@@ -164,6 +190,8 @@ public final class VillageScreen extends Screen {
     private static net.minecraft.network.chat.MutableComponent tr(String key, Object... args) { return Component.translatable("ui.livingkingdoms." + key, args); }
 
     @Override protected void init() {
+        if (!initReadableSize()) return;
+        textCache.clear();
         layout = VillageUiLayout.fit(width, height, wide());
         panelWidth = layout.width(); panelHeight = layout.height();
         left = layout.left(); top = layout.top(); listWidth = layout.listWidth();
@@ -202,14 +230,16 @@ public final class VillageScreen extends Screen {
             VillageButton button=button(tr(labels[i]),left+8+i*tabWidth,top+32,tabWidth-2,() -> {section=tab;offset=0;selected=null;detailScroll=0;rebuildWidgets();});
             button.selected(section == i);
         }
+        if (board()) button("quest_history",tr(history?"history_on":"history_off"),left+8,top+55,listWidth-16,
+                ()->{history=!history;offset=0;detailScroll=0;rebuildWidgets();}).selected(history);
         var quests=visibleQuests();
         if (selected == null || quests.stream().noneMatch(q -> q.getUUID("id").equals(selected))) selected=quests.isEmpty()?null:
                 (construction()?quests.stream().filter(q -> !q.getString("state").equals("COMPLETED")).findFirst().orElse(quests.getLast()):quests.getFirst()).getUUID("id");
-        int rows=layout.rows();
+        int rows=listRows();
         offset=Math.clamp(offset,0,Math.max(0,quests.size()-rows));
         for(int i=offset;i<Math.min(quests.size(),offset+rows);i++) {
             CompoundTag q=quests.get(i);
-            var row = button(q.getUUID("id").toString(), questTitle(q), left+8, layout.contentTop()+(i-offset)*34, listWidth-12,
+            var row = button(q.getUUID("id").toString(), questTitle(q), left+8, listTop()+(i-offset)*34, listWidth-12,
                     () -> {selected=q.getUUID("id");detailScroll=0;buildingPicker=false;professionPicker=false;rebuildWidgets();});
             row.selected(q.getUUID("id").equals(selected));
             if (board()) row.stateMark(QuestBoardPresentation.status(q).mark(), questColor(q));
@@ -332,6 +362,33 @@ public final class VillageScreen extends Screen {
         button(tr("citizens"),x+w+4,y+48,w,()->send(UiPayloads.Action.CITIZENS,null)).active=!pending && !data.getBoolean("readonly");
         button(tr("refresh"),x,y+72,w,()->send(UiPayloads.Action.REFRESH,null)).active=!pending;
         button(tr("leave"),x+w+4,y+72,w,this::onClose);
+        if(!data.getBoolean("info")) {
+            int headingHeight=VillageTextFlow.height(textCache.wrap(font.getSplitter(),speaker(),layout.detailWidth()-24).size());
+            int bodyTop=top+37+headingHeight;
+            int capacity=Math.clamp((dialogueActionsTop()-8-bodyTop)/VillageTextFlow.LINE_HEIGHT,1,5);
+            dialoguePages=DialoguePages.of(VillageTextFlow.wrap(font.getSplitter(),dialogueText(),layout.detailWidth()-24),capacity);
+            var language=Language.getInstance();
+            visualDialoguePages=dialoguePages.stream().map(lines->lines.stream().map(language::getVisualOrder).toList()).toList();
+            dialoguePage=Math.clamp(dialoguePage,0,dialoguePages.size()-1);
+            dialoguePageCaption=Component.translatable("onboarding.livingkingdoms.page",dialoguePage+1,dialoguePages.size()).getVisualOrderText();
+            if(dialoguePages.size()>1) {
+                int controlsX=left+10,controlsY=top+panelHeight-32,controlsWidth=(listWidth-24)/2;
+                var back=button("dialogue_back",Component.translatable("onboarding.livingkingdoms.back"),controlsX,controlsY,controlsWidth,()->turnDialogue(-1)).glyph("<");
+                var next=button("dialogue_next",Component.translatable("onboarding.livingkingdoms.continue"),controlsX+controlsWidth+4,controlsY,controlsWidth,()->turnDialogue(1)).glyph(">");
+                back.active=dialoguePage>0;next.active=dialoguePage<dialoguePages.size()-1;
+            }
+        }
+    }
+
+    private void turnDialogue(int direction) {
+        dialoguePage=Math.clamp(dialoguePage+direction,0,dialoguePages.size()-1);
+        rebuildWidgets();triggerImmediateNarration(false);
+    }
+    private Component speaker() { return Component.translatable("npc.livingkingdoms."+data.getString("role")+".name",data.getString("name")).withStyle(net.minecraft.ChatFormatting.BOLD); }
+    private Component dialogueText() {
+        var text=Component.translatable(data.getString("dialogue"),data.getString("settlement"),data.getInt("level"),data.getInt("reputation"));
+        if(!data.getBoolean("info") && data.getString("safety").equals("threatened")) text.append("\n\n").append(safety());
+        return text;
     }
 
     private void send(UiPayloads.Action action, UUID quest) {
@@ -356,6 +413,12 @@ public final class VillageScreen extends Screen {
         };
     }
     private List<CompoundTag> visibleQuests() {
+        if (cachedData != data || cachedSection != section || cachedHistory != history) {
+            cachedRows = computeVisibleQuests(); cachedData = data; cachedSection = section; cachedHistory = history;
+        }
+        return cachedRows;
+    }
+    private List<CompoundTag> computeVisibleQuests() {
         if(citizens()) {
             var list=data.getList("citizens",10); var people=new java.util.ArrayList<CompoundTag>();
             for(int i=0;i<list.size();i++) people.add(list.getCompound(i)); return people;
@@ -368,9 +431,19 @@ public final class VillageScreen extends Screen {
             var list=data.getList("projects",10); var projects=new java.util.ArrayList<CompoundTag>();
             for(int i=0;i<list.size();i++) projects.add(list.getCompound(i)); return projects;
         }
-        return QuestBoardState.visible(data, section);
+        return QuestBoardState.visible(data, section, history);
     }
-    private CompoundTag selectedQuest() { return visibleQuests().stream().filter(q->q.getUUID("id").equals(selected)).findFirst().orElse(null); }
+    private int listTop() { return layout.contentTop() + (board() ? 22 : 0); }
+    private int listRows() { return Math.max(1, (layout.contentBottom() - listTop()) / 34); }
+    private CompoundTag selectedQuest() {
+        var rows=visibleQuests();
+        if (rows!=selectionRows || !java.util.Objects.equals(selected,cachedSelection)) {
+            selectionRows=rows; cachedSelection=selected; selectionView=null;
+            for(var row:rows) if(row.getUUID("id").equals(selected)) {selectionView=row;break;}
+        }
+        return selectionView;
+    }
+    public void reloadUi() { textCache.clear(); rebuildWidgets(); }
     private Component questTitle(CompoundTag q) { return q.getString("template").equals("local_defense")?tr("defense.title",q.getString("settlement")):(immigration() || citizens())?Component.literal(q.getString("name")):Component.translatable(construction()?"construction.livingkingdoms.building."+q.getString("building"):
             "quest.livingkingdoms."+q.getString("template")+".title"); }
     private Component state(CompoundTag q) { return citizens()?tr("citizens.summary",profession(q),q.getInt("profession_level")):immigration()?tr("citizen_level",q.getInt("level")):Component.translatable((construction()?"construction.livingkingdoms.state.":"quest.livingkingdoms.state.")+
@@ -402,12 +475,9 @@ public final class VillageScreen extends Screen {
         return details;
     }
 
-    // Screen.render invokes this before its widgets. Drawing a menu background at
-    // that point used to blur and cover the already-rendered parchment and text.
-    @Override public void renderBackground(GuiGraphics g,int mouseX,int mouseY,float delta) {}
-
     @Override public void render(GuiGraphics g,int mouseX,int mouseY,float delta) {
-        g.fill(0,0,width,height,0x880C151B);
+        if (renderSizeHint(g,mouseX,mouseY,delta)) return;
+        renderBackdrop(g);
         g.fill(left-2,top-2,left+panelWidth+2,top+panelHeight+2,WOOD);
         g.fill(left,top,left+panelWidth,top+panelHeight,PARCHMENT);
         g.fill(left,top,left+panelWidth,top+1,HOVER);
@@ -428,8 +498,8 @@ public final class VillageScreen extends Screen {
     }
 
     private int paragraph(GuiGraphics g,Component text,int x,int y,int width,int color) {
-        for(var line:VillageTextFlow.wrap(font.getSplitter(),text,width)) {
-            g.drawString(font,net.minecraft.locale.Language.getInstance().getVisualOrder(line),x,y,color,false);
+        for(var line:textCache.wrap(font.getSplitter(),text,width)) {
+            g.drawString(font,line,x,y,color,false);
             y+=VillageTextFlow.LINE_HEIGHT;
         }
         return y+VillageTextFlow.PARAGRAPH_GAP;
@@ -443,9 +513,9 @@ public final class VillageScreen extends Screen {
         // Small iron tacks connect the detail parchment to the in-world board's appearance.
         g.fill(divider+7,top+58,divider+9,top+60,MUTED);
         g.fill(left+panelWidth-11,top+58,left+panelWidth-9,top+60,MUTED);
-        var quests=visibleQuests(); int rows=layout.rows();
+        var quests=visibleQuests(); int rows=listRows();
         for(int i=offset;i<Math.min(quests.size(),offset+rows);i++) {
-            var q=quests.get(i); int y=layout.contentTop()+23+(i-offset)*34;
+            var q=quests.get(i); int y=listTop()+23+(i-offset)*34;
             var progress=QuestBoardPresentation.progress(q);
             Component label=state(q);
             if(progress!=null) label=label.copy().append(" " + progress.current() + "/" + progress.total());
@@ -471,8 +541,6 @@ public final class VillageScreen extends Screen {
             y=paragraph(g,questTitle(q).copy().withStyle(net.minecraft.ChatFormatting.BOLD),x,y,w,INK);
             if(q.getBoolean("tracked")) y=paragraph(g,tr("tracked"),x,y,w,SUCCESS);
             if(data.getBoolean("remote")) y=paragraph(g,tr("journal.read_only"),x,y,w,MUTED);
-            y=paragraph(g,tr("difficulty",Component.translatable(q.getString("difficulty")),q.getInt("level"))
-                    .append(" · ").append(tr(q.getString("category").equals("MAIN")?"main":"requests")),x,y,w,MUTED);
             y=paragraph(g,state(q).copy().withStyle(net.minecraft.ChatFormatting.BOLD),x,y,w,questColor(q));
             if(q.contains("locked_reason")) y=paragraph(g,Component.translatable(q.getString("locked_reason")),x,y,w,MUTED);
             var progress=QuestBoardPresentation.progress(q);
@@ -482,9 +550,7 @@ public final class VillageScreen extends Screen {
                 g.fill(x,y,x+(int)(w*progress.fraction()),y+4,questColor(q));
                 y+=11;
             }
-            if(q.getBoolean("defense")) for(Component detail:defenseDetails(q)) y=paragraph(g,detail,x,y,w,INK);
             if(data.contains("notice")) y=paragraph(g,Component.translatable(data.getString("notice")),x,y,w,ERROR);
-            y=paragraph(g,Component.translatable("ui.livingkingdoms.description."+q.getString("template")),x,y,w,INK);
             y=sectionHeader(g,tr("objectives"),x,y,w);
             if(q.getList("requirements",10).isEmpty())
                 y=paragraph(g,Component.translatable(q.getString("objective"),Component.translatable(q.getString("target"))),x,y,w,INK);
@@ -498,12 +564,18 @@ public final class VillageScreen extends Screen {
                 g.fill(x+22,y-3,x+22+(int)((w-22)*(double)Math.clamp(item.getInt("count"),0,required)/required),y-1,SUCCESS);
             }
             y+=3;
+            if(q.getString("state").equals("ACTIVE") || q.getString("state").equals("AVAILABLE"))
+                y=paragraph(g,tr(q.getBoolean("ready")?"ready_to_claim":"claim_at",q.getString("settlement").isBlank()?data.getString("settlement"):q.getString("settlement")),x,y,w,q.getBoolean("ready")?SUCCESS:MUTED);
+            if(q.getBoolean("defense")) for(Component detail:defenseDetails(q)) y=paragraph(g,detail,x,y,w,INK);
             y=sectionHeader(g,tr("rewards"),x,y,w);
-            y=itemRow(g,new ItemStack(Items.EMERALD),tr("emerald_reward",q.getInt("emeralds")),x,y,w);
+            y=itemRow(g,EMERALD_ICON,tr("emerald_reward",q.getInt("emeralds")),x,y,w);
             y=paragraph(g,tr("reputation_reward",q.getInt("reward_reputation")),x+22,y,w-22,SUCCESS);
             if(q.contains("defense_note")) y=paragraph(g,Component.translatable(q.getString("defense_note")),x,y,w,MUTED);
             if(q.getLong("expires")>=0) y=paragraph(g,tr("expires",(q.getLong("expires")+59)/60),x,y,w,MUTED);
-
+            y=sectionHeader(g,tr("quest_context"),x,y,w);
+            y=paragraph(g,Component.translatable("ui.livingkingdoms.reason."+q.getString("template")),x,y,w,INK);
+            y=paragraph(g,tr("difficulty",Component.translatable(q.getString("difficulty")),q.getInt("level")),x,y,w,MUTED);
+            y=paragraph(g,Component.translatable("ui.livingkingdoms.description."+q.getString("template")),x,y,w,MUTED);
             if(q.getString("state").equals("ACTIVE")&&!q.getBoolean("claim")) y=paragraph(g,tr("pending"),x,y,w,MUTED);
             detailHeight=y-start;
         }
@@ -520,7 +592,7 @@ public final class VillageScreen extends Screen {
 
     private int sectionHeader(GuiGraphics g,Component label,int x,int y,int w) {
         Component heading=label.copy().withStyle(net.minecraft.ChatFormatting.BOLD);
-        int headingHeight=VillageTextFlow.height(VillageTextFlow.wrap(font.getSplitter(),heading,w-8).size())+6;
+        int headingHeight=VillageTextFlow.height(textCache.wrap(font.getSplitter(),heading,w-8).size())+6;
         g.fill(x,y,x+w,y+headingHeight,INSET);
         return paragraph(g,heading,x+4,y+3,w-8,INK)+3;
     }
@@ -669,7 +741,7 @@ public final class VillageScreen extends Screen {
     }
 
     private static ItemStack icon(String item) {
-        return new ItemStack(switch(item) {case "iron_ingot"->Items.IRON_INGOT;case "wheat"->Items.WHEAT;case "logs"->Items.OAK_LOG;default->Items.STONE;});
+        return ITEM_ICONS.getOrDefault(item,ITEM_ICONS.get("stone"));
     }
 
     private String ellipsize(Component text, int availableWidth) {
@@ -682,19 +754,22 @@ public final class VillageScreen extends Screen {
         int x=layout.detailX(),w=layout.detailWidth();
         g.fill(left+9,top+35,left+listWidth,top+panelHeight-12,INSET);
         if(minecraft.level!=null&&minecraft.level.getEntity(data.getInt("entity")) instanceof LivingEntity npc)
-            InventoryScreen.renderEntityInInventoryFollowsMouse(g,left+10,top+40,left+listWidth-2,top+panelHeight-20,Math.min(55,(panelHeight-75)/2),0.0625F,mouseX,mouseY,npc);
-        dialogueStart=paragraph(g,Component.translatable("npc.livingkingdoms."+data.getString("role")+".name",data.getString("name"))
-                .withStyle(net.minecraft.ChatFormatting.BOLD),x,top+37,w-24,INK);
+            InventoryScreen.renderEntityInInventoryFollowsMouse(g,left+10,top+40,left+listWidth-2,top+panelHeight-(data.getBoolean("info")?20:55),Math.min(55,(panelHeight-100)/2),0.0625F,mouseX,mouseY,npc);
+        dialogueStart=paragraph(g,speaker(),x,top+37,w-24,INK);
         int y=dialogueStart-detailScroll;
         g.enableScissor(x,dialogueStart,x+w-24,dialogueActionsTop()-8);
         int end=y;
-        if(data.getBoolean("info")) end=renderSettlementMetrics(g,x,end,w-24);
-        end=paragraph(g,Component.translatable(data.getString("dialogue"),data.getString("settlement"),data.getInt("level"),data.getInt("reputation")),x,end,w-24,INK);
-        end=paragraph(g,tr("dialogue_status",data.getInt("level"),data.getInt("reputation")),x,end+4,w-24,MUTED);
-        if(!data.getBoolean("info")) end=renderSettlementMetrics(g,x,end,w-24);
+        if(data.getBoolean("info")) {
+            end=renderSettlementMetrics(g,x,end,w-24);
+            end=paragraph(g,dialogueText(),x,end,w-24,INK);
+        } else for(var line:visualDialoguePages.get(dialoguePage)) {g.drawString(font,line,x,end,INK,false);end+=VillageTextFlow.LINE_HEIGHT;}
         detailHeight=end-y;
         g.disableScissor();
         detailScroll=Math.clamp(detailScroll,0,maxDetailScroll());
+        if(!data.getBoolean("info") && dialoguePages.size()>1) {
+            int captionWidth=font.width(dialoguePageCaption);
+            g.drawString(font,dialoguePageCaption,left+10+(listWidth-20-captionWidth)/2,top+panelHeight-47,MUTED,false);
+        }
     }
 
     private int renderSettlementMetrics(GuiGraphics g,int x,int y,int w) {
@@ -742,6 +817,7 @@ public final class VillageScreen extends Screen {
     }
 
     @Override public boolean keyPressed(int key, int scanCode, int modifiers) {
+        if (!readable()) return super.keyPressed(key,scanCode,modifiers);
         if (key == GLFW.GLFW_KEY_PAGE_DOWN || key == GLFW.GLFW_KEY_PAGE_UP) {
             scrollDetail((key == GLFW.GLFW_KEY_PAGE_DOWN ? 1 : -1) * Math.max(22, detailViewport()-11));
             return true;
@@ -750,6 +826,7 @@ public final class VillageScreen extends Screen {
     }
 
     @Override public boolean mouseScrolled(double x,double y,double horizontal,double vertical) {
+        if (!readable()) return super.mouseScrolled(x,y,horizontal,vertical);
         if (x < left || x > left+panelWidth || y < top+56 || y > top+panelHeight-30)
             return super.mouseScrolled(x,y,horizontal,vertical);
         if (wide() && x < left+listWidth) {offset+=(int)-Math.signum(vertical);rebuildWidgets();}

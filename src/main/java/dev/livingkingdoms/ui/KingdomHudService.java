@@ -24,6 +24,8 @@ public final class KingdomHudService {
                 .ifPresent(s -> {
                     var settlement=new CompoundTag(); settlement.putString("name",VillageNames.display(s));
                     int reputation=Math.max(0,quests.reputation(player.getUUID(),s.id()));
+                    settlement.putInt("reputation",reputation);
+                    settlement.putString("safety",dev.livingkingdoms.defense.DefenseService.status(player.server,s.id()).name().toLowerCase(java.util.Locale.ROOT));
                     // Display bands only: no new settlement tiers, reward multipliers or progression rules.
                     settlement.putInt("level",reputation/10+1); settlement.putInt("progress",reputation%10); settlement.putInt("next",10);
                     var homes=CitizenSavedData.get(player.server).summary(s.id());

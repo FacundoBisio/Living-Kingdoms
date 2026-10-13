@@ -18,6 +18,7 @@ public final class VillageClient {
     private static void onLogin(ClientPlayerNetworkEvent.LoggingIn event) { CLOSED_SESSIONS.clear(); }
     private static void onLogout(ClientPlayerNetworkEvent.LoggingOut event) { CLOSED_SESSIONS.clear(); }
     public VillageClient(IEventBus bus,net.neoforged.fml.ModContainer container) {
+        bus.addListener(VillageClient::registerUiReload);
         bus.addListener(MayorCircletLayer::register);
         bus.addListener(KingdomKeys::register);
         bus.addListener(KingdomHud::register);
@@ -58,5 +59,15 @@ public final class VillageClient {
                 client.setScreen(new VillageScreen(payload.data()));
             }
         };
+    }
+    private static void registerUiReload(net.neoforged.neoforge.client.event.RegisterClientReloadListenersEvent event) {
+        event.registerReloadListener((net.minecraft.server.packs.resources.ResourceManagerReloadListener) manager -> {
+            var client=Minecraft.getInstance();
+            client.execute(()-> {
+                KingdomHud.invalidateLayout();
+                if(client.screen instanceof VillageScreen village) village.reloadUi();
+                else if(client.screen instanceof MayorOnboardingScreen mayor) mayor.reloadUi();
+            });
+        });
     }
 }

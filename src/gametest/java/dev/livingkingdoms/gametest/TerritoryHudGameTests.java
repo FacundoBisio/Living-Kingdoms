@@ -54,6 +54,9 @@ public final class TerritoryHudGameTests {
         h.assertTrue(quests.offer(p.getUUID(),q) && quests.acceptExpanded(p.getUUID(),q.id()),"Fixture creates tracked active task");
         h.assertTrue(KingdomHudService.update(p) && !KingdomHudService.update(p),"Unchanged snapshots are deduplicated");
         var tag=p.hudSnapshots.getLast();
+        h.assertTrue(tag.getCompound("settlement").contains("reputation") && tag.getCompound("settlement").getString("safety").equals("safe")
+                && tag.getCompound("quest").getString("settlement").equals(dev.livingkingdoms.ui.VillageNames.display(f.settlement())),
+                "HUD receives real reputation/security and the linked reward destination");
         h.assertTrue(tag.getString("dimension").equals(h.getLevel().dimension().location().toString()) && tag.getCompound("quest").getUUID("id").equals(q.id()),"HUD binds persisted tracked identity to current dimension");
         KingdomHudService.onLogout(new PlayerEvent.PlayerLoggedOutEvent(p));
         KingdomHudService.onLogin(new PlayerEvent.PlayerLoggedInEvent(p));

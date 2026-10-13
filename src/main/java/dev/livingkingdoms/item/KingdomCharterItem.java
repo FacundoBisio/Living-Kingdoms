@@ -23,7 +23,8 @@ public final class KingdomCharterItem extends Item {
         if (!(context.getPlayer() instanceof ServerPlayer player)) return InteractionResult.FAIL;
         var result = SettlementEstablishmentService.useCharter(player,context.getHand(),context.getClickedPos(),
                 context.isSecondaryUseActive() ? SettlementEstablishmentService.Mode.CONVERT_ONLY : SettlementEstablishmentService.Mode.AUTO);
-        player.displayClientMessage(result.message(),result.successful());
+        player.displayClientMessage(result.message(),false);
+        if(result.successful()) player.displayClientMessage(Component.translatable("charter.livingkingdoms.next_mayor"),false);
         // A short cooldown bounds repeated surveys, including unsuccessful attempts.
         player.getCooldowns().addCooldown(this,20);
         return result.successful() ? InteractionResult.CONSUME : InteractionResult.FAIL;
