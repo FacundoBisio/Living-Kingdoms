@@ -32,6 +32,7 @@ public final class LivingKingdoms {
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.npc.MayorPresentation::onJoin);
         container.registerConfig(ModConfig.Type.SERVER, KingdomConfig.SPEC);
         NeoForge.EVENT_BUS.addListener(SettlementCommands::register);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.economy.StockCommands::register);
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.command.TerritoryCommands::register);
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.ui.KingdomHudService::onLogin);
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.ui.KingdomHudService::onLogout);
@@ -84,6 +85,7 @@ public final class LivingKingdoms {
         NeoForge.EVENT_BUS.addListener(NaturalEncounterSpawner::onLevelTick);
         NeoForge.EVENT_BUS.addListener(EncounterMaintenance::onServerTick);
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.construction.ConstructionEvents::onTick);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.economy.EconomyEvents::onTick);
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.construction.ConstructionEvents::onChunkLoad);
         NeoForge.EVENT_BUS.addListener(QuestInteractions::onRightClickBlock);
         NeoForge.EVENT_BUS.addListener(NpcInteractions::onInteract);

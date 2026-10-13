@@ -63,24 +63,33 @@ public final class DeliveryInventory {
             if (remaining != 0) return Optional.empty();
         }
 
-        ItemStack emerald = new ItemStack(Items.EMERALD);
-        int remaining = rewardEmeralds;
+        int remaining = insertReward(items,inventory.getMaxStackSize(),new ItemStack(Items.EMERALD),rewardEmeralds);
+        return remaining == 0 ? Optional.of(new Exchange(items, offhand)) : Optional.empty();
+    }
+
+    /** Same preflight/apply boundary for real warehouse withdrawals and forged equipment. */
+    public static Optional<Exchange> planReward(Inventory inventory,ItemStack reward,int amount) {
+        if(reward.isEmpty() || amount<1 || amount>2304) throw new IllegalArgumentException("Invalid inventory reward");
+        var items=copies(inventory.items);var offhand=copies(inventory.offhand);
+        return insertReward(items,inventory.getMaxStackSize(),reward,amount)==0?Optional.of(new Exchange(items,offhand)):Optional.empty();
+    }
+    private static int insertReward(List<ItemStack> items,int maxStackSize,ItemStack emerald,int remaining) {
         // Merge only identical components, then use empty main-inventory slots.
         for (ItemStack stack : items) {
             if (!stack.isEmpty() && ItemStack.isSameItemSameComponents(stack, emerald)) {
-                int added = Math.min(remaining, Math.max(0, Math.min(stack.getMaxStackSize(), inventory.getMaxStackSize()) - stack.getCount()));
+                int added = Math.min(remaining, Math.max(0, Math.min(stack.getMaxStackSize(), maxStackSize) - stack.getCount()));
                 stack.grow(added);
                 remaining -= added;
             }
         }
         for (int i = 0; i < items.size() && remaining > 0; i++) {
             if (items.get(i).isEmpty()) {
-                int added = Math.min(remaining, Math.min(emerald.getMaxStackSize(), inventory.getMaxStackSize()));
-                items.set(i, new ItemStack(Items.EMERALD, added));
+                int added = Math.min(remaining, Math.min(emerald.getMaxStackSize(), maxStackSize));
+                items.set(i, emerald.copyWithCount(added));
                 remaining -= added;
             }
         }
-        return remaining == 0 ? Optional.of(new Exchange(items, offhand)) : Optional.empty();
+        return remaining;
     }
 
     private static List<ItemStack> copies(List<ItemStack> source) {

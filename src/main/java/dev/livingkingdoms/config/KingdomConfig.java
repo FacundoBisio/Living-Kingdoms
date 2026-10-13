@@ -109,6 +109,7 @@ public final class KingdomConfig {
         GuardConfig.define(builder);
         BuilderConfig.define(builder);
         DefenseConfig.define(builder);
+        EconomyConfig.define(builder);
         SPEC = builder.build();
     }
 

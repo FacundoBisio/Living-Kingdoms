@@ -62,6 +62,13 @@ public final class ProfessionSavedData extends SavedData {
         authority(); var old=Objects.requireNonNull(food.get(settlement),"Food store not initialized"); var next=old.add(units);
         if(!old.equals(next)) { food.put(settlement,next); setDirty(); } return next.stock()-old.stock();
     }
+    /** Economic transfers preserve the original production total; input is not a harvest. */
+    public boolean exchangeFood(UUID settlement,FoodStock expected,int consumed,int deposited) {
+        authority();if(consumed<0 || deposited<0) throw new IllegalArgumentException("Invalid food transfer");
+        if(!expected.equals(food.get(settlement)) || consumed>expected.stock() || deposited>expected.capacity()-expected.stock()+consumed) return false;
+        var next=expected.consume(consumed).deposit(deposited);
+        if(!next.equals(expected)) {food.put(settlement,next);setDirty();}return true;
+    }
     public void initialize(Citizen citizen) {
         authority(); var existing=professions.get(citizen.id());
         if(existing!=null) {

@@ -512,5 +512,13 @@
   "ui.livingkingdoms.reason.undead_request": "La explicación de defensa habilitó encargos contra grupos reales de no muertos cercanos.",
   "ui.livingkingdoms.reason.local_defense": "Se detectó una amenaza real. Aceptá acá y participá en derrotar al grupo indicado.",
   "ui.livingkingdoms.window_small": "Ampliá la ventana.",
-  "onboarding.livingkingdoms.action_error": "Volvé a hablar con el alcalde."
+  "onboarding.livingkingdoms.action_error": "Volvé a hablar con el alcalde.",
+  "economy.livingkingdoms.resource.food": "Comida / trigo",
+  "economy.livingkingdoms.resource.wood": "Madera",
+  "economy.livingkingdoms.resource.stone": "Piedra",
+  "economy.livingkingdoms.resource.iron": "Hierro",
+  "economy.livingkingdoms.resource.equipment": "Armadura forjada",
+  "economy.livingkingdoms.deposit": "Almacenaste %s unidades de %s.",
+  "economy.livingkingdoms.withdraw": "Retiraste %s unidades de %s.",
+  "economy.livingkingdoms.refused": "Transferencia rechazada (%s unidades de %s). Unite al reino, quedate dentro del territorio y revisá existencias, capacidad y espacio en el inventario."
 }

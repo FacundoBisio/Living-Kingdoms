@@ -512,5 +512,13 @@
   "ui.livingkingdoms.reason.undead_request": "Your defense briefing unlocked work against a real nearby Undead group.",
   "ui.livingkingdoms.reason.local_defense": "A real threat was detected. Accept locally and participate in defeating its linked group.",
   "ui.livingkingdoms.window_small": "Enlarge the window.",
-  "onboarding.livingkingdoms.action_error": "Speak to the mayor again."
+  "onboarding.livingkingdoms.action_error": "Speak to the mayor again.",
+  "economy.livingkingdoms.resource.food": "Food / wheat",
+  "economy.livingkingdoms.resource.wood": "Wood",
+  "economy.livingkingdoms.resource.stone": "Stone",
+  "economy.livingkingdoms.resource.iron": "Iron",
+  "economy.livingkingdoms.resource.equipment": "Forged armor",
+  "economy.livingkingdoms.deposit": "Stored %s units of %s.",
+  "economy.livingkingdoms.withdraw": "Withdrew %s units of %s.",
+  "economy.livingkingdoms.refused": "Transfer refused (%s units of %s). Join the kingdom, stay inside its territory, and check stock, capacity and inventory space."
 }
