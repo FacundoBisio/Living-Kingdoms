@@ -8,6 +8,7 @@ public final class ClientHudConfig {
     public static final ModConfigSpec SPEC;
     public static final ModConfigSpec.BooleanValue HUD_ENABLED;
     public static final ModConfigSpec.BooleanValue SHOW_KINGDOM, SHOW_QUEST, EXPANDED;
+    public static final ModConfigSpec.BooleanValue QUEST_NOTIFICATIONS;
     public static final ModConfigSpec.IntValue X, Y, WIDTH, OPACITY;
     static {
         var builder=new ModConfigSpec.Builder();
@@ -16,6 +17,7 @@ public final class ClientHudConfig {
         SHOW_KINGDOM=builder.define("showKingdomInfo",true);
         SHOW_QUEST=builder.define("showTrackedQuest",true);
         EXPANDED=builder.comment("Include reputation bands and destination details.").define("expandedHud",false);
+        QUEST_NOTIFICATIONS=builder.comment("Show bounded vanilla-style quest toasts; uses Minecraft's notification duration preference.").define("questNotifications",true);
         X=builder.comment("GUI-unit offset, clamped to the visible screen. Use offsets to avoid other mod overlays.").defineInRange("hudX",6,0,2000);
         Y=builder.defineInRange("hudY",6,0,2000);
         WIDTH=builder.defineInRange("hudWidth",200,160,320);

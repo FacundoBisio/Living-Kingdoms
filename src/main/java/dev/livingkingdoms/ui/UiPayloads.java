@@ -18,6 +18,7 @@ public final class UiPayloads {
     public static Consumer<Snapshot> clientReceiver = ignored -> {};
     public static Consumer<HudSnapshot> hudReceiver = ignored -> {};
     public static Consumer<TerritoryOverlay> territoryReceiver = ignored -> {};
+    public static Consumer<QuestNotification> notificationReceiver = ignored -> {};
     public enum Action { ACCEPT, CLAIM, TALK, BOARD, INFO, CLOSE, REFRESH, CONSTRUCTION, DEPOSIT, RETRY, PLAN,
         IMMIGRATION, ACCEPT_CITIZEN, DECLINE_CITIZEN, CITIZENS, ASSIGN_FARMER, REMOVE_PROFESSION, PLAN_FARM, ASSIGN_GUARD, PLAN_BARRACKS, PLAN_WATCHTOWER, ASSIGN_BUILDER, TRACK, UNTRACK,
         ASSIGN_LUMBERJACK,ASSIGN_MINER,ASSIGN_BLACKSMITH,PLAN_WAREHOUSE,PLAN_LUMBERJACK_HUT,PLAN_MINE,PLAN_BLACKSMITH }
@@ -45,6 +46,14 @@ public final class UiPayloads {
                 (buf,value) -> buf.writeNbt(value.data),buf -> new HudSnapshot(java.util.Objects.requireNonNull(buf.readNbt())));
         @Override public Type<HudSnapshot> type() { return TYPE; }
     }
+    public record QuestNotification(dev.livingkingdoms.quest.domain.QuestNotice notice,String settlementName) implements CustomPacketPayload {
+        public static final Type<QuestNotification> TYPE=new Type<>(ResourceLocation.parse("livingkingdoms:quest_notification"));
+        public static final StreamCodec<RegistryFriendlyByteBuf,QuestNotification> CODEC=StreamCodec.of(
+                (buf,value)-> {var n=value.notice();buf.writeUUID(n.quest());buf.writeEnum(n.kind());buf.writeEnum(n.template());buf.writeUUID(n.settlement());buf.writeVarInt(n.emeralds());buf.writeVarInt(n.reputation());buf.writeUtf(value.settlementName(),64);},
+                buf->new QuestNotification(new dev.livingkingdoms.quest.domain.QuestNotice(buf.readUUID(),buf.readEnum(dev.livingkingdoms.quest.domain.QuestNotice.Kind.class),
+                        buf.readEnum(dev.livingkingdoms.quest.expansion.domain.QuestTemplate.class),buf.readUUID(),buf.readVarInt(),buf.readVarInt()),buf.readUtf(64)));
+        @Override public Type<QuestNotification> type() {return TYPE;}
+    }
     public record Shortcut(ShortcutAction action) implements CustomPacketPayload {
         public static final Type<Shortcut> TYPE=new Type<>(ResourceLocation.fromNamespaceAndPath(LivingKingdoms.MOD_ID,"kingdom_shortcut"));
         public static final StreamCodec<RegistryFriendlyByteBuf,Shortcut> CODEC=StreamCodec.of(
@@ -70,6 +79,7 @@ public final class UiPayloads {
 
     public static void register(RegisterPayloadHandlersEvent event) {
         var registrar = event.registrar("11");
+        registrar.playToClient(QuestNotification.TYPE,QuestNotification.CODEC,(payload,context)->notificationReceiver.accept(payload));
         registrar.playToClient(TerritoryOverlay.TYPE, TerritoryOverlay.CODEC, (payload, context) -> territoryReceiver.accept(payload));
         registrar.playToServer(MayorRequest.TYPE, MayorRequest.CODEC, (payload, context) -> {
             if (context.player() instanceof ServerPlayer player) VillageUiService.handleMayor(player, payload);
