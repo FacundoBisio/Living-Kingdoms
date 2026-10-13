@@ -46,7 +46,8 @@ public final class VillageClient {
             String kind = payload.data().getString("screen");
             if (kind.equals("closed")) {
                 boolean matching=client.screen instanceof VillageScreen village && (!data.hasUUID("session") || village.sameSession(data))
-                        || client.screen instanceof MayorOnboardingScreen mayor && (!data.hasUUID("session") || mayor.sameSession(data));
+                        || client.screen instanceof MayorOnboardingScreen mayor && (!data.hasUUID("session") || mayor.sameSession(data))
+                        || client.screen instanceof StockScreen stock && (!data.hasUUID("session") || stock.sameSession(data));
                 if(data.hasUUID("session")) closeSession(data.getUUID("session"));
                 if(matching) client.setScreen(null);
             } else if(!data.hasUUID("session")) {
@@ -55,6 +56,9 @@ public final class VillageClient {
                     && !payload.data().getString("onboarding_stage").equals("JOINED")) {
                 if (client.screen instanceof MayorOnboardingScreen screen && screen.sameSession(payload.data())) screen.update(payload.data());
                 else client.setScreen(new MayorOnboardingScreen(payload.data()));
+            } else if(kind.equals("stock")) {
+                if(client.screen instanceof StockScreen stock && stock.sameSession(data)) stock.update(data);
+                else client.setScreen(new StockScreen(data));
             } else if (client.screen instanceof VillageScreen screen && screen.sameSession(payload.data())) {
                 screen.update(payload.data());
             } else if (kind.equals("board") || kind.equals("dialogue") || kind.equals("construction")
@@ -71,6 +75,7 @@ public final class VillageClient {
                 QuestNotifications.reload();
                 if(client.screen instanceof VillageScreen village) village.reloadUi();
                 else if(client.screen instanceof MayorOnboardingScreen mayor) mayor.reloadUi();
+                else if(client.screen instanceof StockScreen stock) stock.reloadUi();
             });
         });
     }

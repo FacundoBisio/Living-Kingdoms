@@ -21,7 +21,7 @@ public final class UiPayloads {
     public static Consumer<QuestNotification> notificationReceiver = ignored -> {};
     public enum Action { ACCEPT, CLAIM, TALK, BOARD, INFO, CLOSE, REFRESH, CONSTRUCTION, DEPOSIT, RETRY, PLAN,
         IMMIGRATION, ACCEPT_CITIZEN, DECLINE_CITIZEN, CITIZENS, ASSIGN_FARMER, REMOVE_PROFESSION, PLAN_FARM, ASSIGN_GUARD, PLAN_BARRACKS, PLAN_WATCHTOWER, ASSIGN_BUILDER, TRACK, UNTRACK,
-        ASSIGN_LUMBERJACK,ASSIGN_MINER,ASSIGN_BLACKSMITH,PLAN_WAREHOUSE,PLAN_LUMBERJACK_HUT,PLAN_MINE,PLAN_BLACKSMITH,DEPOSIT_STOCK }
+        ASSIGN_LUMBERJACK,ASSIGN_MINER,ASSIGN_BLACKSMITH,PLAN_WAREHOUSE,PLAN_LUMBERJACK_HUT,PLAN_MINE,PLAN_BLACKSMITH,DEPOSIT_STOCK,STOCK,STOCK_DEPOSIT,STOCK_WITHDRAW }
 
     /** Personal, temporary metadata overlay. This packet never requests chunk contents. */
     public record TerritoryOverlay(CompoundTag data) implements CustomPacketPayload {
@@ -82,7 +82,7 @@ public final class UiPayloads {
     }
 
     public static void register(RegisterPayloadHandlersEvent event) {
-        var registrar = event.registrar("12");
+        var registrar = event.registrar("13");
         registrar.playToClient(QuestNotification.TYPE,QuestNotification.CODEC,(payload,context)->notificationReceiver.accept(payload));
         registrar.playToClient(TerritoryOverlay.TYPE, TerritoryOverlay.CODEC, (payload, context) -> territoryReceiver.accept(payload));
         registrar.playToServer(MayorRequest.TYPE, MayorRequest.CODEC, (payload, context) -> {

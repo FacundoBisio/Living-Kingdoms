@@ -222,6 +222,62 @@ public final class LivingVillagersGameTests {
         h.succeed();
     }
 
+    @GameTest(template="empty",timeoutTicks=700)
+    public static void resourcesViewUsesBoundCapabilitiesAndRechecksSharedBalanceForTwoPlayers(GameTestHelper h) {
+        var f=fixture(h,960240);var player=f.player();var level=h.getLevel();var server=level.getServer();
+        var mayor=(Villager)level.getEntity(dev.livingkingdoms.quest.persistence.QuestSavedData.get(server).mayor(f.settlement().id()).orElseThrow());
+        player.getInventory().setItem(0,new ItemStack(Items.OAK_LOG,16));
+        h.assertTrue(dev.livingkingdoms.ui.VillageUiService.openDialogue(player,mayor),"Physical mayor dialogue opens");
+        var token=player.snapshots.getLast().getUUID("session");var wood=dev.livingkingdoms.ui.StockUiState.target(StockResource.WOOD);
+        h.assertTrue(!stockAction(player,token,wood,dev.livingkingdoms.ui.UiPayloads.Action.STOCK_DEPOSIT),"Forged transfer cannot bypass the resource view");
+        h.assertTrue(stockAction(player,token,wood,dev.livingkingdoms.ui.UiPayloads.Action.CITIZENS)
+                && stockAction(player,token,wood,dev.livingkingdoms.ui.UiPayloads.Action.STOCK),"Habitantes opens the resource view without replacing its physical anchor");
+        h.assertTrue(player.snapshots.getLast().getString("screen").equals("stock") && player.snapshots.getLast().getList("stocks",10).size()==5,"Bounded snapshot supplies every supported resource");
+        h.assertTrue(!stockAction(player,token,UUID.randomUUID(),dev.livingkingdoms.ui.UiPayloads.Action.STOCK_DEPOSIT),"Arbitrary quest or citizen targets cannot transfer resources");
+        h.assertTrue(stockAction(player,token,wood,dev.livingkingdoms.ui.UiPayloads.Action.STOCK_DEPOSIT)
+                && KingdomEconomy.count(server,f.settlement().id(),StockResource.WOOD)==16 && player.getInventory().getItem(0).isEmpty(),"Normal deposit moves real carried items once");
+        var second=new UiTestPlayer(level);place(second,player.blockPosition());OnboardingTestSupport.legacyCollaborator(second,f.settlement());
+        h.assertTrue(!stockAction(second,token,wood,dev.livingkingdoms.ui.UiPayloads.Action.STOCK_WITHDRAW),"A second player cannot use the first player's nonce");
+        dev.livingkingdoms.ui.VillageUiService.openDialogue(second,mayor);var secondToken=second.snapshots.getLast().getUUID("session");stockAction(second,secondToken,wood,dev.livingkingdoms.ui.UiPayloads.Action.STOCK);
+        h.assertTrue(stockAction(player,token,wood,dev.livingkingdoms.ui.UiPayloads.Action.STOCK_WITHDRAW)
+                && !stockAction(second,secondToken,wood,dev.livingkingdoms.ui.UiPayloads.Action.STOCK_WITHDRAW),"Two current views cannot both spend the last batch");
+        h.assertTrue(KingdomEconomy.count(server,f.settlement().id(),StockResource.WOOD)==0
+                && dev.livingkingdoms.quest.DeliveryInventory.count(player.getInventory(),dev.livingkingdoms.quest.expansion.domain.ResourceKind.LOGS)==16
+                && second.getInventory().isEmpty(),"Withdrawal conserves materials; the second inventory gets no duplicate");
+        h.assertTrue(stockAction(player,token,wood,dev.livingkingdoms.ui.UiPayloads.Action.CITIZENS)
+                && player.snapshots.getLast().getString("screen").equals("citizens")
+                && !stockAction(player,token,wood,dev.livingkingdoms.ui.UiPayloads.Action.STOCK_WITHDRAW),"Back restores the citizen view and revokes transfer actions");
+        stockAction(player,token,wood,dev.livingkingdoms.ui.UiPayloads.Action.STOCK);place(player,f.center().east(30));
+        h.assertTrue(!stockAction(player,token,wood,dev.livingkingdoms.ui.UiPayloads.Action.STOCK_DEPOSIT)
+                && player.snapshots.getLast().getString("screen").equals("closed"),"Moving out of mayor reach closes the capability");h.succeed();
+    }
+
+    @GameTest(template="empty",timeoutTicks=700)
+    public static void resourceSnapshotsExposeFoodReservesAndRejectFullInventoryAndEquipmentDeposits(GameTestHelper h) {
+        var f=fixture(h,961264);fill(f);var player=f.player();var server=h.getLevel().getServer();
+        var jobs=ProfessionSavedData.get(server);h.assertTrue(jobs.pledgeFood(f.settlement().id(),100)==100,"Quest rations reserved through the normal persisted ledger");
+        var mayor=(Villager)h.getLevel().getEntity(dev.livingkingdoms.quest.persistence.QuestSavedData.get(server).mayor(f.settlement().id()).orElseThrow());
+        dev.livingkingdoms.ui.VillageUiService.openDialogue(player,mayor);var token=player.snapshots.getLast().getUUID("session");
+        stockAction(player,token,new UUID(0,0),dev.livingkingdoms.ui.UiPayloads.Action.STOCK);
+        var rows=player.snapshots.getLast().getList("stocks",10);var food=rows.stream().map(net.minecraft.nbt.CompoundTag.class::cast).filter(t->t.getString("resource").equals("FOOD")).findFirst().orElseThrow();
+        h.assertTrue(food.getInt("pledged")==100 && food.getInt("reserved")>=100 && food.getInt("withdraw")==16,"Food view separates nutrition, committed reserves and a bounded physical wheat transfer");
+        int before=ProfessionService.food(server,f.settlement().id()).stock();var foodTarget=dev.livingkingdoms.ui.StockUiState.target(StockResource.FOOD);
+        h.assertTrue(stockAction(player,token,foodTarget,dev.livingkingdoms.ui.UiPayloads.Action.STOCK_WITHDRAW)
+                && before-ProfessionService.food(server,f.settlement().id()).stock()==16*dev.livingkingdoms.config.ProfessionConfig.WHEAT_FOOD.get(),"UI withdrawal spends the same nutrition units as the command");
+        h.assertTrue(ProfessionService.food(server,f.settlement().id()).pledged()==100,"Direct UI withdrawal cannot release paid quest rations");
+        for(int i=0;i<36;i++) player.getInventory().setItem(i,new ItemStack(Items.BEDROCK,64));
+        var iron=dev.livingkingdoms.ui.StockUiState.target(StockResource.IRON);int ironBefore=KingdomEconomy.count(server,f.settlement().id(),StockResource.IRON);
+        h.assertTrue(!stockAction(player,token,iron,dev.livingkingdoms.ui.UiPayloads.Action.STOCK_WITHDRAW)
+                && KingdomEconomy.count(server,f.settlement().id(),StockResource.IRON)==ironBefore,"Full inventory rejection spends no stock");
+        rows=player.snapshots.getLast().getList("stocks",10);var ironRow=rows.stream().map(net.minecraft.nbt.CompoundTag.class::cast).filter(t->t.getString("resource").equals("IRON")).findFirst().orElseThrow();
+        h.assertTrue(!ironRow.getBoolean("inventory_room"),"Snapshot explains inventory capacity after a rejected transfer");
+        player.getInventory().setItem(0,new ItemStack(Items.IRON_CHESTPLATE));
+        h.assertTrue(!stockAction(player,token,dev.livingkingdoms.ui.StockUiState.target(StockResource.EQUIPMENT),dev.livingkingdoms.ui.UiPayloads.Action.STOCK_DEPOSIT)
+                && player.getInventory().getItem(0).is(Items.IRON_CHESTPLATE),"Carried equipment cannot turn into forge production credit");h.succeed();
+    }
+    private static boolean stockAction(UiTestPlayer player,UUID token,UUID target,dev.livingkingdoms.ui.UiPayloads.Action action) {
+        return dev.livingkingdoms.ui.VillageUiService.handle(player,new dev.livingkingdoms.ui.UiPayloads.Request(token,target,action));
+    }
     private static void prime(ProfessionSavedData jobs,UUID id,ServerLevel level) {var p=jobs.profession(id).orElseThrow();jobs.replace(p,p.work(WorkState.IDLE,Math.max(0,level.getServer().overworld().getGameTime()),0,0));}
     private static void place(Entity entity,BlockPos pos) {entity.setPos(pos.getX()+.5,pos.getY(),pos.getZ()+.5);}
     private static Worker worker(GameTestHelper h,Fixture f) {

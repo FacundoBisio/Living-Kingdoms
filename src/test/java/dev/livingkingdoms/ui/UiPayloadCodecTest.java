@@ -27,6 +27,14 @@ class UiPayloadCodecTest {
             UiPayloads.Request.CODEC.encode(buf,request);assertEquals(request,UiPayloads.Request.CODEC.decode(buf));assertEquals(0,buf.readableBytes());
         } finally {buf.release();}
     }
+    @Test void allStockActionsPreservePlayerCapabilityAndResourceIdentityOnWire() {
+        for(var action:new UiPayloads.Action[]{UiPayloads.Action.STOCK,UiPayloads.Action.STOCK_DEPOSIT,UiPayloads.Action.STOCK_WITHDRAW}) {
+            var buf=buffer();try {
+                var request=new UiPayloads.Request(UUID.randomUUID(),StockUiState.target(dev.livingkingdoms.economy.StockResource.FOOD),action);
+                UiPayloads.Request.CODEC.encode(buf,request);assertEquals(request,UiPayloads.Request.CODEC.decode(buf));assertEquals(0,buf.readableBytes());
+            } finally {buf.release();}
+        }
+    }
     @Test void oversizeNamesAndMalformedRewardsAreRejectedByPayloadBoundary() {
         assertThrows(IllegalArgumentException.class,()->new UiPayloads.QuestNotification(notice(),"a".repeat(129)));
         var buf=buffer();try {

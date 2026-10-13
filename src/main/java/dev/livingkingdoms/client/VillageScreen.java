@@ -28,7 +28,7 @@ import java.util.UUID;
 /** Shared parchment shell for Mayor dialogue, quests, construction and citizen approval. */
 public final class VillageScreen extends KingdomScreen {
     private static final Set<String> MANAGEMENT_BUTTONS=Set.of("quest_action","profession_picker","farmer_assign","guard_assign","builder_assign","lumberjack_assign","miner_assign","blacksmith_assign",
-            "building_picker","plan_house","plan_farm","plan_barracks","plan_watchtower","plan_warehouse","plan_lumberjack_hut","plan_mine","plan_blacksmith","construction_inventory","construction_stock","citizen_accept","citizen_decline");
+            "stock_open","building_picker","plan_house","plan_farm","plan_barracks","plan_watchtower","plan_warehouse","plan_lumberjack_hut","plan_mine","plan_blacksmith","construction_inventory","construction_stock","citizen_accept","citizen_decline");
     private CompoundTag data;
     private int left, top, panelWidth, panelHeight, listWidth;
     private int section, offset, detailScroll, detailHeight;
@@ -276,6 +276,8 @@ public final class VillageScreen extends KingdomScreen {
             button(tr("leave"),x+(w+4)*2,layout.footerTop(),w,this::onClose); return;
         }
         if(citizens()) {
+            int stockWidth=Math.min(110,panelWidth/3);
+            button("stock_open",Component.translatable("ui.livingkingdoms.stock.title"),left+panelWidth-stockWidth-10,top+32,stockWidth,()->send(UiPayloads.Action.STOCK,null)).active=!pending;
             int actionWidth=(available-4)/2;
             var assign=button("profession_picker",tr(pending?"working":professionPicker?"back":q!=null && q.getBoolean("remove")?"citizens.remove":"citizens.choose_profession"),x,layout.footerTop(),actionWidth,
                     ()->{if(q!=null && q.getBoolean("remove")) send(UiPayloads.Action.REMOVE_PROFESSION,q.getUUID("id"));
@@ -739,7 +741,7 @@ public final class VillageScreen extends KingdomScreen {
         var result=List.copyOf(details);citizenDetailCache.put(id,result);return result;
     }
     private void renderCitizens(GuiGraphics g) {
-        g.drawString(font,ellipsize(tr("citizens"),panelWidth-20),left+10,top+38,INK,false);
+        g.drawString(font,ellipsize(tr("citizens"),panelWidth-Math.min(110,panelWidth/3)-30),left+10,top+38,INK,false);
         int divider=left+listWidth;
         g.fill(divider,top+56,divider+1,layout.contentBottom(),WOOD);
         g.fill(divider+4,top+56,left+panelWidth-5,layout.contentBottom(),PAPER);

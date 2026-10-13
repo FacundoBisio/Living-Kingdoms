@@ -33,7 +33,10 @@ public final class VillageUiService {
     private static final java.util.Set<ServerPlayer> HANDLING=java.util.Collections.newSetFromMap(new WeakHashMap<>());
     private VillageUiService() {}
     private record Session(UUID token, UUID settlement, String dimension, BlockPos board, UUID npc, long opened,
-                           BlockPos marker, boolean construction, boolean immigration, boolean citizens,boolean shortcut) {
+                           BlockPos marker, boolean construction, boolean immigration, boolean citizens,boolean shortcut,boolean stock) {
+        Session(UUID token,UUID settlement,String dimension,BlockPos board,UUID npc,long opened,BlockPos marker,boolean construction,boolean immigration,boolean citizens,boolean shortcut) {
+            this(token,settlement,dimension,board,npc,opened,marker,construction,immigration,citizens,shortcut,false);
+        }
         Session(UUID token,UUID settlement,String dimension,BlockPos board,UUID npc,long opened,BlockPos marker,boolean construction,boolean immigration,boolean citizens) {
             this(token,settlement,dimension,board,npc,opened,marker,construction,immigration,citizens,false);
         }
@@ -44,6 +47,7 @@ public final class VillageUiService {
         Session immigrationView() { return new Session(token,settlement,dimension,board,npc,opened,marker,false,true,false,shortcut); }
         Session citizensView() { return new Session(token,settlement,dimension,board,npc,opened,marker,false,false,true,shortcut); }
         Session originalView() { return new Session(token,settlement,dimension,board,npc,opened,marker,false,false,false,shortcut); }
+        Session stockView() {return new Session(token,settlement,dimension,board,npc,opened,marker,false,false,false,shortcut,true);}
     }
 
     public static boolean openShortcut(ServerPlayer player) {
@@ -126,7 +130,7 @@ public final class VillageUiService {
         if(HANDLING.contains(player) || !player.isAlive() || player.isSpectator()) return;
         if(QuestJournalService.refreshIfOpen(player)) return;
         var session=SESSIONS.get(player);
-        if(session==null || session.board==null || session.construction || session.citizens || session.immigration
+        if(session==null || session.board==null || session.construction || session.citizens || session.immigration || session.stock
                 || !session.settlement.equals(settlement) || now(player)-session.opened>12000
                 || !session.dimension.equals(player.level().dimension().location().toString())) return;
         ExpandedQuestService.boardSettlement(player,session.board).filter(s->s.id().equals(settlement)).ifPresent(s->sendBoard(player,session,s));
@@ -164,8 +168,22 @@ public final class VillageUiService {
             else if (session.marker != null || session.construction) sendConstruction(player, session, settlement, true);
             return false;
         }
+        if(request.action()==UiPayloads.Action.STOCK) {
+            var view=session.stockView();SESSIONS.put(player,view);sendStock(player,view,settlement,null);return true;
+        }
+        if(request.action()==UiPayloads.Action.STOCK_DEPOSIT || request.action()==UiPayloads.Action.STOCK_WITHDRAW) {
+            if(!session.stock) return false;
+            var resource=StockUiState.resource(request.quest());int moved=0;
+            if(resource.isPresent()) moved=request.action()==UiPayloads.Action.STOCK_DEPOSIT
+                    ? dev.livingkingdoms.economy.KingdomEconomy.deposit(player,settlement.id(),resource.get(),16)
+                    : dev.livingkingdoms.economy.KingdomEconomy.withdraw(player,settlement.id(),resource.get(),resource.get()==dev.livingkingdoms.economy.StockResource.EQUIPMENT?1:16);
+            sendStock(player,session,settlement,moved>0?"ui.livingkingdoms.stock.changed":"ui.livingkingdoms.stock.rejected");return moved>0;
+        }
+        if(session.stock && request.action()==UiPayloads.Action.REFRESH) {sendStock(player,session,settlement,null);return true;}
+        if(session.stock && request.action()!=UiPayloads.Action.CITIZENS && request.action()!=UiPayloads.Action.INFO
+                && request.action()!=UiPayloads.Action.CONSTRUCTION && request.action()!=UiPayloads.Action.BOARD && request.action()!=UiPayloads.Action.IMMIGRATION) return false;
         if(request.action()==UiPayloads.Action.TRACK || request.action()==UiPayloads.Action.UNTRACK) {
-            if(session.board==null || session.construction || session.citizens || session.immigration) return false;
+            if(session.board==null || session.construction || session.citizens || session.immigration || session.stock) return false;
             var quests=QuestSavedData.get(player.server);
             if(quests.quest(player.getUUID(),request.quest()).filter(q -> q.source().settlementId().equals(session.settlement)).isEmpty()) return false;
             boolean result=request.action()==UiPayloads.Action.TRACK?quests.track(player.getUUID(),request.quest()):quests.untrack(player.getUUID(),request.quest());
@@ -434,6 +452,11 @@ public final class VillageUiService {
         }
         tag.put("candidates",candidates);
         PacketDistributor.sendToPlayer(player,new UiPayloads.Snapshot(tag));
+    }
+
+    private static void sendStock(ServerPlayer player,Session session,Settlement settlement,String notice) {
+        var tag=base(player,session,settlement,"stock");if(notice!=null) tag.putString("notice",notice);
+        StockUiState.write(player,settlement.id(),tag);PacketDistributor.sendToPlayer(player,new UiPayloads.Snapshot(tag));
     }
 
     private static void sendCitizens(ServerPlayer player,Session session,Settlement settlement,String notice) {
