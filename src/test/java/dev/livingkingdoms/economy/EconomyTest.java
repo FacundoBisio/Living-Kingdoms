@@ -42,7 +42,7 @@ class EconomyTest {
     }
     @Test void futureOrCorruptSchemasAndDuplicateAccountsAreRejected() {
         var data=new EconomySavedData();data.ensure(UUID.randomUUID(),64,0);var original=data.save(new CompoundTag(),null);
-        var future=original.copy();future.putInt("schema_version",2);assertThrows(IllegalArgumentException.class,()->EconomySavedData.load(future,null));
+        var future=original.copy();future.putInt("schema_version",3);assertThrows(IllegalArgumentException.class,()->EconomySavedData.load(future,null));
         var corrupt=original.copy();corrupt.getList("accounts",10).getCompound(0).putInt("balance_WOOD",-1);
         assertThrows(IllegalArgumentException.class,()->EconomySavedData.load(corrupt,null));
         var duplicate=original.copy();var list=duplicate.getList("accounts",10);list.add(list.getCompound(0).copy());

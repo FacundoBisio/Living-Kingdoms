@@ -77,8 +77,9 @@ public final class FarmerWork {
             v.getNavigation().stop();
             data.replace(p,p.work(WorkState.UNLOADED,next,p.cropCursor(),0)); return false;
         }
-        data.ensureFood(p.settlementId(),ProfessionConfig.FOOD_CAPACITY.get());
-        if(data.food(p.settlementId(),ProfessionConfig.FOOD_CAPACITY.get()).stock()>=ProfessionConfig.FOOD_CAPACITY.get()) {
+        int capacity=ProfessionService.foodCapacity(level.getServer(),p.settlementId());
+        data.ensureFood(p.settlementId(),capacity);
+        if(data.food(p.settlementId(),capacity).stock()>=capacity) {
             v.getNavigation().stop();
             data.replace(p,p.work(WorkState.STORAGE_FULL,next,p.cropCursor(),0)); return false;
         }

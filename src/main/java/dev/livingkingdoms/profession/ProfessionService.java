@@ -21,13 +21,21 @@ public final class ProfessionService {
         var data=ProfessionSavedData.get(level.getServer()); var citizens=CitizenSavedData.get(level.getServer());
         var builders=data.professions(settlement.id()).stream().filter(p -> p.active() && p.type()==ProfessionType.BUILDER).toList();
         data.synchronize(settlement,SettlementSavedData.get(level.getServer()).layout(settlement.id()).orElse(null),
-                ProfessionConfig.FARM_SLOTS.get(),dev.livingkingdoms.config.GuardConfig.SLOTS.get(),dev.livingkingdoms.config.BuilderConfig.SLOTS.get(),citizens.citizens(settlement.id()));
+                ProfessionConfig.FARM_SLOTS.get(),dev.livingkingdoms.config.GuardConfig.SLOTS.get(),dev.livingkingdoms.config.BuilderConfig.SLOTS.get(),citizens.citizens(settlement.id()),
+                dev.livingkingdoms.config.EconomyConfig.WORKPLACE_SLOTS.get(),dev.livingkingdoms.economy.EconomySavedData.get(level.getServer()).account(settlement.id())
+                        .map(dev.livingkingdoms.economy.StockAccount::buildingLevels).orElse(Map.of()));
         for(var builder:builders) if(data.profession(builder.citizenId()).filter(Profession::active).isEmpty())
             dev.livingkingdoms.construction.ConstructionService.releaseBuilder(level.getServer(),builder.citizenId());
-        data.ensureFood(settlement.id(),ProfessionConfig.FOOD_CAPACITY.get());
+        data.ensureFood(settlement.id(),foodCapacity(level.getServer(),settlement.id()));
     }
     public static FoodStock food(net.minecraft.server.MinecraftServer server,UUID settlement) {
         return ProfessionSavedData.get(server).food(settlement,ProfessionConfig.FOOD_CAPACITY.get());
+    }
+    public static int foodCapacity(net.minecraft.server.MinecraftServer server,UUID settlement) {
+        int calculated=(int)Math.min(1_000_000L,(long)ProfessionConfig.FOOD_CAPACITY.get()
+                +(long)dev.livingkingdoms.config.EconomyConfig.WAREHOUSE_CAPACITY.get()*dev.livingkingdoms.economy.BuildingDevelopment.warehouseLevels(server,settlement));
+        // Removing infrastructure does not silently discard food already saved in older worlds.
+        return Math.max(calculated,food(server,settlement).capacity());
     }
     public static double immigrationModifier(net.minecraft.server.MinecraftServer server,UUID settlement) {
         int low=ProfessionConfig.LOW_FOOD.get(), healthy=Math.max(low+1,ProfessionConfig.HEALTHY_FOOD.get());

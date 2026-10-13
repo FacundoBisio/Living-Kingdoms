@@ -89,6 +89,32 @@ public final class ConstructionService {
         if(plan.isEmpty()) return false;
         reserve(level,settlementId,plan.orElseThrow(),actor); return true;
     }
+    /** Explicit survival plans use the same terrain/protection/reservation pipeline. */
+    public static boolean planEconomicBuilding(ServerLevel level,UUID settlementId,ServerPlayer actor,BuildingKind kind) {
+        return switch(kind) {
+            case WAREHOUSE,LUMBERJACK_HUT,MINE,BLACKSMITH,MARKET -> planFunctional(level,settlementId,actor,kind);
+            default -> false;
+        };
+    }
+    public static boolean depositStock(ServerPlayer player,UUID settlementId,UUID projectId) {
+        if(!dev.livingkingdoms.economy.KingdomEconomy.authorized(player,settlementId)) return false;
+        var storage=ConstructionSavedData.get(player.server);var entry=storage.get(projectId).orElse(null);
+        if(entry==null || !entry.project().settlementId().equals(settlementId) || entry.project().state()!=ConstructionState.WAITING_FOR_RESOURCES) return false;
+        var p=entry.project();var delivery=new EnumMap<ResourceKind,Integer>(ResourceKind.class);
+        var costs=new EnumMap<dev.livingkingdoms.economy.StockResource,Integer>(dev.livingkingdoms.economy.StockResource.class);
+        for(var kind:p.required().keySet()) {
+            var resource=dev.livingkingdoms.economy.StockResource.of(kind);
+            int amount=Math.min(p.missing(kind),dev.livingkingdoms.economy.KingdomEconomy.count(player.server,settlementId,resource));
+            if(amount>0) {delivery.put(kind,amount);costs.put(resource,amount);}
+        }
+        if(delivery.isEmpty()) return false;
+        var transfer=dev.livingkingdoms.economy.KingdomEconomy.plan(player.server,settlementId,costs,Map.of(),false).orElseThrow();
+        var next=p.supply(delivery);if(next.state()==ConstructionState.READY && !next.builderRequired()) next=next.start(now(player.server));
+        // Both stores are preflighted and updated synchronously on the server thread, without hooks/yields.
+        if(!dev.livingkingdoms.economy.KingdomEconomy.valid(player.server,transfer) || !storage.replace(p,next)) return false;
+        if(!dev.livingkingdoms.economy.KingdomEconomy.commit(player.server,transfer)) throw new IllegalStateException("Construction funding changed during commit");
+        assignReady(player.server,settlementId);return true;
+    }
     /** Also reusable by later expansion policies; the initial chain is the only current caller. */
     public static ConstructionSavedData.Entry reserve(ServerLevel level,UUID settlementId,SettlementLayout plan,ServerPlayer actor) {
         var kind=plan.buildings().getFirst().module().kind();

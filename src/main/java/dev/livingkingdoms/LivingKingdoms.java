@@ -33,6 +33,7 @@ public final class LivingKingdoms {
         container.registerConfig(ModConfig.Type.SERVER, KingdomConfig.SPEC);
         NeoForge.EVENT_BUS.addListener(SettlementCommands::register);
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.economy.StockCommands::register);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.economy.DevelopmentCommands::register);
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.command.TerritoryCommands::register);
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.ui.KingdomHudService::onLogin);
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.ui.KingdomHudService::onLogout);

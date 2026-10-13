@@ -99,9 +99,14 @@ public final class ProfessionSavedData extends SavedData {
         synchronize(settlement,layout,farmSlots,guardSlots,0,citizens);
     }
     public void synchronize(Settlement settlement,SettlementLayoutMetadata layout,int farmSlots,int guardSlots,int builderSlots,List<Citizen> citizens) {
+        synchronize(settlement,layout,farmSlots,guardSlots,builderSlots,citizens,0,Map.of());
+    }
+    public void synchronize(Settlement settlement,SettlementLayoutMetadata layout,int farmSlots,int guardSlots,int builderSlots,List<Citizen> citizens,int economicSlots,Map<UUID,Integer> levels) {
         authority(); var desired=new LinkedHashMap<UUID,FunctionalBuilding>();
         if(layout!=null) for(var b:layout.buildings()) {
-            int slots=switch(b.kind()) { case FARM -> farmSlots; case BARRACKS -> guardSlots; case CORE,TOWN_HALL -> builderSlots; default -> 0; };
+            int slots=switch(b.kind()) { case FARM -> farmSlots; case BARRACKS -> guardSlots; case CORE,TOWN_HALL -> builderSlots;
+                case LUMBERJACK_HUT,MINE,BLACKSMITH -> economicSlots;default -> 0; };
+            if(slots>0) slots=Math.min(128,slots+levels.getOrDefault(Housing.identity(settlement.id(),b),1)-1);
             var functional=FunctionalBuilding.from(settlement.id(),settlement.territory().dimension(),b,slots);
             if(desired.put(functional.id(),functional)!=null) throw new IllegalArgumentException("Duplicate functional building");
         }
@@ -111,7 +116,8 @@ public final class ProfessionSavedData extends SavedData {
             var t=settlement.territory(); var center=new BlockPos(t.x(),t.y(),t.z());
             var plaza=new SettlementLayoutMetadata.Building(BuildingKind.TOWN_HALL,ResourceLocation.parse("livingkingdoms:allied/converted/plaza"),
                     center,Rotation.NONE,new PlotBounds(t.x(),t.z(),t.x(),t.z()),center.east(2));
-            var functional=FunctionalBuilding.from(settlement.id(),t.dimension(),plaza,builderSlots); desired.put(functional.id(),functional);
+            int slots=Math.min(128,builderSlots+levels.getOrDefault(Housing.identity(settlement.id(),plaza),1)-1);
+            var functional=FunctionalBuilding.from(settlement.id(),t.dimension(),plaza,slots); desired.put(functional.id(),functional);
         }
         if(!buildings(settlement.id()).equals(List.copyOf(desired.values()))) {
             if((long)buildings.size()-buildings(settlement.id()).size()+desired.size()>65536) throw new IllegalStateException("Too many functional buildings");

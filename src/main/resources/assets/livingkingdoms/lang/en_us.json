@@ -520,5 +520,11 @@
   "economy.livingkingdoms.resource.equipment": "Forged armor",
   "economy.livingkingdoms.deposit": "Stored %s units of %s.",
   "economy.livingkingdoms.withdraw": "Withdrew %s units of %s.",
-  "economy.livingkingdoms.refused": "Transfer refused (%s units of %s). Join the kingdom, stay inside its territory, and check stock, capacity and inventory space."
+  "economy.livingkingdoms.refused": "Transfer refused (%s units of %s). Join the kingdom, stay inside its territory, and check stock, capacity and inventory space.",
+  "economy.livingkingdoms.development.success": "Development updated. Check construction or resources with the mayor.",
+  "economy.livingkingdoms.development.refused": "Development refused. Check materials, terrain and building requirements. Expansion needs Town Hall level 2, safety and a finished construction queue.",
+  "construction.livingkingdoms.building.warehouse": "Warehouse",
+  "construction.livingkingdoms.building.lumberjack_hut": "Lumberjack Hut",
+  "construction.livingkingdoms.building.mine": "Mine Workshop",
+  "construction.livingkingdoms.building.market": "Market"
 }

@@ -27,7 +27,9 @@ public final class KingdomEconomy {
         ProfessionSavedData.get(server).ensureFood(settlement,Math.max(food.capacity(),ProfessionConfig.FOOD_CAPACITY.get()));
         return EconomySavedData.get(server).ensure(settlement,capacity(server,settlement),now(server));
     }
-    public static int capacity(MinecraftServer server,UUID settlement) { return EconomyConfig.BASE_CAPACITY.get(); }
+    public static int capacity(MinecraftServer server,UUID settlement) {
+        return (int)Math.min(1_000_000L,(long)EconomyConfig.BASE_CAPACITY.get()+(long)EconomyConfig.WAREHOUSE_CAPACITY.get()*BuildingDevelopment.warehouseLevels(server,settlement));
+    }
     public static long now(MinecraftServer server) { return Math.max(0,server.overworld().getGameTime()); }
     public static int count(MinecraftServer server,UUID settlement,StockResource resource) {
         return resource==StockResource.FOOD?ProfessionService.food(server,settlement).stock():EconomySavedData.get(server).account(settlement).map(s->s.balance(resource)).orElse(0);

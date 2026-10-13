@@ -26,6 +26,11 @@ public final class ConstructionConfig {
         defineBuilding(builder, BuildingKind.FARM, 2400, 32, 16, 2);
         defineBuilding(builder, BuildingKind.BARRACKS, 3600, 48, 32, 8);
         defineBuilding(builder, BuildingKind.WATCHTOWER, 3600, 48, 32, 4);
+        defineBuilding(builder, BuildingKind.WAREHOUSE, 3000, 48, 32, 4);
+        defineBuilding(builder, BuildingKind.LUMBERJACK_HUT, 2400, 32, 16, 2);
+        defineBuilding(builder, BuildingKind.MINE, 3000, 32, 48, 4);
+        defineBuilding(builder, BuildingKind.BLACKSMITH, 3600, 32, 48, 32);
+        defineBuilding(builder, BuildingKind.MARKET, 3000, 48, 16, 4);
         builder.pop();
     }
     private static void defineBuilding(ModConfigSpec.Builder b, BuildingKind kind, int ticks, int logs, int stone, int iron) {

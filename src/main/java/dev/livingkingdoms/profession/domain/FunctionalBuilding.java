@@ -29,6 +29,10 @@ public record FunctionalBuilding(UUID id,UUID settlementId,String dimension,Buil
             case BARRACKS -> Set.of(BuildingCapability.GUARD_WORKPLACE,BuildingCapability.DEFENSE_SUPPORT);
             case WATCHTOWER -> Set.of(BuildingCapability.DEFENSE_SUPPORT);
             case BLACKSMITH -> Set.of(BuildingCapability.BLACKSMITH_WORKPLACE);
+            case WAREHOUSE -> Set.of(BuildingCapability.STORAGE);
+            case LUMBERJACK_HUT -> Set.of(BuildingCapability.LUMBERJACK_WORKPLACE);
+            case MINE -> Set.of(BuildingCapability.MINER_WORKPLACE);
+            case MARKET -> Set.of(BuildingCapability.TRADE);
             default -> Set.of();
         };
     }

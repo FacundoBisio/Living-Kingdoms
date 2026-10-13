@@ -40,7 +40,7 @@ public final class EconomySavedData extends SavedData {
         accounts.put(settlement,next);setDirty();return true;
     }
     public static EconomySavedData load(CompoundTag tag,HolderLookup.Provider registries) {
-        if(!tag.contains("schema_version",Tag.TAG_INT) || tag.getInt("schema_version")!=1 || !tag.contains("accounts",Tag.TAG_LIST))
+        if(!tag.contains("schema_version",Tag.TAG_INT) || tag.getInt("schema_version")<1 || tag.getInt("schema_version")>2 || !tag.contains("accounts",Tag.TAG_LIST))
             throw new IllegalArgumentException("Unsupported or corrupt economy schema");
         var data=new EconomySavedData();var list=(ListTag)tag.get("accounts");
         if(list.size()>65536 || !list.isEmpty() && list.getElementType()!=Tag.TAG_COMPOUND) throw new IllegalArgumentException("Invalid account list");
@@ -51,22 +51,39 @@ public final class EconomySavedData extends SavedData {
             for(var kind:StockResource.values()) if(kind!=StockResource.FOOD) {
                 balances.put(kind,integer(record,"balance_"+kind.name()));produced.put(kind,number(record,"produced_"+kind.name()));
             }
-            var account=new StockAccount(balances,produced,integer(record,"capacity"),number(record,"revision"),number(record,"consumed_at"),number(record,"consumed_food"));
+            var levels=new HashMap<UUID,Integer>();var repairs=new HashSet<UUID>();
+            if(tag.getInt("schema_version")>=2) {
+                for(var element:records(record,"building_levels")) {
+                    var level=(CompoundTag)element;
+                    if(!level.hasUUID("building") || levels.putIfAbsent(level.getUUID("building"),integer(level,"level"))!=null) throw new IllegalArgumentException("Invalid development identity");
+                }
+                for(var element:records(record,"repair_orders")) {
+                    var order=(CompoundTag)element;if(!order.hasUUID("building") || !repairs.add(order.getUUID("building"))) throw new IllegalArgumentException("Invalid repair identity");
+                }
+            }
+            var account=new StockAccount(balances,produced,integer(record,"capacity"),number(record,"revision"),number(record,"consumed_at"),number(record,"consumed_food"),levels,repairs);
             if(data.accounts.putIfAbsent(record.getUUID("settlement"),account)!=null) throw new IllegalArgumentException("Duplicate economy owner");
         }
         data.setDirty(false);return data;
     }
     @Override public CompoundTag save(CompoundTag tag,HolderLookup.Provider registries) {
-        authority();tag.putInt("schema_version",1);var records=new ListTag();
+        authority();tag.putInt("schema_version",2);var records=new ListTag();
         accounts.forEach((id,account)-> {
             var value=new CompoundTag();value.putUUID("settlement",id);value.putInt("capacity",account.capacity());
             value.putLong("revision",account.revision());value.putLong("consumed_at",account.consumedAt());value.putLong("consumed_food",account.consumedFood());
             for(var kind:StockResource.values()) if(kind!=StockResource.FOOD) {
                 value.putInt("balance_"+kind.name(),account.balance(kind));value.putLong("produced_"+kind.name(),account.produced().getOrDefault(kind,0L));
             }
+            var levels=new ListTag();account.buildingLevels().forEach((building,level)-> {var entry=new CompoundTag();entry.putUUID("building",building);entry.putInt("level",level);levels.add(entry);});
+            var repairs=new ListTag();account.repairOrders().forEach(building-> {var entry=new CompoundTag();entry.putUUID("building",building);repairs.add(entry);});
+            value.put("building_levels",levels);value.put("repair_orders",repairs);
             records.add(value);
         });tag.put("accounts",records);return tag;
     }
     private static int integer(CompoundTag tag,String key) { if(!tag.contains(key,Tag.TAG_INT)) throw new IllegalArgumentException("Invalid economy integer: "+key);return tag.getInt(key); }
     private static long number(CompoundTag tag,String key) { if(!tag.contains(key,Tag.TAG_LONG)) throw new IllegalArgumentException("Invalid economy number: "+key);return tag.getLong(key); }
+    private static ListTag records(CompoundTag tag,String key) {
+        if(!tag.contains(key,Tag.TAG_LIST)) throw new IllegalArgumentException("Invalid development list");
+        var list=(ListTag)tag.get(key);if(list.size()>512 || !list.isEmpty() && list.getElementType()!=Tag.TAG_COMPOUND) throw new IllegalArgumentException("Invalid development records");return list;
+    }
 }

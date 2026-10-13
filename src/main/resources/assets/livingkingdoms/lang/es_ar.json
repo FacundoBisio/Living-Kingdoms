@@ -520,5 +520,11 @@
   "economy.livingkingdoms.resource.equipment": "Armadura forjada",
   "economy.livingkingdoms.deposit": "Almacenaste %s unidades de %s.",
   "economy.livingkingdoms.withdraw": "Retiraste %s unidades de %s.",
-  "economy.livingkingdoms.refused": "Transferencia rechazada (%s unidades de %s). Unite al reino, quedate dentro del territorio y revisá existencias, capacidad y espacio en el inventario."
+  "economy.livingkingdoms.refused": "Transferencia rechazada (%s unidades de %s). Unite al reino, quedate dentro del territorio y revisá existencias, capacidad y espacio en el inventario.",
+  "economy.livingkingdoms.development.success": "Desarrollo actualizado. Revisá Construcción o Recursos con el alcalde.",
+  "economy.livingkingdoms.development.refused": "Desarrollo rechazado. Revisá materiales, terreno y requisitos. Para ampliar necesitás Ayuntamiento de nivel 2, seguridad y la cola de construcción terminada.",
+  "construction.livingkingdoms.building.warehouse": "Almacén",
+  "construction.livingkingdoms.building.lumberjack_hut": "Cabaña del leñador",
+  "construction.livingkingdoms.building.mine": "Taller minero",
+  "construction.livingkingdoms.building.market": "Mercado"
 }
