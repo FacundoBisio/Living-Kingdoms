@@ -25,6 +25,9 @@ def verify(version):
         assert dependencies['minecraft']['versionRange'] == '[1.21.1]'
         assert dependencies['neoforge']['versionRange'] == '[21.1.252,21.2)'
         assert not any('gametest/' in name or 'livingkingdoms_tests' in name for name in names)
+        for compiled in Path('build/classes/java/main').rglob('*.class'):
+            relative = compiled.relative_to('build/classes/java/main').as_posix()
+            assert package.read(relative) == compiled.read_bytes(), f'Stale compiled class: {relative}'
         for source in Path('src/main/resources').rglob('*'):
             if source.is_file():
                 relative = source.relative_to('src/main/resources').as_posix()
