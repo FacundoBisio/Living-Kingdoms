@@ -33,10 +33,11 @@ public final class FarmerWork {
             // Suppress vanilla career crop behaviors only during an explicit LK assignment, preserving all trades/data.
             v.getBrain().stopAll(level,v); v.getBrain().removeAllBehaviors(); v.getNavigation().stop();
         }
+        WorkDoors.ensure(v);
     }
     public static void release(Villager v) {
         NAVIGATION.remove(v);
-        if(CONTROLLED.remove(v)!=null && v.level() instanceof ServerLevel level) { v.getNavigation().stop(); v.refreshBrain(level); }
+        if(CONTROLLED.remove(v)!=null && v.level() instanceof ServerLevel level) { WorkDoors.release(v);v.getNavigation().stop(); v.refreshBrain(level); }
     }
     public static boolean assigned(Villager v) {
         if(!(v.level() instanceof ServerLevel level) || !v.getPersistentData().hasUUID(CitizenService.CITIZEN_ID_KEY)) return false;
@@ -49,7 +50,7 @@ public final class FarmerWork {
         if(event.getLevel() instanceof ServerLevel && event.getEntity() instanceof Villager v && assigned(v)) control(v);
     }
     public static void onTick(EntityTickEvent.Post event) {
-        if(event.getEntity() instanceof Villager v && v.tickCount%20==0 && v.level() instanceof ServerLevel
+        if(event.getEntity() instanceof Villager v && Math.floorMod(v.tickCount+v.getId(),20)==0 && v.level() instanceof ServerLevel
                 && v.getPersistentData().hasUUID(CitizenService.CITIZEN_ID_KEY)) tick(v);
     }
     public static boolean tick(Villager v) {
@@ -61,7 +62,9 @@ public final class FarmerWork {
         if(!CitizenService.canApply(citizen,v) || !v.getPersistentData().hasUUID(CitizenService.CITIZEN_ID_KEY) || !v.getPersistentData().getUUID(CitizenService.CITIZEN_ID_KEY).equals(citizen.id())
                 || !p.settlementId().equals(citizen.settlementId()) || !SettlementSavedData.get(level.getServer()).get(citizen.settlementId())
                     .filter(s -> s.faction().isAllied() && s.territory().dimension().equals(level.dimension().location().toString())).isPresent()) return false;
-        control(v); long now=ImmigrationService.now(level.getServer()); if(now<p.nextWorkAt()) return false;
+        control(v); long now=ImmigrationService.now(level.getServer());
+        if(CitizenRoutine.shelter(v,citizen,p,now)) return false;
+        if(now<p.nextWorkAt()) return false;
         int cooldown=FarmerProgression.cooldown(ProfessionConfig.WORK_COOLDOWN.get(),p.level().value(),ProfessionConfig.LEVEL_CAP.get());
         long next=now+cooldown;
         if(v.isNoAi() || v.isPassenger() || v.isLeashed() || v.isTrading()) { v.getNavigation().stop(); data.replace(p,p.work(WorkState.IDLE,next,p.cropCursor(),0)); return false; }

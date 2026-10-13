@@ -87,6 +87,9 @@ public final class LivingKingdoms {
         NeoForge.EVENT_BUS.addListener(EncounterMaintenance::onServerTick);
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.construction.ConstructionEvents::onTick);
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.economy.EconomyEvents::onTick);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.profession.EconomicWork::onTick);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.profession.EconomicWork::onJoin);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.profession.EconomicWork::onLeave);
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.construction.ConstructionEvents::onChunkLoad);
         NeoForge.EVENT_BUS.addListener(QuestInteractions::onRightClickBlock);
         NeoForge.EVENT_BUS.addListener(NpcInteractions::onInteract);

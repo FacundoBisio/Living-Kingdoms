@@ -11,6 +11,15 @@ public final class StockCommands {
     private StockCommands() {}
     public static void register(RegisterCommandsEvent event) {
         var branch=Commands.literal("stock");
+        branch.executes(context-> {
+            var player=context.getSource().getPlayerOrException();var pos=player.blockPosition();
+            var settlement=SettlementSavedData.get(player.server).alliedAt(player.serverLevel().dimension().location().toString(),pos.getX(),pos.getZ()).orElse(null);
+            if(settlement==null || !KingdomEconomy.authorized(player,settlement.id())) return 0;
+            var account=KingdomEconomy.ensure(player.server,settlement.id());
+            for(var resource:StockResource.values()) player.displayClientMessage(Component.translatable("economy.livingkingdoms.balance",Component.translatable(resource.key()),
+                    KingdomEconomy.count(player.server,settlement.id(),resource),resource==StockResource.FOOD?dev.livingkingdoms.profession.ProfessionService.food(player.server,settlement.id()).capacity():account.capacity()),false);
+            return 1;
+        });
         for(var verb:new String[]{"deposit","withdraw"}) {
             branch.then(Commands.literal(verb).then(Commands.argument("resource",StringArgumentType.word())
                     .suggests((context,builder)-> {for(var resource:StockResource.values()) builder.suggest(resource.name().toLowerCase(java.util.Locale.ROOT));return builder.buildFuture();})

@@ -63,7 +63,7 @@ public final class GuardWork {
         }
     }
     public static void onTick(EntityTickEvent.Post event) {
-        if(event.getEntity() instanceof Villager v && v.level() instanceof ServerLevel && v.tickCount%20==0 && v.getPersistentData().hasUUID(CitizenService.CITIZEN_ID_KEY)) {
+        if(event.getEntity() instanceof Villager v && v.level() instanceof ServerLevel && Math.floorMod(v.tickCount+v.getId(),20)==0 && v.getPersistentData().hasUUID(CitizenService.CITIZEN_ID_KEY)) {
             if(assigned(v)) control(v); else if(CONTROLLED.containsKey(v)) release(v);
         }
     }
@@ -159,7 +159,16 @@ public final class GuardWork {
                 }
                 return;
             }
-            if(v.isSleeping()) { state(WorkState.SLEEPING); return; }
+            var resident=CitizenSavedData.get(level.getServer()).citizen(citizen).orElse(null);
+            long day=Math.floorMod(level.getDayTime(),24000);
+            if(resident!=null && day>=16000 && day<22000 && !CitizenRoutine.threatened(v,resident)) {
+                if(v.tickCount>=moveAt) {
+                    moveAt=v.tickCount+40;
+                    CitizenRoutine.shelter(v,resident,ProfessionSavedData.get(level.getServer()).profession(citizen).orElse(null),level.getServer().overworld().getGameTime());
+                }
+                return;
+            }
+            if(v.isSleeping()) v.stopSleeping();
             BlockPos center=new BlockPos(s.territory().x(),s.territory().y(),s.territory().z());
             if(!inside(s,v,defense)) { move(center,level); state(WorkState.RETURNING); return; }
             if(patrol==null || v.tickCount>=patrolAt) {

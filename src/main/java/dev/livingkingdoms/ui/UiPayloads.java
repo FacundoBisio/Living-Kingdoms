@@ -19,7 +19,8 @@ public final class UiPayloads {
     public static Consumer<HudSnapshot> hudReceiver = ignored -> {};
     public static Consumer<TerritoryOverlay> territoryReceiver = ignored -> {};
     public enum Action { ACCEPT, CLAIM, TALK, BOARD, INFO, CLOSE, REFRESH, CONSTRUCTION, DEPOSIT, RETRY, PLAN,
-        IMMIGRATION, ACCEPT_CITIZEN, DECLINE_CITIZEN, CITIZENS, ASSIGN_FARMER, REMOVE_PROFESSION, PLAN_FARM, ASSIGN_GUARD, PLAN_BARRACKS, PLAN_WATCHTOWER, ASSIGN_BUILDER, TRACK, UNTRACK }
+        IMMIGRATION, ACCEPT_CITIZEN, DECLINE_CITIZEN, CITIZENS, ASSIGN_FARMER, REMOVE_PROFESSION, PLAN_FARM, ASSIGN_GUARD, PLAN_BARRACKS, PLAN_WATCHTOWER, ASSIGN_BUILDER, TRACK, UNTRACK,
+        ASSIGN_LUMBERJACK,ASSIGN_MINER,ASSIGN_BLACKSMITH,PLAN_WAREHOUSE,PLAN_LUMBERJACK_HUT,PLAN_MINE,PLAN_BLACKSMITH }
 
     /** Personal, temporary metadata overlay. This packet never requests chunk contents. */
     public record TerritoryOverlay(CompoundTag data) implements CustomPacketPayload {
@@ -68,7 +69,7 @@ public final class UiPayloads {
     }
 
     public static void register(RegisterPayloadHandlersEvent event) {
-        var registrar = event.registrar("10");
+        var registrar = event.registrar("11");
         registrar.playToClient(TerritoryOverlay.TYPE, TerritoryOverlay.CODEC, (payload, context) -> territoryReceiver.accept(payload));
         registrar.playToServer(MayorRequest.TYPE, MayorRequest.CODEC, (payload, context) -> {
             if (context.player() instanceof ServerPlayer player) VillageUiService.handleMayor(player, payload);

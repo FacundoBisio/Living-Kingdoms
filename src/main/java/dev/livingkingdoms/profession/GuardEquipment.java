@@ -19,6 +19,7 @@ import java.util.UUID;
 public final class GuardEquipment {
     private static final String PICKUP="livingkingdoms:guard_original_pickup";
     private static final String OWNER="livingkingdoms:guard_equipment";
+    private static final String FORGED="livingkingdoms:forged_guard_armor";
     private static final ResourceLocation HEALTH=ResourceLocation.parse("livingkingdoms:guard_health");
     private GuardEquipment() {}
     public static boolean issued(ItemStack stack) { return stack.getOrDefault(DataComponents.CUSTOM_DATA,CustomData.EMPTY).copyTag().hasUUID(OWNER); }
@@ -51,10 +52,27 @@ public final class GuardEquipment {
     }
     private static void equip(Villager v,Profession p,EquipmentSlot slot,Item item) {
         var old=v.getItemBySlot(slot);
+        if(slot==EquipmentSlot.CHEST && owned(old,p.citizenId()) && old.is(Items.IRON_CHESTPLATE)
+                && old.getOrDefault(DataComponents.CUSTOM_DATA,CustomData.EMPTY).copyTag().getBoolean(FORGED)) return;
         if(!old.isEmpty() && (!owned(old,p.citizenId()) || old.is(item))) return;
         var stack=new ItemStack(item); var tag=new CompoundTag(); tag.putUUID(OWNER,p.citizenId());
         stack.set(DataComponents.CUSTOM_DATA,CustomData.of(tag)); v.setItemSlot(slot,stack); v.setDropChance(slot,0);
         // Pick-up is disabled while equipped; ordinary trades and inventory remain untouched.
+    }
+    /** Spend one manufactured plate, preserving the normal no-drop/owner policy and player equipment. */
+    public static boolean forge(net.minecraft.server.level.ServerPlayer player,UUID settlement,UUID citizen) {
+        if(!dev.livingkingdoms.economy.KingdomEconomy.authorized(player,settlement)) return false;
+        var p=dev.livingkingdoms.profession.persistence.ProfessionSavedData.get(player.server).profession(citizen)
+                .filter(job->job.active() && job.type()==ProfessionType.GUARD && job.settlementId().equals(settlement)).orElse(null);
+        var resident=dev.livingkingdoms.citizen.persistence.CitizenSavedData.get(player.server).citizen(citizen).orElse(null);
+        if(p==null || resident==null || !(player.serverLevel().getEntity(resident.entityId()) instanceof Villager guard) || !GuardWork.assigned(guard)) return false;
+        var old=guard.getItemBySlot(EquipmentSlot.CHEST);
+        if(!old.isEmpty() && (!owned(old,citizen) || old.is(Items.IRON_CHESTPLATE))) return false;
+        var transfer=dev.livingkingdoms.economy.KingdomEconomy.plan(player.server,settlement,
+                java.util.Map.of(dev.livingkingdoms.economy.StockResource.EQUIPMENT,1),java.util.Map.of(),false);
+        if(transfer.isEmpty() || !dev.livingkingdoms.economy.KingdomEconomy.commit(player.server,transfer.get())) return false;
+        var plate=new ItemStack(Items.IRON_CHESTPLATE);var tag=new CompoundTag();tag.putUUID(OWNER,citizen);tag.putBoolean(FORGED,true);
+        plate.set(DataComponents.CUSTOM_DATA,CustomData.of(tag));guard.setItemSlot(EquipmentSlot.CHEST,plate);guard.setDropChance(EquipmentSlot.CHEST,0);return true;
     }
     public static void remove(Villager v) {
         if(v.getPersistentData().contains(PICKUP)) { v.setCanPickUpLoot(v.getPersistentData().getBoolean(PICKUP)); v.getPersistentData().remove(PICKUP); }

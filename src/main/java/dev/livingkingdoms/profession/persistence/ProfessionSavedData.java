@@ -139,22 +139,26 @@ public final class ProfessionSavedData extends SavedData {
         return assign(citizen,workplace,now,ProfessionType.GUARD);
     }
     public boolean assignBuilder(Citizen citizen,UUID workplace,long now) { return assign(citizen,workplace,now,ProfessionType.BUILDER); }
+    public boolean assignEconomic(Citizen citizen,UUID workplace,long now,ProfessionType type) {
+        return type.economic() && assign(citizen,workplace,now,type);
+    }
     private boolean assign(Citizen citizen,UUID workplace,long now,ProfessionType type) {
         authority(); initialize(citizen); var old=profession(citizen.id()).orElseThrow(); var b=buildings.get(workplace);
         if(now<0 || citizen.state()!=CitizenState.ACTIVE || citizen.homeId()==null || citizen.role()==CitizenRole.MAYOR
-                || (type==ProfessionType.GUARD || type==ProfessionType.BUILDER) && old.type()!=ProfessionType.UNASSIGNED || old.type()==ProfessionType.MAYOR || old.active() && old.type()!=ProfessionType.UNASSIGNED
+                || (type==ProfessionType.GUARD || type==ProfessionType.BUILDER || type.economic()) && old.type()!=ProfessionType.UNASSIGNED || old.type()==ProfessionType.MAYOR || old.active() && old.type()!=ProfessionType.UNASSIGNED
                 || b==null || !b.active() || !b.supports(type) || !b.settlementId().equals(citizen.settlementId())
                 || workers(workplace)>=b.workplaceSlots()) return false;
         var progress=careers.getOrDefault(citizen.id(),Map.of()).getOrDefault(type,
                 new Career(1,0));
         put(new Profession(citizen.id(),citizen.settlementId(),type,new LevelValue(progress.level()),progress.xp(),workplace,true,
-                WorkState.IDLE,now,0,0,old.traits())); return true;
+                WorkState.IDLE,Math.max(now,old.nextWorkAt()),0,0,old.traits())); return true;
     }
     public boolean removeFarmer(UUID citizen) {
         return remove(citizen,ProfessionType.FARMER);
     }
     public boolean removeGuard(UUID citizen) { return remove(citizen,ProfessionType.GUARD); }
     public boolean removeBuilder(UUID citizen) { return remove(citizen,ProfessionType.BUILDER); }
+    public boolean removeEconomic(UUID citizen) { var old=profession(citizen).orElse(null);return old!=null && old.type().economic() && remove(citizen,old.type()); }
     private boolean remove(UUID citizen,ProfessionType type) {
         authority(); var old=professions.get(citizen);
         if(old==null || old.type()!=type) return false;
@@ -190,7 +194,13 @@ public final class ProfessionSavedData extends SavedData {
         put(new Profession(expected.citizenId(),expected.settlementId(),expected.type(),new LevelValue(BuilderPolicy.level(total,cap,step)),total,
                 expected.workplaceId(),true,expected.workState(),expected.nextWorkAt(),expected.cropCursor(),expected.navigationFailures(),expected.traits())); return true;
     }
-    private static boolean careerType(ProfessionType type) { return type==ProfessionType.FARMER || type==ProfessionType.GUARD || type==ProfessionType.BUILDER; }
+    public boolean economicExperience(Profession expected,int xp,int cap,int step) {
+        authority();if(!expected.type().economic() || !expected.active() || xp<1 || !expected.equals(professions.get(expected.citizenId()))) return false;
+        long total=Math.min(1_000_000_000L,expected.experience()+xp);
+        put(new Profession(expected.citizenId(),expected.settlementId(),expected.type(),new LevelValue(FarmerProgression.level(total,cap,step)),total,
+                expected.workplaceId(),true,expected.workState(),expected.nextWorkAt(),expected.cropCursor(),0,expected.traits()));return true;
+    }
+    private static boolean careerType(ProfessionType type) { return type.operational(); }
     public static ProfessionSavedData load(CompoundTag tag,HolderLookup.Provider registries) {
         require(tag,"schema_version",Tag.TAG_INT); int version=tag.getInt("schema_version"); if(version<1 || version>3) throw new IllegalArgumentException("Unsupported profession schema");
         var data=new ProfessionSavedData();

@@ -60,7 +60,7 @@ public final class CitizenEvents {
     }
 
     public static void onTick(EntityTickEvent.Post event) {
-        if (!(event.getEntity() instanceof Villager villager) || villager.tickCount % 40 != 0
+        if (!(event.getEntity() instanceof Villager villager) || Math.floorMod(villager.tickCount+villager.getId(),40) != 0
                 || !(villager.level() instanceof ServerLevel level)
                 || !villager.getPersistentData().hasUUID(CitizenService.CITIZEN_ID_KEY)) return;
         CitizenSavedData.get(level.getServer()).byEntity(villager.getUUID())
@@ -68,6 +68,9 @@ public final class CitizenEvents {
                         && c.id().equals(villager.getPersistentData().getUUID(CitizenService.CITIZEN_ID_KEY))
                         && CitizenService.canApply(c,villager))
                 .ifPresent(c -> { if(!dev.livingkingdoms.profession.FarmerWork.assigned(villager) && !dev.livingkingdoms.profession.GuardWork.assigned(villager)
-                        && !dev.livingkingdoms.profession.BuilderWork.assigned(villager)) CitizenService.guideHome(villager); });
+                        && !dev.livingkingdoms.profession.BuilderWork.assigned(villager) && !dev.livingkingdoms.profession.EconomicWork.assigned(villager)) {
+                    var profession=dev.livingkingdoms.profession.persistence.ProfessionSavedData.get(level.getServer()).profession(c.id()).orElse(null);
+                    if(!dev.livingkingdoms.profession.CitizenRoutine.shelter(villager,c,profession,Math.max(0,level.getServer().overworld().getGameTime()))) CitizenService.guideHome(villager);
+                } });
     }
 }

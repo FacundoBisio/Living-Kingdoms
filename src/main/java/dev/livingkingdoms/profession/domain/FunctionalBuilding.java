@@ -41,6 +41,9 @@ public record FunctionalBuilding(UUID id,UUID settlementId,String dimension,Buil
             case FARMER -> capabilities().contains(BuildingCapability.FARMER_WORKPLACE);
             case GUARD -> capabilities().contains(BuildingCapability.GUARD_WORKPLACE);
             case BUILDER -> capabilities().contains(BuildingCapability.BUILDER_WORKPLACE);
+            case LUMBERJACK -> capabilities().contains(BuildingCapability.LUMBERJACK_WORKPLACE);
+            case MINER -> capabilities().contains(BuildingCapability.MINER_WORKPLACE);
+            case BLACKSMITH -> capabilities().contains(BuildingCapability.BLACKSMITH_WORKPLACE);
             default -> false;
         };
     }
