@@ -29,6 +29,12 @@ public final class StockCommands {
                         StockResource resource;try {resource=StockResource.valueOf(StringArgumentType.getString(context,"resource").toUpperCase(java.util.Locale.ROOT));}
                         catch(IllegalArgumentException invalid) {return 0;}
                         int count=settlement==null?0:verb.equals("deposit")?KingdomEconomy.deposit(player,settlement.id(),resource,16):KingdomEconomy.withdraw(player,settlement.id(),resource,resource==StockResource.EQUIPMENT?1:16);
+                        if(count==0 && resource==StockResource.FOOD && verb.equals("withdraw") && settlement!=null && KingdomEconomy.authorized(player,settlement.id())) {
+                            var food=dev.livingkingdoms.profession.ProfessionService.food(player.server,settlement.id());
+                            if(resource.itemsFromUnits(food.surplus(dev.livingkingdoms.config.ProfessionConfig.HEALTHY_FOOD.get()),dev.livingkingdoms.config.ProfessionConfig.WHEAT_FOOD.get())==0) {
+                                player.displayClientMessage(Component.translatable("economy.livingkingdoms.food_reserved",food.reserve(dev.livingkingdoms.config.ProfessionConfig.HEALTHY_FOOD.get())),false);return 0;
+                            }
+                        }
                         player.displayClientMessage(resource==StockResource.FOOD && count>0
                                 ? Component.translatable("economy.livingkingdoms.food_"+verb,count,resource.unitsForItems(count,dev.livingkingdoms.config.ProfessionConfig.WHEAT_FOOD.get()))
                                 : Component.translatable("economy.livingkingdoms."+(count>0?verb:"refused"),count,Component.translatable(resource.key())),false);return count>0?1:0;

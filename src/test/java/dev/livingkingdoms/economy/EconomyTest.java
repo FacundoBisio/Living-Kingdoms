@@ -8,6 +8,23 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 
 class EconomyTest {
+    @Test void rewardedFoodCannotBeRefundedOrLaunderedThroughLaterHarvestsAndMigrationKeepsOldBalances() {
+        var data=new dev.livingkingdoms.profession.persistence.ProfessionSavedData();var id=UUID.randomUUID();data.ensureFood(id,500);assertEquals(80,data.pledgeFood(id,80));
+        var gift=data.food(id,500);assertEquals(80,gift.pledged());assertEquals(0,gift.surplus(60));assertFalse(data.exchangeFood(id,gift,2,0,true));
+        data.addFood(id,2);var withHarvest=data.food(id,500);assertEquals(2,withHarvest.surplus(60));assertTrue(data.exchangeFood(id,withHarvest,2,0,true));
+        var remaining=data.food(id,500);assertEquals(new FoodStock(80,500,82,80),remaining);assertFalse(data.exchangeFood(id,remaining,2,0,true));
+        assertTrue(data.exchangeFood(id,remaining,1,0));assertEquals(79,data.food(id,500).pledged());
+        var saved=data.save(new CompoundTag(),null);var reloaded=dev.livingkingdoms.profession.persistence.ProfessionSavedData.load(saved,null);assertEquals(data.food(id,500),reloaded.food(id,500));
+        var legacy=saved.copy();legacy.putInt("schema_version",3);legacy.getList("food",10).getCompound(0).remove("pledged");
+        var migrated=dev.livingkingdoms.profession.persistence.ProfessionSavedData.load(legacy,null);assertEquals(79,migrated.food(id,500).stock());assertEquals(0,migrated.food(id,500).pledged());
+        var invalid=saved.copy();invalid.getList("food",10).getCompound(0).remove("pledged");assertThrows(IllegalArgumentException.class,()->dev.livingkingdoms.profession.persistence.ProfessionSavedData.load(invalid,null));
+    }
+    @Test void communalFoodSurplusRetainsHealthyRationsWithoutDeletingStockOrBlockingInternalUse() {
+        var food=new FoodStock(80,500,80);assertEquals(20,food.surplus(60));assertEquals(0,food.surplus(100));
+        assertEquals(0,new FoodStock(20,20,0).surplus(60));assertEquals(80,food.stock());
+        assertEquals(0,new FoodStock(59,500,0).surplus(60));assertEquals(79,food.consume(1).stock());
+        assertThrows(IllegalArgumentException.class,()->food.surplus(-1));
+    }
     @Test void nutritionConversionConservesWheatAcrossDepositsQuestSuppliesAndWithdrawals() {
         for(int nutrition:new int[]{1,2,100}) for(int items=0;items<=64;items++) {
             int units=StockResource.FOOD.unitsForItems(items,nutrition);

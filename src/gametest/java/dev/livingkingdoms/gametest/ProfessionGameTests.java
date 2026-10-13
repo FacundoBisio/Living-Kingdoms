@@ -222,8 +222,29 @@ public final class ProfessionGameTests {
         f.player().getInventory().items.set(0,new ItemStack(Items.WHEAT,40)); h.assertTrue(ExpandedQuestService.act(f.player(),board,quest.id(),"accept",false) && ExpandedQuestService.act(f.player(),board,quest.id(),"claim",false),"Existing delivery and claim receipt contributes real Food");
         h.assertTrue(!ExpandedQuestService.act(f.player(),board,quest.id(),"claim",false) && data.food(f.settlement().id(),500).stock()==80,"Replay cannot add food twice");
         h.assertTrue(ProfessionService.immigrationModifier(server,f.settlement().id())==1 && ProfessionService.shortageWeights(server,f.settlement().id()).isEmpty(),"Healthy food restores normal chance and clears shortage condition");
-        h.assertTrue(dev.livingkingdoms.economy.KingdomEconomy.withdraw(f.player(),f.settlement().id(),dev.livingkingdoms.economy.StockResource.FOOD,64)==40
-                && dev.livingkingdoms.quest.DeliveryInventory.count(f.player().getInventory(),ResourceKind.WHEAT)==40 && data.food(f.settlement().id(),500).stock()==0,"Quest wheat becomes nutrition and withdraws only the original forty wheat, never extra items");h.succeed();
+        int surplus=data.food(f.settlement().id(),500).surplus(ProfessionConfig.HEALTHY_FOOD.get())/ProfessionConfig.WHEAT_FOOD.get();
+        h.assertTrue(dev.livingkingdoms.economy.KingdomEconomy.withdraw(f.player(),f.settlement().id(),dev.livingkingdoms.economy.StockResource.FOOD,64)==surplus
+                && dev.livingkingdoms.quest.DeliveryInventory.count(f.player().getInventory(),ResourceKind.WHEAT)==surplus && surplus<40
+                && data.food(f.settlement().id(),500).stock()>=ProfessionConfig.HEALTHY_FOOD.get(),"Quest wheat withdraws only real surplus while paid delivery still feeds the community");
+        h.assertTrue(dev.livingkingdoms.economy.KingdomEconomy.withdraw(f.player(),f.settlement().id(),dev.livingkingdoms.economy.StockResource.FOOD,64)==0,"Repeated withdrawal cannot refund protected quest supplies or create extra wheat");
+        h.assertTrue(data.food(f.settlement().id(),500).pledged()==80 && ProfessionSavedData.load(data.save(new CompoundTag(),level.registryAccess()),level.registryAccess()).food(f.settlement().id(),500).pledged()==80,"Paid mission food remains reserved after real NBT reload");
+        data.addFood(f.settlement().id(),ProfessionConfig.WHEAT_FOOD.get());
+        h.assertTrue(dev.livingkingdoms.economy.KingdomEconomy.withdraw(f.player(),f.settlement().id(),dev.livingkingdoms.economy.StockResource.FOOD,64)==1
+                && data.food(f.settlement().id(),500).pledged()==80
+                && dev.livingkingdoms.economy.KingdomEconomy.withdraw(f.player(),f.settlement().id(),dev.livingkingdoms.economy.StockResource.FOOD,64)==0,"A later harvest withdraws its own one wheat without unlocking rewarded supplies");h.succeed();
+    }
+
+    @GameTest(template="empty",timeoutTicks=600)
+    public static void foodQuestKeepsExpandedCapacityAndPreviouslyStoredRations(GameTestHelper h) {
+        var f=fixture(h,269216,true);var level=h.getLevel();var server=level.getServer();var jobs=ProfessionSavedData.get(server);jobs.ensureFood(f.settlement().id(),1000);jobs.addFood(f.settlement().id(),600);
+        var board=f.center().east(3);level.setBlock(board,KingdomBlocks.QUEST_BOARD.get().defaultBlockState(),18);f.player().setPos(board.getX()+.5,board.getY(),board.getZ()+1.5);
+        ExpandedQuestService.prepare(f.player(),f.settlement());
+        var q=new QuestInstance(UUID.randomUUID(),QuestTemplate.FOOD_REQUEST,new QuestSource(f.settlement().id(),null,QuestSourceRole.FARMER),new QuestObjective.Resource(List.of(new ResourceRequirement(ResourceKind.WHEAT,40))),
+                new LevelValue(1),QuestDifficulty.VERY_EASY,new QuestRewards(1,1),QuestState.AVAILABLE,false,ImmigrationService.now(server),ImmigrationService.now(server)+24000);
+        h.assertTrue(QuestSavedData.get(server).offer(f.player().getUUID(),q),"Food quest offered with existing expanded stock");f.player().getInventory().setItem(0,new ItemStack(Items.WHEAT,40));
+        h.assertTrue(ExpandedQuestService.act(f.player(),board,q.id(),"accept",false),"Existing food delivery accepted after initial board rotation");
+        h.assertTrue(ExpandedQuestService.act(f.player(),board,q.id(),"claim",false),"Existing food delivery and rewards still succeed");
+        var food=jobs.food(f.settlement().id(),1000);h.assertTrue(food.capacity()==1000 && food.stock()==680 && food.pledged()==80,"Quest delivery preserves enlarged capacity and previous six hundred rations, reserving only its own supplies");h.succeed();
     }
 
     private static UiPayloads.Request request(UUID token,Worker w,UiPayloads.Action action) { return new UiPayloads.Request(token,w.citizen().id(),action); }

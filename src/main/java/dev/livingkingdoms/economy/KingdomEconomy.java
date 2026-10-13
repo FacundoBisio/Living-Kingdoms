@@ -18,7 +18,9 @@ import java.util.*;
 
 /** Server-thread exchange boundary. Inventory preflight and persistent stock commit never yield. */
 public final class KingdomEconomy {
-    public record Transfer(UUID settlement,StockAccount before,StockAccount after,FoodStock foodBefore,int foodSpent,int foodGained) {}
+    public record Transfer(UUID settlement,StockAccount before,StockAccount after,FoodStock foodBefore,int foodSpent,int foodGained,boolean directWithdrawal) {
+        public Transfer(UUID settlement,StockAccount before,StockAccount after,FoodStock foodBefore,int foodSpent,int foodGained) {this(settlement,before,after,foodBefore,foodSpent,foodGained,false);}
+    }
     private KingdomEconomy() {}
 
     public static StockAccount ensure(MinecraftServer server,UUID settlement) {
@@ -47,11 +49,12 @@ public final class KingdomEconomy {
     }
     public static boolean valid(MinecraftServer server,Transfer transfer) {
         return EconomySavedData.get(server).account(transfer.settlement()).filter(transfer.before()::equals).isPresent()
+                && (!transfer.directWithdrawal() || transfer.foodSpent()<=transfer.foodBefore().stock()-transfer.foodBefore().pledged())
                 && ProfessionService.food(server,transfer.settlement()).equals(transfer.foodBefore());
     }
     public static boolean commit(MinecraftServer server,Transfer transfer) {
         if(!valid(server,transfer) || !EconomySavedData.get(server).replace(transfer.settlement(),transfer.before(),transfer.after())) return false;
-        if(!ProfessionSavedData.get(server).exchangeFood(transfer.settlement(),transfer.foodBefore(),transfer.foodSpent(),transfer.foodGained()))
+        if(!ProfessionSavedData.get(server).exchangeFood(transfer.settlement(),transfer.foodBefore(),transfer.foodSpent(),transfer.foodGained(),transfer.directWithdrawal()))
             throw new IllegalStateException("Food changed inside an atomic server-thread exchange");
         return true;
     }
@@ -77,11 +80,13 @@ public final class KingdomEconomy {
     public static int withdraw(ServerPlayer player,UUID settlement,StockResource resource,int limit) {
         if(!authorized(player,settlement) || limit<1 || limit>64) return 0;
         ensure(player.server,settlement);int wheatUnits=ProfessionConfig.WHEAT_FOOD.get();
-        int amount=Math.min(limit,resource.itemsFromUnits(count(player.server,settlement,resource),wheatUnits));
+        int available=resource==StockResource.FOOD?ProfessionService.food(player.server,settlement).surplus(ProfessionConfig.HEALTHY_FOOD.get()):count(player.server,settlement,resource);
+        int amount=Math.min(limit,resource.itemsFromUnits(available,wheatUnits));
         if(amount<1) return 0;
         var inventory=DeliveryInventory.planReward(player.getInventory(),new ItemStack(resource.item()),amount);
         if(inventory.isEmpty()) return 0;
         var transfer=plan(player.server,settlement,Map.of(resource,resource.unitsForItems(amount,wheatUnits)),Map.of(),false).orElseThrow();
+        transfer=new Transfer(transfer.settlement(),transfer.before(),transfer.after(),transfer.foodBefore(),transfer.foodSpent(),transfer.foodGained(),true);
         if(!commit(player.server,transfer)) return 0;
         inventory.orElseThrow().apply(player.getInventory());sync(player);return amount;
     }

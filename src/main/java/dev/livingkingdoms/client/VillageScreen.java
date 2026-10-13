@@ -760,6 +760,7 @@ public final class VillageScreen extends KingdomScreen {
                 data.getString("notice").endsWith("rejected")?ERROR:SUCCESS);
         y=paragraph(g,tr("food",data.getInt("food_stock"),data.getInt("food_capacity")),x,y,w,INK);
         y=paragraph(g,tr("food_produced",data.getLong("food_produced")),x,y,w,MUTED);
+        y=paragraph(g,tr("food_reserved",data.getInt("food_reserved")),x,y,w,MUTED);
         var stock=data.getCompound("stock");
         y=paragraph(g,tr("citizens.materials",stock.getInt("WOOD"),stock.getInt("STONE"),stock.getInt("IRON"),stock.getInt("EQUIPMENT")),x,y,w,MUTED);
         y=paragraph(g,tr("security",data.getInt("security")),x,y,w,INK);

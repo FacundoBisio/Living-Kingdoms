@@ -62,11 +62,19 @@ public final class ProfessionSavedData extends SavedData {
         authority(); var old=Objects.requireNonNull(food.get(settlement),"Food store not initialized"); var next=old.add(units);
         if(!old.equals(next)) { food.put(settlement,next); setDirty(); } return next.stock()-old.stock();
     }
+    public int pledgeFood(UUID settlement,int units) {
+        authority();var old=Objects.requireNonNull(food.get(settlement),"Food store not initialized");var next=old.pledge(units);
+        if(!old.equals(next)) {food.put(settlement,next);setDirty();}return next.stock()-old.stock();
+    }
     /** Economic transfers preserve the original production total; input is not a harvest. */
     public boolean exchangeFood(UUID settlement,FoodStock expected,int consumed,int deposited) {
+        return exchangeFood(settlement,expected,consumed,deposited,false);
+    }
+    public boolean exchangeFood(UUID settlement,FoodStock expected,int consumed,int deposited,boolean directWithdrawal) {
         authority();if(consumed<0 || deposited<0) throw new IllegalArgumentException("Invalid food transfer");
         if(!expected.equals(food.get(settlement)) || consumed>expected.stock() || deposited>expected.capacity()-expected.stock()+consumed) return false;
-        var next=expected.consume(consumed).deposit(deposited);
+        if(directWithdrawal && consumed>expected.stock()-expected.pledged()) return false;
+        var next=(directWithdrawal?expected.withdraw(consumed):expected.consume(consumed)).deposit(deposited);
         if(!next.equals(expected)) {food.put(settlement,next);setDirty();}return true;
     }
     public void initialize(Citizen citizen) {
@@ -202,7 +210,7 @@ public final class ProfessionSavedData extends SavedData {
     }
     private static boolean careerType(ProfessionType type) { return type.operational(); }
     public static ProfessionSavedData load(CompoundTag tag,HolderLookup.Provider registries) {
-        require(tag,"schema_version",Tag.TAG_INT); int version=tag.getInt("schema_version"); if(version<1 || version>3) throw new IllegalArgumentException("Unsupported profession schema");
+        require(tag,"schema_version",Tag.TAG_INT); int version=tag.getInt("schema_version"); if(version<1 || version>4) throw new IllegalArgumentException("Unsupported profession schema");
         var data=new ProfessionSavedData();
         for(var element:list(tag,"buildings",65536)) {
             var e=(CompoundTag)element; var origin=pos(e,"origin");
@@ -227,7 +235,7 @@ public final class ProfessionSavedData extends SavedData {
         }
         for(var element:list(tag,"food",65536)) {
             var e=(CompoundTag)element;
-            if(data.food.putIfAbsent(uuid(e,"settlement"),new FoodStock(integer(e,"stock"),integer(e,"capacity"),number(e,"produced")))!=null) throw new IllegalArgumentException("Duplicate food stock");
+            if(data.food.putIfAbsent(uuid(e,"settlement"),new FoodStock(integer(e,"stock"),integer(e,"capacity"),number(e,"produced"),version>=4?integer(e,"pledged"):0))!=null) throw new IllegalArgumentException("Duplicate food stock");
         }
         if(version>=2) {
             var seen=new HashSet<String>();
@@ -243,7 +251,7 @@ public final class ProfessionSavedData extends SavedData {
         data.setDirty(false); return data;
     }
     @Override public CompoundTag save(CompoundTag tag,HolderLookup.Provider registries) {
-        authority(); tag.putInt("schema_version",3); var bs=new ListTag(); var ps=new ListTag(); var fs=new ListTag();
+        authority(); tag.putInt("schema_version",4); var bs=new ListTag(); var ps=new ListTag(); var fs=new ListTag();
         for(var b:buildings.values()) {
             var e=new CompoundTag(); e.putUUID("id",b.id()); e.putUUID("settlement",b.settlementId()); e.putString("dimension",b.dimension()); e.putString("kind",b.kind().name()); e.putString("template",b.template().toString());
             putPos(e,"origin",b.origin()); putPos(e,"entrance",b.entrance()); e.putString("rotation",b.rotation().name()); e.putInt("max_x",b.bounds().maxX()); e.putInt("max_z",b.bounds().maxZ()); e.putInt("slots",b.workplaceSlots()); e.putBoolean("active",b.active()); bs.add(e);
@@ -253,7 +261,7 @@ public final class ProfessionSavedData extends SavedData {
             if(p.workplaceId()!=null) e.putUUID("workplace",p.workplaceId()); e.putBoolean("active",p.active()); e.putString("work_state",p.workState().name()); e.putLong("next_work",p.nextWorkAt()); e.putInt("cursor",p.cropCursor()); e.putInt("failures",p.navigationFailures());
             var traits=new ListTag(); for(var t:p.traits()) { var v=new CompoundTag(); v.putString("trait",t.name()); traits.add(v); } e.put("traits",traits); ps.add(e);
         }
-        food.forEach((id,f) -> {var e=new CompoundTag(); e.putUUID("settlement",id); e.putInt("stock",f.stock()); e.putInt("capacity",f.capacity()); e.putLong("produced",f.produced()); fs.add(e);});
+        food.forEach((id,f) -> {var e=new CompoundTag(); e.putUUID("settlement",id); e.putInt("stock",f.stock()); e.putInt("capacity",f.capacity()); e.putLong("produced",f.produced());e.putInt("pledged",f.pledged()); fs.add(e);});
         var cs=new ListTag(); careers.forEach((id,history) -> history.forEach((type,c) -> {
             var e=new CompoundTag(); e.putUUID("citizen",id); e.putString("type",type.name()); e.putInt("level",c.level()); e.putLong("xp",c.xp()); cs.add(e);
         })); tag.put("careers",cs);

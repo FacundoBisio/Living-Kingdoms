@@ -337,6 +337,7 @@ public final class VillageUiService {
                 .filter(event -> event.state()!=dev.livingkingdoms.defense.domain.ThreatState.APPROACHING).ifPresent(event -> DefenseUiState.write(tag,event,player.getUUID()));
         var food=dev.livingkingdoms.profession.ProfessionService.food(player.server,settlement.id());
         tag.putInt("food_stock",food.stock()); tag.putInt("food_capacity",food.capacity()); tag.putLong("food_produced",food.produced());
+        tag.putInt("food_reserved",food.reserve(dev.livingkingdoms.config.ProfessionConfig.HEALTHY_FOOD.get()));
         return tag;
     }
 

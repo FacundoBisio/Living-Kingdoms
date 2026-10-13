@@ -560,5 +560,7 @@
   "ui.livingkingdoms.construction_stock_help": "Supply missing materials from this kingdom’s shared stock. Stored resources are spent once; no items are withdrawn into your inventory.",
   "ui.livingkingdoms.construction_stored": "In shared stock: %s",
   "economy.livingkingdoms.food_deposit": "Deposited %s wheat: %s food units stored.",
-  "economy.livingkingdoms.food_withdraw": "Withdrew %s wheat: %s food units spent."
+  "economy.livingkingdoms.food_withdraw": "Withdrew %s wheat: %s food units spent.",
+  "economy.livingkingdoms.food_reserved": "No whole wheat surplus is available. The kingdom keeps %s food units for its residents.",
+  "ui.livingkingdoms.food_reserved": "Reserved for residents and workers: %s food units"
 }

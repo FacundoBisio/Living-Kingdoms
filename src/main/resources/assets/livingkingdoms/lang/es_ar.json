@@ -560,5 +560,7 @@
   "ui.livingkingdoms.construction_stock_help": "Aportar materiales pendientes desde el almacén compartido del reino. Los recursos se gastan una vez, sin retirarlos a tu inventario.",
   "ui.livingkingdoms.construction_stored": "En el almacén: %s",
   "economy.livingkingdoms.food_deposit": "Aportaste %s de trigo: %s unidades de comida almacenadas.",
-  "economy.livingkingdoms.food_withdraw": "Retiraste %s de trigo: %s unidades de comida gastadas."
+  "economy.livingkingdoms.food_withdraw": "Retiraste %s de trigo: %s unidades de comida gastadas.",
+  "economy.livingkingdoms.food_reserved": "No hay excedente de trigo disponible. El reino conserva %s unidades de comida para sus habitantes.",
+  "ui.livingkingdoms.food_reserved": "Reservado para habitantes y trabajos: %s unidades de comida"
 }
