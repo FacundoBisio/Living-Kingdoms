@@ -22,6 +22,25 @@ public final class QuestBoardState {
         return result;
     }
 
+    /** Current work plus one upcoming prerequisite; history is an explicit reader preference. */
+    public static List<CompoundTag> visible(CompoundTag data, int section, boolean history) {
+        var all = visible(data, section);
+        if (history || section == 2) return all;
+        var current = new ArrayList<CompoundTag>();
+        CompoundTag nextLocked = null, lastCompleted = null;
+        for (var quest : all) {
+            switch (quest.getString("state")) {
+                case "ACTIVE", "AVAILABLE" -> current.add(quest);
+                case "LOCKED" -> { if (nextLocked == null) nextLocked = quest; }
+                case "COMPLETED" -> lastCompleted = quest;
+                default -> { }
+            }
+        }
+        if (section == 0 && nextLocked != null) current.add(nextLocked);
+        if (section == 0 && current.isEmpty() && lastCompleted != null) current.add(lastCompleted);
+        return List.copyOf(current);
+    }
+
     public static int afterAction(CompoundTag data, UUID selected, UiPayloads.Action action, int section) {
         if (selected == null || data.contains("notice")) return section;
         var list = data.getList("quests", 10);

@@ -21,6 +21,8 @@ class UiTestPlayer extends FakePlayer {
     final List<CompoundTag> snapshots = new ArrayList<>();
     final List<CompoundTag> hudSnapshots = new ArrayList<>();
     final List<CompoundTag> territorySnapshots = new ArrayList<>();
+    final List<net.minecraft.network.chat.Component> clientMessages = new ArrayList<>();
+    @Override public void displayClientMessage(net.minecraft.network.chat.Component message,boolean overlay) { clientMessages.add(message.copy()); }
     UiTestPlayer(ServerLevel level) {
         super(level, new GameProfile(UUID.randomUUID(), "VillageUiTest"));
         Connection wire = new Connection(PacketFlow.SERVERBOUND) {

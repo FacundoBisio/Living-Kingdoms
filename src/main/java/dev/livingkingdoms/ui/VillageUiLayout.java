@@ -2,6 +2,7 @@ package dev.livingkingdoms.ui;
 
 /** Coordinates in Minecraft GUI units, recalculated after resize or GUI-scale changes. */
 public record VillageUiLayout(int left, int top, int width, int height, int listWidth, boolean compact) {
+    public static boolean readable(int screenWidth, int screenHeight) { return screenWidth >= 280 && screenHeight >= 200; }
     public static VillageUiLayout fit(int screenWidth, int screenHeight, boolean board) {
         int width = Math.min(board ? 500 : 408, screenWidth - 12);
         int height = Math.min(board ? 306 : 228, screenHeight - 12);

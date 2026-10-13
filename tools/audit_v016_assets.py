@@ -21,7 +21,8 @@ def audit():
     for relative, expected in board.assets().items():
         name = "assets/livingkingdoms/" + relative
         content = (RESOURCES / name).read_bytes()
-        assert content == expected, "Generated resource differs: " + name
+        comparable = content.replace(b"\r\n", b"\n") if name.endswith(".json") else content
+        assert comparable == expected, "Generated resource differs: " + name
         files[name] = content
     for relative in ("blockstates/quest_board.json", "models/item/quest_board.json"):
         name = "assets/livingkingdoms/" + relative

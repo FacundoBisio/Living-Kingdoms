@@ -56,6 +56,73 @@ public final class EstablishmentGameTests {
     private static final TicketType<ChunkPos> SURVEY_FIXTURE = TicketType.create("livingkingdoms_test_survey",
             java.util.Comparator.comparingLong(ChunkPos::toLong),600);
     @GameTest(template="empty",timeoutTicks=600)
+    public static void charterItemConversionGuidesNarrativeAndNamedKingdomSurvivesDiskReload(GameTestHelper helper) {
+        var level=helper.getLevel();var center=fixture(helper,796672);
+        var residents=village(level,center,false,false);
+        var identities=residents.stream().map(Villager::getUUID).collect(java.util.stream.Collectors.toSet());
+        var chest=center.offset(12,0,0);level.setBlock(chest,Blocks.CHEST.defaultBlockState(),18);
+        ((net.minecraft.world.level.block.entity.ChestBlockEntity)level.getBlockEntity(chest)).setItem(0,new ItemStack(Items.DIAMOND,3));
+        var player=player(level,center,1);
+        helper.runAfterDelay(2,()-> {
+            helper.assertTrue(VillageSurvey.detect(level,center).valid(),"Two real villagers and two complete beds form a valid conversion");
+            var context=new UseOnContext(player,InteractionHand.MAIN_HAND,new BlockHitResult(Vec3.atCenterOf(center.below()),Direction.UP,center.below(),false));
+            var result=KingdomItems.KINGDOM_CHARTER.get().onItemUseFirst(player.getMainHandItem(),context);
+            helper.assertTrue(result==InteractionResult.CONSUME && player.getMainHandItem().isEmpty(),"Actual Charter item converts and consumes exactly one item");
+            helper.assertTrue(player.clientMessages.stream().anyMatch(message->message.getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents text
+                    && text.getKey().equals("charter.livingkingdoms.next_mayor")),"Player receives persistent chat instructions for the real mayor flow");
+            var settlements=SettlementSavedData.get(level.getServer());
+            var settlement=settlements.at(level.dimension().location().toString(),center.getX(),center.getZ()).orElseThrow();
+            var mayor=NpcService.ensureMayor(level,settlement).orElseThrow();
+            helper.assertTrue(identities.contains(mayor.getUUID()) && residents.stream().allMatch(Villager::isAlive),"Conversion promotes one existing resident and retains the others");
+            helper.assertTrue(level.getBlockState(chest).is(Blocks.CHEST)
+                    && ((net.minecraft.world.level.block.entity.ChestBlockEntity)level.getBlockEntity(chest)).getItem(0).getCount()==3
+                    && level.getBlockState(center.offset(-8,0,3)).is(Blocks.RED_BED),"Existing home inventory and complete beds remain");
+            player.setPos(mayor.getX()+1,mayor.getY(),mayor.getZ());
+            helper.assertTrue(VillageUiService.openDialogue(player,mayor) && player.snapshots.getLast().getString("onboarding_stage").equals("WELCOME"),"Converted mayor begins the narrative instead of silently joining");
+            UUID token=player.snapshots.getLast().getUUID("session");
+            String name="Alto Prado "+settlement.id().toString().substring(0,8);
+            for(String action:List.of("NEXT","NEXT","HELP","ACCEPT","REGISTER"))
+                helper.assertTrue(VillageUiService.handleMayor(player,new dev.livingkingdoms.ui.UiPayloads.MayorRequest(token,action,name)),"Real UI request advances the persisted mayor conversation");
+            var named=settlements.get(settlement.id()).orElseThrow();
+            var marker=new BlockPos(named.territory().x(),named.territory().y(),named.territory().z());
+            helper.assertTrue(named.name().equals(name) && named.territory().equals(settlement.territory())
+                    && level.getBlockState(marker.east(2)).is(KingdomBlocks.QUEST_BOARD),"Naming preserves UUID/territory and the real conversion board");
+            level.getDataStorage().save();net.neoforged.neoforge.common.IOUtilities.waitUntilIOWorkerComplete();
+            var directory=level.getServer().getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT).resolve("data");
+            var fresh=new net.minecraft.world.level.storage.DimensionDataStorage(directory.toFile(),null,level.registryAccess());
+            var reopened=fresh.get(new net.minecraft.world.level.saveddata.SavedData.Factory<>(SettlementSavedData::new,SettlementSavedData::load),SettlementSavedData.DATA_NAME);
+            var onboarding=fresh.get(new net.minecraft.world.level.saveddata.SavedData.Factory<>(dev.livingkingdoms.onboarding.persistence.KingdomOnboardingSavedData::new,
+                    dev.livingkingdoms.onboarding.persistence.KingdomOnboardingSavedData::load),dev.livingkingdoms.onboarding.persistence.KingdomOnboardingSavedData.DATA_NAME);
+            helper.assertTrue(reopened!=null && reopened.get(named.id()).orElseThrow().equals(named) && onboarding!=null
+                    && onboarding.stage(player.getUUID(),named.id())==dev.livingkingdoms.onboarding.domain.OnboardingStage.JOINED,
+                    "Actual disk save/reopen preserves the converted name, territory, UUID and joined narrative");
+            VillageUiService.openDialogue(player,mayor);
+            helper.assertTrue(player.snapshots.getLast().getString("onboarding_stage").equals("JOINED"),"Later conversations use ordinary management");
+            helper.succeed();
+        });
+    }
+    @GameTest(template="empty",timeoutTicks=600)
+    public static void conversionExplainsEachMissingMinimumWithoutSpendingCharter(GameTestHelper helper) {
+        var level=helper.getLevel();var first=fixture(helper,797696);var second=fixture(helper,798720);
+        bed(level,first.offset(-8,0,3));villager(level,first.offset(-6,0,6),false);villager(level,first.offset(6,0,6),false);
+        bed(level,second.offset(-8,0,3));bed(level,second.offset(8,0,3));villager(level,second.offset(-6,0,6),false);
+        var bedPlayer=player(level,first,1);var villagerPlayer=player(level,second,1);
+        helper.runAfterDelay(2,()-> {
+            int before=SettlementSavedData.get(level.getServer()).settlements().size();
+            for(var entry:List.of(java.util.Map.entry(first,bedPlayer),java.util.Map.entry(second,villagerPlayer))) {
+                var context=new UseOnContext(entry.getValue(),InteractionHand.MAIN_HAND,new BlockHitResult(Vec3.atCenterOf(entry.getKey().below()),Direction.UP,entry.getKey().below(),false));
+                helper.assertTrue(KingdomItems.KINGDOM_CHARTER.get().onItemUseFirst(entry.getValue().getMainHandItem(),context)==InteractionResult.FAIL
+                        && entry.getValue().getMainHandItem().getCount()==1,"Either missing minimum prevents conversion and retains the Charter");
+                var message=entry.getValue().clientMessages.getLast();
+                helper.assertTrue(message.getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents text
+                        && text.getKey().equals("charter.livingkingdoms.incomplete_village") && text.getArgs().length==4,
+                        "Instructions include both actual/required villager and complete-bed counts");
+            }
+            helper.assertTrue(SettlementSavedData.get(level.getServer()).settlements().size()==before,"Rejected conversion creates no kingdom record");
+            helper.succeed();
+        });
+    }
+    @GameTest(template="empty",timeoutTicks=600)
     public static void charterIsRegisteredAndCraftableWithAnyBanner(GameTestHelper helper) {
         var level = helper.getLevel();
         helper.assertTrue(BuiltInRegistries.ITEM.getKey(KingdomItems.KINGDOM_CHARTER.get()).equals(
