@@ -39,12 +39,16 @@ def main():
     args = parser.parse_args()
     for relative, content in assets().items():
         path = ROOT / relative
-        if args.check or args.jar: assert path.read_bytes() == content, 'Stale HUD asset: ' + relative
+        if args.check or args.jar:
+            actual = path.read_bytes()
+            # Windows may check text metadata out as CRLF; keep binary PNG checks exact.
+            comparable = actual.replace(b'\r\n', b'\n') if relative.endswith('.mcmeta') else actual
+            assert comparable == content, 'Stale HUD asset: ' + relative
         else: path.parent.mkdir(parents=True, exist_ok=True); path.write_bytes(content)
     if args.jar:
         with zipfile.ZipFile(args.jar) as jar:
             for relative, content in assets().items():
-                assert jar.read('assets/livingkingdoms/' + relative) == content, 'Stale or absent packaged HUD asset'
+                assert jar.read('assets/livingkingdoms/' + relative) == (ROOT / relative).read_bytes(), 'Stale or absent packaged HUD asset'
     print('Verified eight native pixel icons and nearest-filter texture metadata' + (' in ' + args.jar.name if args.jar else ''))
 
 if __name__ == '__main__': main()

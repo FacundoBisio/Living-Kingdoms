@@ -1,5 +1,7 @@
 # Kingdoms Alive 0.20.0
 
+Registro histórico de preparación. La entrega vigente solicitada es [Living Villagers 0.17.0](living-villagers-v017.md), en `codex/living-villagers-v017`; los avances siguientes se conservaron allí. Este documento no declara completada 0.20.0.
+
 Base: main local `48a2a4c`, que incluye 0.16.1; el remoto todavía está en 0.16.0. Rama única: `codex/kingdoms-alive-v020`. No se descartaron ni publicaron esos commits previos.
 
 Auditoría inicial: Charter, incorporación narrativa/nombres, UI sin la pasada heredada de blur, HUD modular, identidad/viviendas de ciudadanos, Farmer/Builder/Guard, reservas y etapas de construcción, encuentros/defensa y recompensas ya existen. Se conservan esos sistemas. Faltan almacenamiento económico con consumo, tres profesiones productivas, edificios de apoyo, relaciones/comercio, gestión central y progresión que los conecte.
