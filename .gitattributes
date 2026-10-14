@@ -5,3 +5,7 @@
 gradlew text eol=lf
 gradlew.bat text eol=crlf
 *.jar binary
+# Imported artist sources are hashed byte-for-byte in the Argon provenance manifest.
+docs/argon4-source/citizen.bbmodel -text
+src/main/resources/assets/livingkingdoms/geo/argon4/*.json -text
+src/main/resources/assets/livingkingdoms/animations/argon4/*.json -text

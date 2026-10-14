@@ -688,5 +688,6 @@
   "management.livingkingdoms.benefit.founding_camp": "Temporary shelter; founding advances through construction.",
   "ui.livingkingdoms.citizens.assign_merchant": "Assign Merchant",
   "ui.livingkingdoms.citizens.merchant_requirement": "Needs a safe functional Market, home and a free position.",
-  "construction.livingkingdoms.building.blacksmith": "Blacksmith"
+  "construction.livingkingdoms.building.blacksmith": "Blacksmith",
+  "citizen.livingkingdoms.model_changed": "Citizen model: %s. Changes presentation on this client only."
 }

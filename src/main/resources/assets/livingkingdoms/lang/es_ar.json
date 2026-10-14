@@ -688,5 +688,6 @@
   "management.livingkingdoms.benefit.founding_camp": "Refugio temporal; la fundación avanza mediante construcción.",
   "ui.livingkingdoms.citizens.assign_merchant": "Asignar comerciante",
   "ui.livingkingdoms.citizens.merchant_requirement": "Necesita mercado funcional seguro, hogar y puesto libre.",
-  "construction.livingkingdoms.building.blacksmith": "Herrería"
+  "construction.livingkingdoms.building.blacksmith": "Herrería",
+  "citizen.livingkingdoms.model_changed": "Modelo de ciudadanos: %s. Solo cambia la apariencia en este cliente."
 }

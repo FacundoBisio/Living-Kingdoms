@@ -23,7 +23,8 @@ import java.util.UUID;
 
 /** No common bootstrap references this class: register only from VillageClient. */
 public final class CitizenVisualClient {
-    static record View(CitizenPresentation data, Component name, Component secondary, ResourceLocation texture, Language language) {}
+    static record View(CitizenPresentation data, Component name, Component secondary, ResourceLocation texture,
+                       ResourceLocation argonTexture, Language language) {}
     private static final CitizenPresentationCache CACHE = new CitizenPresentationCache(CitizenPresentationCache.MAX_CAPACITY, 400);
     private static final LinkedHashMap<UUID, View> VIEWS = new LinkedHashMap<>();
     private static ClientLevel world;
@@ -36,6 +37,7 @@ public final class CitizenVisualClient {
         bus.addListener(CitizenVisualClient::layers);
         NeoForge.EVENT_BUS.addListener(EventPriority.LOW, CitizenVisualClient::render);
         NeoForge.EVENT_BUS.addListener(CitizenVisualClient::logout);
+        NeoForge.EVENT_BUS.addListener(CitizenModelCommands::register);
         NeoForge.EVENT_BUS.addListener(CitizenVisualClient::leave);
         NeoForge.EVENT_BUS.addListener(EventPriority.HIGH, CitizenVisualClient::interact);
         NeoForge.EVENT_BUS.addListener(EventPriority.HIGH, CitizenVisualClient::interactSpecific);
@@ -57,6 +59,8 @@ public final class CitizenVisualClient {
             result = new View(data, Component.literal(data.name()), Component.translatable("citizen.livingkingdoms.label",
                     profession(data.profession()), data.level()), ResourceLocation.fromNamespaceAndPath("livingkingdoms",
                     "textures/entity/citizen/" + data.profession().name().toLowerCase(Locale.ROOT) + "_" + data.skinVariant() + ".png"),
+                    ResourceLocation.fromNamespaceAndPath("livingkingdoms", "textures/entity/citizen_argon4/"
+                            + data.profession().name().toLowerCase(Locale.ROOT) + "_" + data.skinVariant() + ".png"),
                     Language.getInstance());
             VIEWS.remove(data.entityUuid()); VIEWS.put(data.entityUuid(), result);
             if (VIEWS.size() > CitizenPresentationCache.MAX_CAPACITY) VIEWS.pollFirstEntry();
