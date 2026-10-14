@@ -89,7 +89,9 @@ public final class CitizenService {
     private static void synchronizeHousing(ServerLevel level, Settlement settlement) {
         SettlementSavedData.get(level.getServer()).layout(settlement.id()).ifPresent(layout ->
                 CitizenSavedData.get(level.getServer()).synchronizeHousing(settlement, layout,
-                        CitizenConfig::capacity, CitizenConfig.INCLUDE_TEMPORARY_SHELTERS.get()));
+                        building -> Math.min(128,CitizenConfig.capacity(building)+
+                                dev.livingkingdoms.economy.BuildingDevelopment.level(level.getServer(),settlement.id(),dev.livingkingdoms.citizen.domain.Housing.identity(settlement.id(),building))-1),
+                        CitizenConfig.INCLUDE_TEMPORARY_SHELTERS.get()));
     }
 
     /** Only UUID lookups of this settlement's registered citizens; unloaded entities stay ACTIVE. */

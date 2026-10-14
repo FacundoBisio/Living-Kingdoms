@@ -35,7 +35,7 @@ public final class BuildingDevelopment {
         var s=SettlementSavedData.get(player.server).get(settlement).orElseThrow();ProfessionService.ensure(player.serverLevel(),s);
         var target=ProfessionSavedData.get(player.server).building(building).filter(b->b.active() && b.settlementId().equals(settlement)).orElse(null);
         int current=level(player.server,settlement,building);
-        if(target==null || !upgradeable(target.kind()) || current>=EconomyConfig.MAX_BUILDING_LEVEL.get()) return false;
+        if(target==null || !upgradeable(target.kind()) || current>=Math.min(3,EconomyConfig.MAX_BUILDING_LEVEL.get())) return false;
         var payment=KingdomEconomy.plan(player.server,settlement,upgradeCost(current),Map.of(),false);if(payment.isEmpty()) return false;
         var transfer=payment.orElseThrow();var developed=transfer.after().upgrade(building);
         if(!KingdomEconomy.commit(player.server,transfer)) return false;
@@ -44,11 +44,15 @@ public final class BuildingDevelopment {
             var next=new Settlement(s.id(),s.name(),s.faction(),Math.max(s.level(),current+1),s.population(),s.territory(),s.provenance(),s.lifecycle());
             if(!SettlementSavedData.get(player.server).replace(s,next)) throw new IllegalStateException("Town Hall changed during upgrade");
         }
-        ProfessionService.ensure(player.serverLevel(),SettlementSavedData.get(player.server).get(settlement).orElseThrow());KingdomEconomy.ensure(player.server,settlement);return true;
+        ProfessionService.ensure(player.serverLevel(),SettlementSavedData.get(player.server).get(settlement).orElseThrow());KingdomEconomy.ensure(player.server,settlement);
+        dev.livingkingdoms.chronicle.ChronicleService.buildingUpgraded(player.server,settlement,building,current+1);
+        dev.livingkingdoms.chronicle.ChronicleAdvancements.grant(player,"first_upgrade");
+        if(SettlementSavedData.get(player.server).get(settlement).orElseThrow().level()>=3) dev.livingkingdoms.chronicle.ChronicleAdvancements.grant(player,"development3");
+        return true;
     }
     public static boolean upgradeable(BuildingKind kind) {
         return switch(kind) {
-            case CORE,TOWN_HALL,FARM,BARRACKS,WATCHTOWER,WAREHOUSE,LUMBERJACK_HUT,MINE,BLACKSMITH,MARKET -> true;
+            case CORE,TOWN_HALL,FARM,BARRACKS,WATCHTOWER,WAREHOUSE,LUMBERJACK_HUT,MINE,BLACKSMITH,MARKET,HOUSE,HOUSE_VARIANT,HOUSE_THIRD -> true;
             default -> false;
         };
     }

@@ -26,6 +26,7 @@ public final class QuestJournalService {
         if(!player.server.isSameThread() || !player.isAlive() || player.isSpectator()) return false;
         var session=new Session(UUID.randomUUID(),player.server.overworld().getGameTime(),player.level().dimension().location().toString());
         VillageUiService.dismiss(player);
+        ManagementService.dismiss(player);dev.livingkingdoms.commerce.CommerceService.dismiss(player);
         SESSIONS.put(player,session); send(player,session,false); return true;
     }
     public static boolean owns(ServerPlayer player,UUID token) {

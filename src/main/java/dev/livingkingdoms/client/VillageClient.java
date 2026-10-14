@@ -18,12 +18,14 @@ public final class VillageClient {
     private static void onLogin(ClientPlayerNetworkEvent.LoggingIn event) { CLOSED_SESSIONS.clear(); }
     private static void onLogout(ClientPlayerNetworkEvent.LoggingOut event) { CLOSED_SESSIONS.clear(); }
     public VillageClient(IEventBus bus,net.neoforged.fml.ModContainer container) {
-        bus.addListener((net.neoforged.neoforge.client.event.RegisterMenuScreensEvent event)->event.register(dev.livingkingdoms.storage.KingdomStorage.MENU.get(),StorageScreen::new));
         CommerceScreen.register();
-        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut event)->CommerceScreen.clear());
+        ManagementScreen.register();
+        KingdomAlerts.register();
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut event)->ManagementScreen.clear());
         dev.livingkingdoms.client.citizenvisual.CitizenVisualClient.register(bus,container);
         dev.livingkingdoms.client.preview.ConstructionPreviewClient.register(bus);
-        KingdomAlerts.register();
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut event)->CommerceScreen.clear());
+        bus.addListener((net.neoforged.neoforge.client.event.RegisterMenuScreensEvent event)->event.register(dev.livingkingdoms.storage.KingdomStorage.MENU.get(),StorageScreen::new));
         bus.addListener(VillageClient::registerUiReload);
         bus.addListener(MayorCircletLayer::register);
         bus.addListener(KingdomKeys::register);
@@ -82,6 +84,7 @@ public final class VillageClient {
                 if(client.screen instanceof VillageScreen village) village.reloadUi();
                 else if(client.screen instanceof MayorOnboardingScreen mayor) mayor.reloadUi();
                 else if(client.screen instanceof StockScreen stock) stock.reloadUi();
+                else if(client.screen instanceof ManagementScreen management) management.reloadUi();
             });
         });
     }

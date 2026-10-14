@@ -47,6 +47,7 @@ public final class VillageScreen extends KingdomScreen {
     private long constructionTicks;
     private boolean buildingPicker;
     private boolean professionPicker;
+    private dev.livingkingdoms.structure.BuildingKind previewKind=dev.livingkingdoms.structure.BuildingKind.HOUSE;
     private int professionPage,buildingPage;
     private boolean history;
     private CompoundTag cachedData;
@@ -283,26 +284,27 @@ public final class VillageScreen extends KingdomScreen {
                     ()->{if(q!=null && q.getBoolean("remove")) send(UiPayloads.Action.REMOVE_PROFESSION,q.getUUID("id"));
                         else {professionPicker=!professionPicker;detailScroll=0;rebuildWidgets();}});
             assign.primary(); assign.active=!pending && q!=null && (professionPicker || q.getBoolean("assign") || q.getBoolean("assign_guard") || q.getBoolean("assign_builder")
-                    || q.getBoolean("assign_lumberjack") || q.getBoolean("assign_miner") || q.getBoolean("assign_blacksmith") || q.getBoolean("remove"));
+                    || q.getBoolean("assign_lumberjack") || q.getBoolean("assign_miner") || q.getBoolean("assign_blacksmith") || q.getBoolean("assign_merchant") || q.getBoolean("remove"));
             if(!assign.active && !pending) assign.setTooltip(Tooltip.create(tr("citizens.requirement")));
             button(tr("back"),x+actionWidth+4,layout.footerTop(),actionWidth,()->send(returnAction(),null)).active=!pending;
             if(professionPicker && q!=null) {
                 int pickerX=layout.detailX(),pickerWidth=(layout.detailWidth()-28)/2;
-                int capacity=dev.livingkingdoms.ui.PickerPages.capacity(layout.viewport());professionPage%=dev.livingkingdoms.ui.PickerPages.count(6,layout.viewport());
-                var types=new String[]{"farmer","guard","builder","lumberjack","miner","blacksmith"};
-                var actions=new UiPayloads.Action[]{UiPayloads.Action.ASSIGN_FARMER,UiPayloads.Action.ASSIGN_GUARD,UiPayloads.Action.ASSIGN_BUILDER,UiPayloads.Action.ASSIGN_LUMBERJACK,UiPayloads.Action.ASSIGN_MINER,UiPayloads.Action.ASSIGN_BLACKSMITH};
+                int capacity=dev.livingkingdoms.ui.PickerPages.capacity(layout.viewport());professionPage%=dev.livingkingdoms.ui.PickerPages.count(7,layout.viewport());
+                var types=new String[]{"farmer","guard","builder","lumberjack","miner","blacksmith","merchant"};
+                var actions=new UiPayloads.Action[]{UiPayloads.Action.ASSIGN_FARMER,UiPayloads.Action.ASSIGN_GUARD,UiPayloads.Action.ASSIGN_BUILDER,UiPayloads.Action.ASSIGN_LUMBERJACK,UiPayloads.Action.ASSIGN_MINER,UiPayloads.Action.ASSIGN_BLACKSMITH,UiPayloads.Action.ASSIGN_MERCHANT};
                 for(int i=0;i<capacity && professionPage*capacity+i<types.length;i++) {
                     int index=professionPage*capacity+i;String type=types[index];
                     professionChoice(q,type,actions[index],index==0?"assign":"assign_"+type,index==0?"citizens.requirement":"citizens."+type+"_requirement",
                             pickerX+(i%2)*(pickerWidth+4),layout.contentTop()+26+(i/2)*24,pickerWidth);
                 }
-                pickerNavigation(true,6);
+                pickerNavigation(true,7);
             }
             return;
         }
         if(construction() && data.getString("lifecycle").equals("ESTABLISHED")) {
             int actionWidth=(available-4)/2;
             if(!buildingPicker) {
+                button("manage",Component.translatable("management.livingkingdoms.buildings"),left+8,top+32,listWidth-14,()->send(UiPayloads.Action.MANAGE,null)).active=!pending && data.getBoolean("can_help");
                 int pickerWidth=Math.min(128,available);
                 var choose=button("building_picker",tr("choose_building"),left+panelWidth-pickerWidth-10,top+32,pickerWidth,
                         ()->{buildingPicker=true;detailScroll=0;rebuildWidgets();});
@@ -312,20 +314,21 @@ public final class VillageScreen extends KingdomScreen {
             if(buildingPicker) {
                 button("building_picker_back",tr("back"),x,layout.footerTop(),actionWidth,
                         ()->{buildingPicker=false;detailScroll=0;rebuildWidgets();}).active=!pending;
-                button(tr("leave"),x+actionWidth+4,layout.footerTop(),actionWidth,this::onClose);
+                var preview=button("preview",Component.translatable("management.livingkingdoms.preview"),x+actionWidth+4,layout.footerTop(),actionWidth,()->send(UiPayloads.Action.PREVIEW,dev.livingkingdoms.ui.BuildingPreviewTargets.target(previewKind)));
+                preview.active=!pending && data.getBoolean("preview_allowed");preview.setTooltip(Tooltip.create(Component.translatable("management.livingkingdoms.preview_help")));
                 int pickerX=layout.detailX(), pickerWidth=(layout.detailWidth()-28)/2;
-                int capacity=dev.livingkingdoms.ui.PickerPages.capacity(layout.viewport());buildingPage%=dev.livingkingdoms.ui.PickerPages.count(8,layout.viewport());
-                var kinds=new String[]{"house","farm","barracks","watchtower","warehouse","lumberjack_hut","mine","blacksmith"};
-                var actions=new UiPayloads.Action[]{UiPayloads.Action.PLAN,UiPayloads.Action.PLAN_FARM,UiPayloads.Action.PLAN_BARRACKS,UiPayloads.Action.PLAN_WATCHTOWER,
-                        UiPayloads.Action.PLAN_WAREHOUSE,UiPayloads.Action.PLAN_LUMBERJACK_HUT,UiPayloads.Action.PLAN_MINE,UiPayloads.Action.PLAN_BLACKSMITH};
+                int capacity=dev.livingkingdoms.ui.PickerPages.capacity(layout.viewport());buildingPage%=dev.livingkingdoms.ui.PickerPages.count(9,layout.viewport());
+                var kinds=new String[]{"house","farm","barracks","watchtower","warehouse","lumberjack_hut","mine","blacksmith","market"};
                 for(int i=0;i<capacity && buildingPage*capacity+i<kinds.length;i++) {
-                    int index=buildingPage*capacity+i;var action=actions[index];String kind=kinds[index];
+                    int index=buildingPage*capacity+i;String kind=kinds[index];
                     Component label=index<4?tr("plan_"+kind):Component.translatable("construction.livingkingdoms.building."+kind);
-                    var choice=button("plan_"+kind,label,pickerX+(i%2)*(pickerWidth+4),layout.contentTop()+26+(i/2)*24,pickerWidth,()->send(action,null));
+                    var building=dev.livingkingdoms.structure.BuildingKind.valueOf(kind.toUpperCase(java.util.Locale.ROOT));
+                    var choice=button("plan_"+kind,label,pickerX+(i%2)*(pickerWidth+4),layout.contentTop()+26+(i/2)*24,pickerWidth,()->{previewKind=building;rebuildWidgets();});
+                    choice.selected(previewKind==building);
                     choice.active=!pending && (index!=2 && index!=3 || data.getBoolean(index==2?"barracks_plan":"watchtower_plan"));
                     choice.setTooltip(Tooltip.create(choice.active?label:tr("building_exists")));
                 }
-                pickerNavigation(false,8);
+                pickerNavigation(false,9);
                 return;
             }
         }
@@ -630,8 +633,9 @@ public final class VillageScreen extends KingdomScreen {
     private void renderConstruction(GuiGraphics g) {
         int captionWidth=panelWidth-20;
         if(data.getString("lifecycle").equals("ESTABLISHED") && !buildingPicker) captionWidth-=Math.min(128,panelWidth-listWidth-20)+12;
-        g.drawString(font,ellipsize(tr("construction").append(" · ").append(Component.translatable(
-                "construction.livingkingdoms.lifecycle."+data.getString("lifecycle").toLowerCase(java.util.Locale.ROOT))),captionWidth),left+10,top+38,INK,false);
+        if(!data.getString("lifecycle").equals("ESTABLISHED") || buildingPicker)
+            g.drawString(font,ellipsize(tr("construction").append(" · ").append(Component.translatable(
+                    "construction.livingkingdoms.lifecycle."+data.getString("lifecycle").toLowerCase(java.util.Locale.ROOT))),captionWidth),left+10,top+38,INK,false);
         int divider=left+listWidth;
         g.fill(divider,top+56,divider+1,layout.contentBottom(),WOOD);
         g.fill(divider+4,top+56,left+panelWidth-5,layout.contentBottom(),PAPER);

@@ -168,6 +168,13 @@ public final class VillageUiService {
             else if (session.marker != null || session.construction) sendConstruction(player, session, settlement, true);
             return false;
         }
+        if(request.action()==UiPayloads.Action.MANAGE) {return ManagementService.open(player,settlement.id());}
+        if(request.action()==UiPayloads.Action.PREVIEW) {
+            if(!session.construction || session.npc==null || session.shortcut || session.marker!=null || session.board!=null) return false;
+            var kind=BuildingPreviewTargets.building(request.quest());
+            boolean result=kind.isPresent() && dev.livingkingdoms.construction.preview.ConstructionPreviewService.begin(player,settlement.id(),kind.get());
+            if(result) dismiss(player);else sendConstruction(player,session,settlement,true);return result;
+        }
         if(request.action()==UiPayloads.Action.STOCK) {
             var view=session.stockView();SESSIONS.put(player,view);sendStock(player,view,settlement,null);return true;
         }
@@ -194,7 +201,7 @@ public final class VillageUiService {
         }
         if(request.action()==UiPayloads.Action.ASSIGN_FARMER || request.action()==UiPayloads.Action.ASSIGN_GUARD
                 || request.action()==UiPayloads.Action.ASSIGN_BUILDER || request.action()==UiPayloads.Action.REMOVE_PROFESSION
-                || request.action()==UiPayloads.Action.ASSIGN_LUMBERJACK || request.action()==UiPayloads.Action.ASSIGN_MINER || request.action()==UiPayloads.Action.ASSIGN_BLACKSMITH) {
+                || request.action()==UiPayloads.Action.ASSIGN_LUMBERJACK || request.action()==UiPayloads.Action.ASSIGN_MINER || request.action()==UiPayloads.Action.ASSIGN_BLACKSMITH || request.action()==UiPayloads.Action.ASSIGN_MERCHANT) {
             if(!session.citizens) return false;
             var jobs=dev.livingkingdoms.profession.persistence.ProfessionSavedData.get(player.server);
             var expected=CITIZEN_VIEWS.getOrDefault(player,Map.of()).get(request.quest());
@@ -207,6 +214,8 @@ public final class VillageUiService {
                     ? dev.livingkingdoms.profession.ProfessionService.assignGuard(player,settlement.id(),request.quest())
                     : request.action()==UiPayloads.Action.ASSIGN_BUILDER
                     ? dev.livingkingdoms.profession.ProfessionService.assignBuilder(player,settlement.id(),request.quest())
+                    : request.action()==UiPayloads.Action.ASSIGN_MERCHANT
+                    ? dev.livingkingdoms.profession.ProfessionService.assignMerchant(player,settlement.id(),request.quest())
                     : request.action()==UiPayloads.Action.ASSIGN_LUMBERJACK || request.action()==UiPayloads.Action.ASSIGN_MINER || request.action()==UiPayloads.Action.ASSIGN_BLACKSMITH
                     ? dev.livingkingdoms.profession.ProfessionService.assignEconomic(player,settlement.id(),request.quest(),switch(request.action()) {
                         case ASSIGN_LUMBERJACK->dev.livingkingdoms.profession.domain.ProfessionType.LUMBERJACK;
@@ -387,6 +396,7 @@ public final class VillageUiService {
 
     private static void sendConstruction(ServerPlayer player,Session session,Settlement settlement,boolean rejected) {
         CompoundTag tag=base(player,session,settlement,"construction");
+        tag.putBoolean("preview_allowed",session.npc!=null && !session.shortcut && session.board==null && session.marker==null);
         if(rejected) tag.putString("notice","construction.livingkingdoms.rejected");
         ListTag projects=new ListTag();
         var entries=dev.livingkingdoms.construction.persistence.ConstructionSavedData.get(player.server).projects(settlement.id()).stream()
@@ -485,7 +495,7 @@ public final class VillageUiService {
                     && dev.livingkingdoms.profession.ProfessionService.canAssignOperational(player.serverLevel(),citizen,p,buildings,jobs,dev.livingkingdoms.profession.domain.ProfessionType.GUARD));
             v.putBoolean("assign_builder",settlement.lifecycle()==dev.livingkingdoms.settlement.domain.SettlementLifecycle.ESTABLISHED
                     && dev.livingkingdoms.profession.ProfessionService.canAssignBuilder(player.serverLevel(),citizen,p,buildings,jobs));
-            for(var type:java.util.List.of(dev.livingkingdoms.profession.domain.ProfessionType.LUMBERJACK,dev.livingkingdoms.profession.domain.ProfessionType.MINER,dev.livingkingdoms.profession.domain.ProfessionType.BLACKSMITH))
+            for(var type:java.util.List.of(dev.livingkingdoms.profession.domain.ProfessionType.LUMBERJACK,dev.livingkingdoms.profession.domain.ProfessionType.MINER,dev.livingkingdoms.profession.domain.ProfessionType.BLACKSMITH,dev.livingkingdoms.profession.domain.ProfessionType.MERCHANT))
                 v.putBoolean("assign_"+type.name().toLowerCase(java.util.Locale.ROOT),settlement.lifecycle()==dev.livingkingdoms.settlement.domain.SettlementLifecycle.ESTABLISHED
                         && dev.livingkingdoms.profession.ProfessionService.canAssignOperational(player.serverLevel(),citizen,p,buildings,jobs,type));
             if(p.type()==dev.livingkingdoms.profession.domain.ProfessionType.BUILDER)

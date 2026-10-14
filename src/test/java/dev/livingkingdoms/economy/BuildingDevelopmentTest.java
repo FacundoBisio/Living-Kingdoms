@@ -37,7 +37,8 @@ class BuildingDevelopmentTest {
     }
     @Test void upgradesHaveConcreteCostsAndOnlyFunctionalTargets() {
         assertEquals(64,BuildingDevelopment.upgradeCost(2).get(StockResource.WOOD));
-        assertTrue(BuildingDevelopment.upgradeable(BuildingKind.WAREHOUSE));assertFalse(BuildingDevelopment.upgradeable(BuildingKind.HOUSE));
+        assertTrue(BuildingDevelopment.upgradeable(BuildingKind.WAREHOUSE));assertTrue(BuildingDevelopment.upgradeable(BuildingKind.HOUSE));
+        assertFalse(BuildingDevelopment.upgradeable(BuildingKind.FOUNDING_CAMP));
         var account=StockAccount.empty(64,0);UUID id=UUID.randomUUID();for(int i=0;i<4;i++) account=account.upgrade(id);
         var capped=account;assertThrows(IllegalArgumentException.class,()->capped.upgrade(id));
     }
