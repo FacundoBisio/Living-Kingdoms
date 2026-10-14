@@ -1,6 +1,8 @@
 # Living Kingdoms
 
-Minecraft Java **1.21.1**, **Java 21**, **NeoForge 21.1.252**. Version **0.18.0 — Kingdoms & Commerce** adds physical kingdom storage, finite emerald trading with Merchant citizens, native humanoid skins/work presentation, validated 3D construction previews, building administration, persistent personal alerts and six native advancements. It preserves 0.17.0 citizens, economy, routines, quests, reputation, HUD and village conversion. See [0.18.0 survival flow, validation and manual checklist](docs/kingdoms-commerce-v018.md) and the [compact progress record](docs/kingdoms-commerce-v018-progress.md).
+Minecraft Java **1.21.1**, **Java 21**, **NeoForge 21.1.252**. Version **0.18.1** adapts the supplied Argon 4 citizen geometry and work keyframes to the existing native renderer, preserving the 80 original skins and adding compatible variants. Compare locally with `/kingdommodels native` and `/kingdommodels argon4`; no entity or saved-world migration is required. See the [model comparison and manual checklist](docs/v0181-model-comparison.md) and [0.18.1 progress](docs/citizen-models-v0181-progress.md).
+
+The stable **0.18.0 — Kingdoms & Commerce** base provides physical kingdom storage, finite emerald trading with Merchant citizens, validated 3D construction previews, building administration, personal alerts and advancements. These systems, citizen identity and routines, quests, reputation, HUD and village conversion remain intact. See [0.18.0 survival flow and validation](docs/kingdoms-commerce-v018.md).
 
 Living Kingdoms focuses on exploring, discovering settlements, gaining reputation and protecting the region. Registered citizens now help their settlement through explicit, shared profession assignments.
 
@@ -34,7 +36,7 @@ bash ./gradlew runGameTestServer
 bash ./gradlew runClient
 ```
 
-The client opens the Minecraft development environment. Survival establishment requires no cheats; enable them only for optional debug commands. The mod JAR is `build/libs/livingkingdoms-0.18.0.jar`; the `-sources.jar` is for developers, not installation. Use the same mod version on clients and dedicated servers. Python and development mods are not required for the ordinary Java build or runtime.
+The client opens the Minecraft development environment. Survival establishment requires no cheats; enable them only for optional debug commands. The mod JAR is `build/libs/livingkingdoms-0.18.1.jar`; the `-sources.jar` is for developers, not installation. Use the same mod version on clients and dedicated servers. Python and development mods are not required for the ordinary Java build or runtime.
 
 Repeated GameTests retain their world and encounter receipts. For an isolated run, choose an unused directory with `.\gradlew.bat -PgameTestDirectory=runs/my-fresh-validation runGameTestServer`. The default remains `runs/gametest`; prior worlds stay in place. Reusing a populated test world can exhaust the real encounter cap and correctly prevent natural-spawn fixtures from creating more parties.
 
