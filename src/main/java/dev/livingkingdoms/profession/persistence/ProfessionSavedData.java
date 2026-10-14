@@ -113,7 +113,7 @@ public final class ProfessionSavedData extends SavedData {
         authority(); var desired=new LinkedHashMap<UUID,FunctionalBuilding>();
         if(layout!=null) for(var b:layout.buildings()) {
             int slots=switch(b.kind()) { case FARM -> farmSlots; case BARRACKS -> guardSlots; case CORE,TOWN_HALL -> builderSlots;
-                case LUMBERJACK_HUT,MINE,BLACKSMITH -> economicSlots;default -> 0; };
+                case LUMBERJACK_HUT,MINE,BLACKSMITH -> economicSlots;case MARKET -> dev.livingkingdoms.config.CommerceConfig.SLOTS.get();default -> 0; };
             if(slots>0) slots=Math.min(128,slots+levels.getOrDefault(Housing.identity(settlement.id(),b),1)-1);
             var functional=FunctionalBuilding.from(settlement.id(),settlement.territory().dimension(),b,slots);
             if(desired.put(functional.id(),functional)!=null) throw new IllegalArgumentException("Duplicate functional building");
@@ -147,6 +147,7 @@ public final class ProfessionSavedData extends SavedData {
         return assign(citizen,workplace,now,ProfessionType.GUARD);
     }
     public boolean assignBuilder(Citizen citizen,UUID workplace,long now) { return assign(citizen,workplace,now,ProfessionType.BUILDER); }
+    public boolean assignMerchant(Citizen citizen,UUID workplace,long now) { return assign(citizen,workplace,now,ProfessionType.MERCHANT); }
     public boolean assignEconomic(Citizen citizen,UUID workplace,long now,ProfessionType type) {
         return type.economic() && assign(citizen,workplace,now,type);
     }
@@ -166,6 +167,7 @@ public final class ProfessionSavedData extends SavedData {
     }
     public boolean removeGuard(UUID citizen) { return remove(citizen,ProfessionType.GUARD); }
     public boolean removeBuilder(UUID citizen) { return remove(citizen,ProfessionType.BUILDER); }
+    public boolean removeMerchant(UUID citizen) { return remove(citizen,ProfessionType.MERCHANT); }
     public boolean removeEconomic(UUID citizen) { var old=profession(citizen).orElse(null);return old!=null && old.type().economic() && remove(citizen,old.type()); }
     private boolean remove(UUID citizen,ProfessionType type) {
         authority(); var old=professions.get(citizen);

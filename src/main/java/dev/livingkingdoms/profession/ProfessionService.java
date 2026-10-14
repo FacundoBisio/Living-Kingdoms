@@ -51,11 +51,12 @@ public final class ProfessionService {
     }
     public static boolean assign(ServerPlayer player,UUID settlementId,UUID citizenId) { return assign(player,settlementId,citizenId,ProfessionType.FARMER); }
     public static boolean assignGuard(ServerPlayer player,UUID settlementId,UUID citizenId) { return assign(player,settlementId,citizenId,ProfessionType.GUARD); }
+    public static boolean assignMerchant(ServerPlayer player,UUID settlementId,UUID citizenId) { return assign(player,settlementId,citizenId,ProfessionType.MERCHANT); }
     public static boolean assignBuilder(ServerPlayer player,UUID settlementId,UUID citizenId) { return assign(player,settlementId,citizenId,ProfessionType.BUILDER); }
     public static boolean assignEconomic(ServerPlayer player,UUID settlementId,UUID citizenId,ProfessionType type) {return type.economic() && assign(player,settlementId,citizenId,type);}
     private static boolean assign(ServerPlayer player,UUID settlementId,UUID citizenId,ProfessionType type) {
         var settlement=authorized(player,settlementId); if(settlement==null) return false;
-        if(type.economic() && !dev.livingkingdoms.onboarding.KingdomOnboardingService.canHelp(player,settlement)) return false;
+        if((type.economic() || type==ProfessionType.MERCHANT) && !dev.livingkingdoms.onboarding.KingdomOnboardingService.canHelp(player,settlement)) return false;
         ensure(player.serverLevel(),settlement);
         var people=CitizenSavedData.get(player.server); var citizen=people.citizen(citizenId).filter(c -> c.settlementId().equals(settlementId)).orElse(null);
         if(citizen==null) return false;
@@ -80,28 +81,31 @@ public final class ProfessionService {
             case FARMER -> data.assignFarmer(citizen,b.id(),ImmigrationService.now(player.server));
             case GUARD -> data.assignGuard(citizen,b.id(),ImmigrationService.now(player.server));
             case BUILDER -> data.assignBuilder(citizen,b.id(),ImmigrationService.now(player.server));
+            case MERCHANT -> data.assignMerchant(citizen,b.id(),ImmigrationService.now(player.server));
             case LUMBERJACK,MINER,BLACKSMITH -> data.assignEconomic(citizen,b.id(),ImmigrationService.now(player.server),type);
             default -> false;
         }) {
             if(type==ProfessionType.BUILDER) dev.livingkingdoms.construction.ConstructionService.assignReady(player.server,settlementId);
             if(player.serverLevel().getEntity(citizen.entityId()) instanceof Villager villager) {
                 switch(type) { case FARMER -> FarmerWork.control(villager); case GUARD -> GuardWork.control(villager); case BUILDER -> BuilderWork.control(villager);
-                    case LUMBERJACK,MINER,BLACKSMITH -> EconomicWork.control(villager);default -> {} }
+                    case LUMBERJACK,MINER,BLACKSMITH -> EconomicWork.control(villager);case MERCHANT -> dev.livingkingdoms.commerce.MerchantWork.control(villager);default -> {} }
             }
             if(type==ProfessionType.GUARD) dev.livingkingdoms.advancement.KingdomMilestone.awardFirstGuard(player);
             if(type==ProfessionType.BUILDER) dev.livingkingdoms.advancement.KingdomMilestone.awardFirstBuilder(player);
-            dev.livingkingdoms.advancement.KingdomMilestone.awardFirstProfession(player); return true;
+            dev.livingkingdoms.advancement.KingdomMilestone.awardFirstProfession(player);
+            return true;
         }
         return false;
     }
     public static boolean remove(ServerPlayer player,UUID settlementId,UUID citizenId) {
         if(authorized(player,settlementId)==null) return false;
         var citizen=CitizenSavedData.get(player.server).citizen(citizenId).filter(c -> c.settlementId().equals(settlementId) && c.state()==CitizenState.ACTIVE).orElse(null);
+        var old=ProfessionSavedData.get(player.server).profession(citizenId).orElse(null);
         if(citizen==null || !(ProfessionSavedData.get(player.server).removeFarmer(citizenId) || ProfessionSavedData.get(player.server).removeGuard(citizenId)
-                || ProfessionSavedData.get(player.server).removeBuilder(citizenId) || ProfessionSavedData.get(player.server).removeEconomic(citizenId))) return false;
+                || ProfessionSavedData.get(player.server).removeBuilder(citizenId) || ProfessionSavedData.get(player.server).removeEconomic(citizenId) || ProfessionSavedData.get(player.server).removeMerchant(citizenId))) return false;
         dev.livingkingdoms.construction.ConstructionService.releaseBuilder(player.server,citizenId);
         if(player.serverLevel().getEntity(citizen.entityId()) instanceof Villager villager) {
-            FarmerWork.release(villager); GuardWork.release(villager); BuilderWork.release(villager); EconomicWork.release(villager); CitizenService.apply(citizen,villager);
+            FarmerWork.release(villager); GuardWork.release(villager); BuilderWork.release(villager); EconomicWork.release(villager); dev.livingkingdoms.commerce.MerchantWork.release(villager); CitizenService.apply(citizen,villager);
         }
         return true;
     }

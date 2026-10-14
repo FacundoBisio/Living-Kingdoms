@@ -44,6 +44,7 @@ public record FunctionalBuilding(UUID id,UUID settlementId,String dimension,Buil
             case LUMBERJACK -> capabilities().contains(BuildingCapability.LUMBERJACK_WORKPLACE);
             case MINER -> capabilities().contains(BuildingCapability.MINER_WORKPLACE);
             case BLACKSMITH -> capabilities().contains(BuildingCapability.BLACKSMITH_WORKPLACE);
+            case MERCHANT -> capabilities().contains(BuildingCapability.TRADE);
             default -> false;
         };
     }

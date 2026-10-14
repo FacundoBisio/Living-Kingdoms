@@ -68,7 +68,7 @@ public final class CitizenEvents {
                         && c.id().equals(villager.getPersistentData().getUUID(CitizenService.CITIZEN_ID_KEY))
                         && CitizenService.canApply(c,villager))
                 .ifPresent(c -> { if(!dev.livingkingdoms.profession.FarmerWork.assigned(villager) && !dev.livingkingdoms.profession.GuardWork.assigned(villager)
-                        && !dev.livingkingdoms.profession.BuilderWork.assigned(villager) && !dev.livingkingdoms.profession.EconomicWork.assigned(villager)) {
+                        && !dev.livingkingdoms.profession.BuilderWork.assigned(villager) && !dev.livingkingdoms.profession.EconomicWork.assigned(villager) && dev.livingkingdoms.commerce.MerchantWork.profile(villager).isEmpty()) {
                     var profession=dev.livingkingdoms.profession.persistence.ProfessionSavedData.get(level.getServer()).profession(c.id()).orElse(null);
                     if(!dev.livingkingdoms.profession.CitizenRoutine.shelter(villager,c,profession,Math.max(0,level.getServer().overworld().getGameTime()))) CitizenService.guideHome(villager);
                 } });
