@@ -1,6 +1,6 @@
 # Living Kingdoms
 
-Minecraft Java **1.21.1**, **Java 21**, **NeoForge 21.1.252**. Version **0.17.0 — Living Villagers** connects six citizen professions, native work/home routines, shared resources, consumption, economic workplaces, construction maintenance and personal quest notifications. It preserves 0.16.1 dialogue/HUD/Quest Board, founding, vanilla-village conversion, progression and saved identities. Trade, diplomacy and the wider Kingdoms Alive chapter remain future work. See [0.17.0 gameplay, validation and manual checklist](docs/living-villagers-v017.md) and the [current stabilization record](docs/AUTONOMOUS_PROGRESS.md).
+Minecraft Java **1.21.1**, **Java 21**, **NeoForge 21.1.252**. Version **0.18.0 — Kingdoms & Commerce** adds physical kingdom storage, finite emerald trading with Merchant citizens, native humanoid skins/work presentation, validated 3D construction previews, building administration, persistent personal alerts and six native advancements. It preserves 0.17.0 citizens, economy, routines, quests, reputation, HUD and village conversion. See [0.18.0 survival flow, validation and manual checklist](docs/kingdoms-commerce-v018.md) and the [compact progress record](docs/kingdoms-commerce-v018-progress.md).
 
 Living Kingdoms focuses on exploring, discovering settlements, gaining reputation and protecting the region. Registered citizens now help their settlement through explicit, shared profession assignments.
 
@@ -34,7 +34,7 @@ bash ./gradlew runGameTestServer
 bash ./gradlew runClient
 ```
 
-The client opens the Minecraft development environment. Survival establishment requires no cheats; enable them only for optional debug commands. The mod JAR is `build/libs/livingkingdoms-0.17.0.jar`; the `-sources.jar` is for developers, not installation. Use the same mod version on clients and dedicated servers. Python and development mods are not required for the ordinary Java build or runtime.
+The client opens the Minecraft development environment. Survival establishment requires no cheats; enable them only for optional debug commands. The mod JAR is `build/libs/livingkingdoms-0.18.0.jar`; the `-sources.jar` is for developers, not installation. Use the same mod version on clients and dedicated servers. Python and development mods are not required for the ordinary Java build or runtime.
 
 Repeated GameTests retain their world and encounter receipts. For an isolated run, choose an unused directory with `.\gradlew.bat -PgameTestDirectory=runs/my-fresh-validation runGameTestServer`. The default remains `runs/gametest`; prior worlds stay in place. Reusing a populated test world can exhaust the real encounter cap and correctly prevent natural-spawn fixtures from creating more parties.
 
@@ -121,7 +121,7 @@ The quest is offered once **per player, per allied settlement**, keyed by UUID. 
 
 Existing Milestone 1 physical settlements gain a Mayor on first board use if their central lodestone is still present and a safe loaded plaza position is available. Newly generated settlements spawn the Mayor immediately. Abstract `create` records do not automatically spawn NPCs; fresh players need a registered Mayor to join before formal quests are available. Names are display values; renaming does not change UUID associations.
 
-The Mayor is a vanilla Villager with a persisted Living Kingdoms role and settlement UUID, a visible name and no trades. It is stationary (`NoAI`), persistent and protected from ordinary combat for this prototype; creative players can still remove it and physical pushes can move it. `MAYOR`, `BLACKSMITH` and `GUARD` are identity concepts; the Mayor and two ordinary `RESIDENT` villagers are spawned at founding. Missing or unloaded recorded Mayors are not automatically replaced, which avoids duplicate NPCs. Citizens have persistent names, shared levels and automatic homes. Immigration approval creates new native villagers. Six profession work loops and bounded daily work/home/rest/refuge routines are implemented in 0.17.0; see the Living Villagers guide for their stations, resource costs and schedules.
+The Mayor is a vanilla Villager with a persisted Living Kingdoms role and settlement UUID, a visible name and no trades. It is stationary (`NoAI`), persistent and protected from ordinary combat for this prototype; creative players can still remove it and physical pushes can move it. `MAYOR`, `BLACKSMITH` and `GUARD` are identity concepts; the Mayor and two ordinary `RESIDENT` villagers are spawned at founding. Missing or unloaded recorded Mayors are not automatically replaced, which avoids duplicate NPCs. Citizens have persistent names, shared levels and automatic homes. Immigration approval creates new native villagers. Seven operational professions now include Merchant. Registered citizens have native humanoid presentation; their underlying Villager identity/AI/equipment remains unchanged. See the Kingdoms & Commerce guide for market, work, resource and schedule details.
 
 Quest instances persist `AVAILABLE`, `ACTIVE`, `COMPLETED`, `FAILED`, `EXPIRED`. The board also projects stable `LOCKED` main steps from persisted prerequisites. Original Iron Shortage still has no timer, abandonment or repeatable reset. Inventory progress is checked on interaction, not each tick. An accepted Iron quest snapshots its terms: changing settings affects new acceptances only.
 
@@ -159,7 +159,7 @@ Resource recommended level uses the existing regional service; combat uses round
 
 Combat objectives become ready only on the recorded party's final defeat event, using the existing participation threshold. Every player must accept their own instance; passive/nonparticipating players cannot inherit victory. Offline participants keep ready state, which survives party cleanup. Claim at the source settlement's board pays once. Pure faction victories, unrelated mob deaths, debug groups and retirement cannot complete a quest. Quest reputation is additional to the separately deduplicated regional roaming reward.
 
-Sources hold settlement UUID, optional NPC UUID and MAYOR/BLACKSMITH/FARMER/GUARD_CAPTAIN/CITIZEN role. Typed objectives and templates allow future quest handlers without dependence on placeholder building coordinates. Quest handlers for rescue/escort AI and bosses remain future work; housing and the six functional citizen professions use their existing dedicated services.
+Sources hold settlement UUID, optional NPC UUID and MAYOR/BLACKSMITH/FARMER/GUARD_CAPTAIN/CITIZEN role. Typed objectives and templates allow future quest handlers without dependence on placeholder building coordinates. Quest handlers for rescue/escort AI and bosses remain future work; housing and the seven operational citizen professions use their dedicated services.
 
 ## World storage and settings
 

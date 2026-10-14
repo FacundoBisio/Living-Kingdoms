@@ -275,6 +275,73 @@ public final class LivingVillagersGameTests {
         h.assertTrue(!stockAction(player,token,dev.livingkingdoms.ui.StockUiState.target(StockResource.EQUIPMENT),dev.livingkingdoms.ui.UiPayloads.Action.STOCK_DEPOSIT)
                 && player.getInventory().getItem(0).is(Items.IRON_CHESTPLATE),"Carried equipment cannot turn into forge production credit");h.succeed();
     }
+    @GameTest(template="empty",timeoutTicks=700)
+    public static void physicalStorageSharesOneLedgerAndItsIconsNeverBecomeLoot(GameTestHelper h) {
+        var f=fixture(h,962288);var player=f.player();var level=h.getLevel();var server=level.getServer();var pos=player.blockPosition().east();
+        level.setBlock(pos,dev.livingkingdoms.block.KingdomBlocks.KINGDOM_STORAGE.get().defaultBlockState(),18);
+        player.getInventory().setItem(0,new ItemStack(Items.OAK_LOG,16));
+        var menu=new dev.livingkingdoms.storage.StorageMenu(1,player.getInventory(),pos,f.settlement().id());
+        h.assertTrue(menu.stillValid(player) && menu.clickMenuButton(player,StockResource.WOOD.ordinal()),"Physical menu deposits carried materials into the existing ledger");
+        var second=new UiTestPlayer(level);place(second,player.blockPosition());OnboardingTestSupport.legacyCollaborator(second,f.settlement());
+        var other=new dev.livingkingdoms.storage.StorageMenu(2,second.getInventory(),pos,f.settlement().id());
+        menu.clicked(1,0,net.minecraft.world.inventory.ClickType.SWAP,player);
+        menu.clicked(1,0,net.minecraft.world.inventory.ClickType.CLONE,player);
+        menu.clicked(1,0,net.minecraft.world.inventory.ClickType.THROW,player);
+        h.assertTrue(player.getInventory().isEmpty() && menu.getCarried().isEmpty() && KingdomEconomy.count(server,f.settlement().id(),StockResource.WOOD)==16,"Swap, creative clone and throw cannot turn display icons into items");
+        h.assertTrue(menu.clickMenuButton(player,6) && !other.clickMenuButton(second,6) && player.getInventory().getItem(0).getCount()==16,"Two physical access points cannot duplicate the last batch");
+        player.getInventory().setItem(1,new ItemStack(Items.OAK_LOG,2));menu.quickMoveStack(player,33);
+        h.assertTrue(player.getInventory().getItem(0).getCount()==16 && player.getInventory().getItem(1).isEmpty()
+                && KingdomEconomy.count(server,f.settlement().id(),StockResource.WOOD)==2,"Chest shift-click deposits exactly the chosen stack, leaving other stacks intact");
+        menu.clickMenuButton(player,1);int before=KingdomEconomy.count(server,f.settlement().id(),StockResource.WOOD);
+        level.destroyBlock(pos,true);h.assertTrue(!menu.stillValid(player) && !menu.clickMenuButton(player,6) && KingdomEconomy.count(server,f.settlement().id(),StockResource.WOOD)==before,"Destroying storage closes access and preserves the ledger");
+        level.setBlock(pos,dev.livingkingdoms.block.KingdomBlocks.KINGDOM_STORAGE.get().defaultBlockState(),18);
+        var replacement=new dev.livingkingdoms.storage.StorageMenu(3,player.getInventory(),pos,f.settlement().id());
+        h.assertTrue(replacement.value(1,0)==before,"Replacement storage reconnects to the same resources");
+        var stranger=new UiTestPlayer(level);place(stranger,player.blockPosition());
+        h.assertTrue(!dev.livingkingdoms.storage.KingdomStorage.open(stranger,pos),"Unjoined player cannot open economic storage");h.succeed();
+    }
+    @GameTest(template="empty",timeoutTicks=700)
+    public static void managementUiPaysForHouseCapacityAndRejectsReplayedOrForeignRequests(GameTestHelper h) {
+        var f=fixture(h,963312);fill(f);var player=f.player();var server=h.getLevel().getServer();var jobs=ProfessionSavedData.get(server);
+        var house=jobs.buildings(f.settlement().id()).stream().filter(b->b.kind()==BuildingKind.HOUSE).findFirst().orElseThrow();
+        int oldCapacity=CitizenSavedData.get(server).housing(house.id()).orElseThrow().capacity();
+        var mayor=(Villager)h.getLevel().getEntity(dev.livingkingdoms.quest.persistence.QuestSavedData.get(server).mayor(f.settlement().id()).orElseThrow());
+        dev.livingkingdoms.ui.VillageUiService.openDialogue(player,mayor);var oldToken=player.snapshots.getLast().getUUID("session");
+        h.assertTrue(stockAction(player,oldToken,house.id(),dev.livingkingdoms.ui.UiPayloads.Action.MANAGE),"Mayor capability opens real administration");
+        var view=dev.livingkingdoms.ui.ManagementService.snapshot(player).orElseThrow();var token=view.getUUID("session");long revision=view.getLong("revision");
+        var request=new dev.livingkingdoms.ui.ManagementPayloads.Request(token,revision,house.id(),dev.livingkingdoms.ui.ManagementPayloads.Action.UPGRADE);
+        h.assertTrue(dev.livingkingdoms.ui.ManagementService.handle(player,request),"Actual UI upgrade consumes stored materials");
+        h.assertTrue(dev.livingkingdoms.economy.BuildingDevelopment.level(server,f.settlement().id(),house.id())==2
+                && CitizenSavedData.get(server).housing(house.id()).orElseThrow().capacity()==oldCapacity+1
+                && KingdomEconomy.count(server,f.settlement().id(),StockResource.WOOD)==32,"Level has real housing benefit and exactly one resource cost");
+        h.assertTrue(!dev.livingkingdoms.ui.ManagementService.handle(player,request)
+                && KingdomEconomy.count(server,f.settlement().id(),StockResource.WOOD)==32,"Repeated packet cannot pay/upgrade twice");
+        var stranger=new UiTestPlayer(h.getLevel());place(stranger,player.blockPosition());OnboardingTestSupport.legacyCollaborator(stranger,f.settlement());
+        h.assertTrue(!dev.livingkingdoms.ui.ManagementService.handle(stranger,request),"Other collaborator cannot reuse the administrator's capability");
+        player.getInventory().setItem(0,new ItemStack(Items.OAK_LOG,64));KingdomEconomy.deposit(player,f.settlement().id(),StockResource.WOOD,64);
+        view=dev.livingkingdoms.ui.ManagementService.snapshot(player).orElseThrow();
+        h.assertTrue(dev.livingkingdoms.ui.ManagementService.handle(player,new dev.livingkingdoms.ui.ManagementPayloads.Request(token,view.getLong("revision"),house.id(),dev.livingkingdoms.ui.ManagementPayloads.Action.UPGRADE)),"Second paid upgrade reaches level three");
+        h.assertTrue(CitizenSavedData.get(server).housing(house.id()).orElseThrow().capacity()==oldCapacity+2
+                && !dev.livingkingdoms.economy.BuildingDevelopment.upgrade(player,f.settlement().id(),house.id()),"Level three caps new upgrades without deleting legacy data");
+        var loaded=dev.livingkingdoms.economy.EconomySavedData.load(dev.livingkingdoms.economy.EconomySavedData.get(server).save(new net.minecraft.nbt.CompoundTag(),h.getLevel().registryAccess()),h.getLevel().registryAccess());
+        h.assertTrue(loaded.account(f.settlement().id()).orElseThrow().buildingLevel(house.id())==3,"Paid building level persists across native reload");
+        view=dev.livingkingdoms.ui.ManagementService.snapshot(player).orElseThrow();
+        h.assertTrue(dev.livingkingdoms.ui.ManagementService.handle(player,new dev.livingkingdoms.ui.ManagementPayloads.Request(token,view.getLong("revision"),house.id(),dev.livingkingdoms.ui.ManagementPayloads.Action.REPAIR)),"UI creates a real Builder repair order");
+        h.assertTrue(KingdomEconomy.ensure(server,f.settlement().id()).repairOrders().contains(house.id()),"Repair is queued even before a Builder becomes available");h.succeed();
+    }
+    @GameTest(template="empty",timeoutTicks=700)
+    public static void previewRequiresDirectMayorConstructionAndDoesNotCreateAProject(GameTestHelper h) {
+        var f=fixture(h,964336);var player=f.player();var server=h.getLevel().getServer();var target=dev.livingkingdoms.ui.BuildingPreviewTargets.target(BuildingKind.MARKET);
+        h.assertTrue(dev.livingkingdoms.ui.VillageUiService.openShortcut(player),"Joined player can open the ordinary kingdom shortcut");var token=player.snapshots.getLast().getUUID("session");
+        stockAction(player,token,target,dev.livingkingdoms.ui.UiPayloads.Action.CONSTRUCTION);
+        h.assertTrue(!stockAction(player,token,target,dev.livingkingdoms.ui.UiPayloads.Action.PREVIEW),"Remote shortcut cannot create a mayor placement capability");
+        var mayor=(Villager)h.getLevel().getEntity(dev.livingkingdoms.quest.persistence.QuestSavedData.get(server).mayor(f.settlement().id()).orElseThrow());
+        dev.livingkingdoms.ui.VillageUiService.openDialogue(player,mayor);token=player.snapshots.getLast().getUUID("session");
+        h.assertTrue(!stockAction(player,token,target,dev.livingkingdoms.ui.UiPayloads.Action.PREVIEW),"Preview requires the explicit construction view");
+        stockAction(player,token,target,dev.livingkingdoms.ui.UiPayloads.Action.CONSTRUCTION);
+        h.assertTrue(stockAction(player,token,target,dev.livingkingdoms.ui.UiPayloads.Action.PREVIEW)
+                && dev.livingkingdoms.construction.persistence.ConstructionSavedData.get(server).projects(f.settlement().id()).isEmpty(),"Verified local construction preview surveys without reserving a project or spending materials");h.succeed();
+    }
     private static boolean stockAction(UiTestPlayer player,UUID token,UUID target,dev.livingkingdoms.ui.UiPayloads.Action action) {
         return dev.livingkingdoms.ui.VillageUiService.handle(player,new dev.livingkingdoms.ui.UiPayloads.Request(token,target,action));
     }
