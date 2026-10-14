@@ -1,0 +1,41 @@
+{
+  "archive_sha256": "6380d1c864396168d7df2d1007f83c3a6138cba60d083b801b3772a29b21b2bf",
+  "files": {
+    "src/main/resources/assets/livingkingdoms/geo/argon4/citizen.geo.json": {
+      "source": "characters/models/citizen.geo.json",
+      "sha256": "d73898c4b45199ce5681ed4f42dd1106a8c74effa80cc3a89738978f073fe641"
+    },
+    "src/main/resources/assets/livingkingdoms/animations/argon4/citizen.animation.json": {
+      "source": "characters/animations/citizen.animation.json",
+      "sha256": "512eccab61a2551ec8472a8e8290b4c40d154963846d2c91af3e9a69ab04c0d7"
+    },
+    "src/main/resources/assets/livingkingdoms/animations/argon4/professions.animation.json": {
+      "source": "characters/animations/professions.animation.json",
+      "sha256": "c2117eb4ae5853f4ad1ae04a36d941542420ae1ee6ef879443657ef802cd7240"
+    },
+    "src/main/resources/assets/livingkingdoms/animations/argon4/combat.animation.json": {
+      "source": "characters/animations/combat.animation.json",
+      "sha256": "3a78d077ca6fe17941cfdddb98e9f0b121df44015201821cf747da1d8625bfe9"
+    },
+    "docs/argon4-source/citizen.bbmodel": {
+      "source": "characters/blockbench/citizen.bbmodel",
+      "sha256": "a2c6b80cbdaac77e53b1c9ce4cf8a5deb858e65236ba213b6e7f653e06821135"
+    },
+    "docs/argon4-source/textures/citizen.png": {
+      "source": "characters/textures/base/citizen.png",
+      "sha256": "59134fd6960c4c18dab8e36a370e7b766ac25e5cf0f6def39d272b7d851af10a"
+    },
+    "docs/argon4-source/textures/citizen_female.png": {
+      "source": "characters/textures/base/citizen_female.png",
+      "sha256": "7821c9608c9ea1a3b57550f04cd33b5d4a7d42b7d45a44b5557b94386e1f77cd"
+    },
+    "src/main/resources/assets/livingkingdoms/textures/entity/argon4/builder.png": {
+      "source": "characters/textures/professions/builder.png",
+      "sha256": "d0605ce09b2da2139dc8750b4e3c4427a1186b26201b7bdbb2a511556e67da66"
+    },
+    "src/main/resources/assets/livingkingdoms/textures/entity/argon4/blacksmith.png": {
+      "source": "characters/textures/professions/blacksmith.png",
+      "sha256": "557896cc8dd4115512f22f9cba29e69e4ee3fa752fee7b25e1c0acfaf0de76ab"
+    }
+  }
+}
