@@ -1,0 +1,24 @@
+{
+  "requirements": [["achieved"]],
+  "criteria": {
+    "achieved": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "parent": "livingkingdoms:first_kingdom",
+  "display": {
+    "icon": {
+      "id": "minecraft:chest"
+    },
+    "show_toast": true,
+    "description": {
+      "translate": "advancement.livingkingdoms.first_warehouse.description"
+    },
+    "hidden": false,
+    "announce_to_chat": false,
+    "frame": "task",
+    "title": {
+      "translate": "advancement.livingkingdoms.first_warehouse.title"
+    }
+  }
+}

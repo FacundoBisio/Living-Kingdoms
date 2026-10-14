@@ -93,6 +93,9 @@ public final class ProfessionService {
             if(type==ProfessionType.GUARD) dev.livingkingdoms.advancement.KingdomMilestone.awardFirstGuard(player);
             if(type==ProfessionType.BUILDER) dev.livingkingdoms.advancement.KingdomMilestone.awardFirstBuilder(player);
             dev.livingkingdoms.advancement.KingdomMilestone.awardFirstProfession(player);
+            var present=data.professions(settlementId).stream().filter(Profession::active).map(Profession::type).collect(java.util.stream.Collectors.toSet());
+            if(java.util.Arrays.stream(ProfessionType.values()).filter(ProfessionType::operational).allMatch(present::contains))
+                dev.livingkingdoms.chronicle.ChronicleAdvancements.grant(player,"all_professions");
             return true;
         }
         return false;
@@ -107,6 +110,7 @@ public final class ProfessionService {
         if(player.serverLevel().getEntity(citizen.entityId()) instanceof Villager villager) {
             FarmerWork.release(villager); GuardWork.release(villager); BuilderWork.release(villager); EconomicWork.release(villager); dev.livingkingdoms.commerce.MerchantWork.release(villager); CitizenService.apply(citizen,villager);
         }
+        if(old!=null && old.workplaceId()!=null) dev.livingkingdoms.chronicle.ChronicleService.essentialWorkplaceEmpty(player.server,settlementId,old.workplaceId(),citizenId+":"+ProfessionSavedData.get(player.server).employmentRevision(citizenId));
         return true;
     }
     public static boolean canAssign(Citizen citizen,Profession p,List<FunctionalBuilding> buildings,ProfessionSavedData data) {

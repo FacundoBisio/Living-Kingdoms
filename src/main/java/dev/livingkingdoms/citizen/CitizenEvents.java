@@ -40,8 +40,13 @@ public final class CitizenEvents {
     }
 
     public static void onDeath(LivingDeathEvent event) {
-        if (!event.isCanceled() && event.getEntity().level() instanceof ServerLevel level)
+        if (!event.isCanceled() && event.getEntity().level() instanceof ServerLevel level) {
+            var before=CitizenSavedData.get(level.getServer()).byEntity(event.getEntity().getUUID()).orElse(null);
+            boolean guard=before!=null && dev.livingkingdoms.profession.persistence.ProfessionSavedData.get(level.getServer()).profession(before.id())
+                    .filter(p->p.active() && p.type()==dev.livingkingdoms.profession.domain.ProfessionType.GUARD).isPresent();
             retire(level,event.getEntity().getUUID());
+            if(before!=null) dev.livingkingdoms.chronicle.ChronicleService.citizenDied(level.getServer(),before,guard);
+        }
     }
 
     public static void onConversion(LivingConversionEvent.Post event) {

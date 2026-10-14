@@ -142,6 +142,10 @@ public final class FarmerWork {
         if(event.getEntity() instanceof Villager && !(event.getOutcome() instanceof Villager) && event.getEntity().level() instanceof ServerLevel level) retire(level,event.getEntity().getUUID());
     }
     private static void retire(ServerLevel level,UUID entity) {
-        CitizenSavedData.get(level.getServer()).byEntity(entity).ifPresent(c -> ProfessionSavedData.get(level.getServer()).retire(c.id()));
+        CitizenSavedData.get(level.getServer()).byEntity(entity).ifPresent(c -> {
+            var jobs=ProfessionSavedData.get(level.getServer());var old=jobs.profession(c.id()).orElse(null);
+            if(jobs.retire(c.id()) && old!=null && old.active() && old.workplaceId()!=null)
+                dev.livingkingdoms.chronicle.ChronicleService.essentialWorkplaceEmpty(level.getServer(),c.settlementId(),old.workplaceId(),c.id()+":"+jobs.employmentRevision(c.id()));
+        });
     }
 }

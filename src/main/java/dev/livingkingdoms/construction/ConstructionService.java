@@ -227,13 +227,16 @@ public final class ConstructionService {
             LogUtils.getLogger().warn("Construction {} blocked; blueprint and supplied resources retained: {}",projectId,failure.toString()); return false;
         }
         SITE_RETRY.remove(projectId);
+        if(!debug) dev.livingkingdoms.chronicle.ChronicleService.buildingCompleted(server,settlement.id(),projectId,entry.project().building());
         try { ensureNext(level,settlement.id(),actor); }
         catch(RuntimeException failure) { LogUtils.getLogger().warn("Next construction plot unavailable for {}; inspect construction to retry",settlement.id(),failure); }
         dev.livingkingdoms.citizen.CitizenService.ensureInitialized(level,settlements.get(settlement.id()).orElseThrow());
         dev.livingkingdoms.profession.ProfessionService.ensure(level,settlements.get(settlement.id()).orElseThrow());
         dev.livingkingdoms.quest.persistence.QuestSavedData.get(server).resolveDevelopment(settlement.id(),now);
-        for(ServerPlayer player:level.players()) if(canContribute(player,settlement))
+        for(ServerPlayer player:level.players()) if(canContribute(player,settlement)) {
+            if(!debug && entry.project().building()==BuildingKind.WAREHOUSE) dev.livingkingdoms.chronicle.ChronicleAdvancements.grant(player,"first_warehouse");
             player.displayClientMessage(Component.translatable("construction.livingkingdoms.completed_in",Component.translatable("construction.livingkingdoms.building."+entry.project().building().name().toLowerCase(Locale.ROOT)),settlement.name()),true);
+        }
         assignReady(server,settlement.id());
         return true;
     }

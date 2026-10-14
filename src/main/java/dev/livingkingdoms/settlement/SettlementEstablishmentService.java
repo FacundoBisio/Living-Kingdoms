@@ -40,6 +40,8 @@ public final class SettlementEstablishmentService {
         }
         if (result.successful() && !player.getAbilities().instabuild) stack.shrink(1);
         if (result.successful()) dev.livingkingdoms.advancement.KingdomMilestone.awardFirstKingdom(player);
+        if(result.successful() && result.settlement()!=null && result.settlement().provenance().origin()==SettlementOrigin.CONVERTED)
+            dev.livingkingdoms.chronicle.ChronicleAdvancements.grant(player,"converted_village");
         return result;
     }
 

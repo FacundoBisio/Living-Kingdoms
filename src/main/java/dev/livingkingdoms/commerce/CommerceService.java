@@ -94,6 +94,7 @@ public final class CommerceService {
         long xp=Math.min(1_000_000_000L,p.experience()+1);
         jobs.replace(p,new Profession(p.citizenId(),p.settlementId(),p.type(),new dev.livingkingdoms.progression.domain.LevelValue(FarmerProgression.level(xp,ProfessionConfig.LEVEL_CAP.get(),ProfessionConfig.XP_STEP.get())),
                 xp,p.workplaceId(),true,p.workState(),p.nextWorkAt(),p.cropCursor(),p.navigationFailures(),p.traits()));
+        dev.livingkingdoms.chronicle.ChronicleAdvancements.grant(player,"first_trade");
         worker.swing(InteractionHand.MAIN_HAND);send(player,withRequestTime(s,now),"success");return true;
     }
     private static Session withRequestTime(Session s,long now){return new Session(s.token(),s.quote(),s.citizen(),s.merchant(),s.settlement(),s.dimension(),s.expires(),s.employment(),s.marketRevision(),s.economicRevision(),s.food(),now,s.buy(),s.sell());}

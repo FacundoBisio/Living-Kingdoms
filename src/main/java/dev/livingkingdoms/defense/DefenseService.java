@@ -126,6 +126,8 @@ public final class DefenseService {
     }
     private static void spotted(ServerLevel level,Settlement settlement,SettlementThreatEvent event) {
         SecurityService.alertApproaching(level,settlement,event.faction());
+        if(!event.debug() && (event.threatRating()>=2 || event.totalMembers()>=4))
+            dev.livingkingdoms.chronicle.ChronicleService.significantThreat(level.getServer(),settlement.id(),event.id(),event.faction().name().toLowerCase(java.util.Locale.ROOT));
     }
     private static void advance(ServerLevel level,SettlementThreatEvent event,Settlement settlement,BlockPos position) {
         if(level.getServer().overworld().getGameTime()>=event.expiresAt()) return;

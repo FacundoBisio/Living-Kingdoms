@@ -1,0 +1,24 @@
+{
+  "requirements": [["achieved"]],
+  "criteria": {
+    "achieved": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "parent": "livingkingdoms:first_kingdom",
+  "display": {
+    "icon": {
+      "id": "minecraft:iron_pickaxe"
+    },
+    "show_toast": true,
+    "description": {
+      "translate": "advancement.livingkingdoms.all_professions.description"
+    },
+    "hidden": false,
+    "announce_to_chat": false,
+    "frame": "goal",
+    "title": {
+      "translate": "advancement.livingkingdoms.all_professions.title"
+    }
+  }
+}
