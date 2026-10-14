@@ -21,6 +21,7 @@ class UiTestPlayer extends FakePlayer {
     final List<CompoundTag> snapshots = new ArrayList<>();
     final List<CompoundTag> hudSnapshots = new ArrayList<>();
     final List<CompoundTag> territorySnapshots = new ArrayList<>();
+    final List<UiPayloads.QuestNotification> questNotices = new ArrayList<>();
     final List<net.minecraft.network.chat.Component> clientMessages = new ArrayList<>();
     @Override public void displayClientMessage(net.minecraft.network.chat.Component message,boolean overlay) { clientMessages.add(message.copy()); }
     UiTestPlayer(ServerLevel level) {
@@ -30,6 +31,7 @@ class UiTestPlayer extends FakePlayer {
         };
         connection = new ServerGamePacketListenerImpl(level.getServer(), wire, this, CommonListenerCookie.createInitial(getGameProfile(), false)) {
             @Override public void send(Packet<?> packet) {
+                if(packet instanceof ClientboundCustomPayloadPacket custom && custom.payload() instanceof UiPayloads.QuestNotification payload) questNotices.add(payload);
                 if (packet instanceof ClientboundCustomPayloadPacket custom && custom.payload() instanceof UiPayloads.Snapshot payload)
                     snapshots.add(payload.data().copy());
                 if (packet instanceof ClientboundCustomPayloadPacket custom && custom.payload() instanceof UiPayloads.HudSnapshot payload)

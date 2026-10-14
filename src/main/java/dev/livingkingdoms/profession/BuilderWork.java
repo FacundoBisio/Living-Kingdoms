@@ -41,15 +41,17 @@ public final class BuilderWork {
     public static void control(Villager v) {
         if(!(v.level() instanceof ServerLevel level) || !level.getServer().isSameThread()) throw new IllegalStateException("Builder control requires server thread");
         var p=profile(v).orElse(null);
-        if(p==null || inDanger(v) || !homeReady(v) || ConstructionService.projectForBuilder(level.getServer(),p.citizenId()).isEmpty()) { release(v); return; }
+        if(p==null || inDanger(v) || !homeReady(v) || ConstructionService.projectForBuilder(level.getServer(),p.citizenId()).isEmpty() && !RepairWork.hasOrders(level,p.settlementId())) { release(v); return; }
         if(!CONTROLLED.containsKey(v)) {
             v.getBrain().stopAll(level,v); v.getBrain().removeAllBehaviors(); v.getNavigation().stop();
             var goal=new ConstructionGoal(v); CONTROLLED.put(v,goal); v.goalSelector.addGoal(1,goal);
+            WorkDoors.ensure(v);
         }
     }
     public static void release(Villager v) {
         var goal=CONTROLLED.remove(v);
         if(goal!=null) {
+            WorkDoors.release(v);
             v.goalSelector.removeGoal(goal); v.getNavigation().stop();
             if(v.level() instanceof ServerLevel level) v.refreshBrain(level);
         }
@@ -64,7 +66,7 @@ public final class BuilderWork {
         }
     }
     public static void onTick(EntityTickEvent.Post event) {
-        if(event.getEntity() instanceof Villager v && v.level() instanceof ServerLevel && v.tickCount%20==0
+        if(event.getEntity() instanceof Villager v && v.level() instanceof ServerLevel && Math.floorMod(v.tickCount+v.getId(),20)==0
                 && v.getPersistentData().hasUUID(CitizenService.CITIZEN_ID_KEY)) tick(v);
     }
     public static boolean tick(Villager v) {
@@ -101,10 +103,17 @@ public final class BuilderWork {
             release(v); var data=ProfessionSavedData.get(level.getServer());
             data.replace(p,p.work(WorkState.UNLOADED,Math.max(p.nextWorkAt(),ImmigrationService.now(level.getServer())+20),0,0)); return false;
         }
+        long now=ImmigrationService.now(level.getServer());
+        if(Math.floorMod(level.getDayTime(),24000)>=12000 || CitizenRoutine.threatened(v,citizen)) {
+            release(v);CitizenRoutine.shelter(v,citizen,p,now);return false;
+        }
         var entry=ConstructionService.projectForBuilder(level.getServer(),p.citizenId());
         if(entry.isEmpty()) { ConstructionService.assignReady(level.getServer(),p.settlementId()); entry=ConstructionService.projectForBuilder(level.getServer(),p.citizenId()); }
+        if(v.isSleeping()) v.stopSleeping();
         if(entry.isEmpty()) {
-            release(v); ProfessionSavedData.get(level.getServer()).replace(p,p.work(WorkState.IDLE,p.nextWorkAt(),0,0)); return false;
+            if(RepairWork.hasOrders(level,p.settlementId())) {control(v);return RepairWork.tick(v,p);}
+            release(v);
+            ProfessionSavedData.get(level.getServer()).replace(p,p.work(WorkState.IDLE,p.nextWorkAt(),0,0)); return false;
         }
         control(v);
         var goal=CONTROLLED.get(v); return goal!=null && goal.work();
@@ -137,18 +146,22 @@ public final class BuilderWork {
         private net.minecraft.world.phys.Vec3 previousPosition;
         ConstructionGoal(Villager v) { this.v=v; setFlags(EnumSet.of(Flag.MOVE,Flag.LOOK)); }
         @Override public boolean canUse() {
-            return !inDanger(v) && homeReady(v) && profile(v).filter(p -> ConstructionService.projectForBuilder(((ServerLevel)v.level()).getServer(),p.citizenId()).isPresent()).isPresent();
+            return Math.floorMod(v.level().getDayTime(),24000)<12000 && !inDanger(v) && homeReady(v)
+                    && profile(v).filter(p -> dev.livingkingdoms.defense.DefenseService.status(((ServerLevel)v.level()).getServer(),p.settlementId())!=dev.livingkingdoms.defense.domain.SettlementSafety.THREATENED
+                    && (ConstructionService.projectForBuilder(((ServerLevel)v.level()).getServer(),p.citizenId()).isPresent()
+                    || RepairWork.hasOrders((ServerLevel)v.level(),p.settlementId()))).isPresent();
         }
         @Override public boolean canContinueToUse() { return canUse(); }
         @Override public void tick() { if(v.tickCount%20==0) work(); }
         @Override public void stop() { v.getNavigation().stop(); }
         boolean work() {
             var level=(ServerLevel)v.level(); var p=profile(v).orElse(null);
-            if(p==null || inDanger(v)) return false;
+            if(p==null || inDanger(v) || Math.floorMod(level.getDayTime(),24000)>=12000
+                    || dev.livingkingdoms.defense.DefenseService.status(level.getServer(),p.settlementId())==dev.livingkingdoms.defense.domain.SettlementSafety.THREATENED) return false;
             var data=ProfessionSavedData.get(level.getServer()); long now=ImmigrationService.now(level.getServer());
             if(now<p.nextWorkAt()) return false;
             long next=now+BuilderConfig.WORK_INTERVAL.get();
-            var entry=ConstructionService.projectForBuilder(level.getServer(),p.citizenId()).orElse(null); if(entry==null) return false;
+            var entry=ConstructionService.projectForBuilder(level.getServer(),p.citizenId()).orElse(null); if(entry==null) return RepairWork.tick(v,p);
             var s=SettlementSavedData.get(level.getServer()).get(p.settlementId()).orElse(null);
             var workplace=data.building(p.workplaceId()).orElse(null);
             if(s==null || !s.faction().isAllied() || workplace==null || !workplace.active() || !workplace.supports(ProfessionType.BUILDER)) {

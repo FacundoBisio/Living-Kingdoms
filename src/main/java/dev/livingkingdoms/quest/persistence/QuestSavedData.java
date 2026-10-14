@@ -44,13 +44,22 @@ public final class QuestSavedData extends SavedData {
     private final Map<UUID, Set<QuestReference>> partyQuests = new LinkedHashMap<>();
     /** Contextual offers and accepted defenses, including ready rewards, stay linked to their exact event party. */
     private final Map<UUID, Set<QuestReference>> defenseQuests = new LinkedHashMap<>();
+    private final Map<UUID, Set<QuestReference>> developmentQuests = new LinkedHashMap<>();
+    private java.util.function.Consumer<dev.livingkingdoms.quest.domain.QuestNotice.Transition> transitionSink;
 
     public static QuestSavedData get(MinecraftServer server) {
         if (!server.isSameThread()) {
             throw new IllegalStateException("Quest data must be accessed on the server thread");
         }
-        return getOrCreate(server.overworld().getDataStorage(),
-                server.getWorldPath(LevelResource.ROOT).resolve("data"));
+        var data=getOrCreate(server.overworld().getDataStorage(),server.getWorldPath(LevelResource.ROOT).resolve("data"));
+        if(data.transitionSink==null) data.observeTransitions(event->dev.livingkingdoms.ui.QuestNotificationService.send(server,event));
+        return data;
+    }
+
+    public void observeTransitions(java.util.function.Consumer<dev.livingkingdoms.quest.domain.QuestNotice.Transition> sink) {transitionSink=Objects.requireNonNull(sink);}
+    private void notice(UUID player,QuestInstance quest,dev.livingkingdoms.quest.domain.QuestNotice.Kind kind) {
+        if(transitionSink!=null && quest.template()!=QuestTemplate.MAIN_IRON) transitionSink.accept(new dev.livingkingdoms.quest.domain.QuestNotice.Transition(player,
+                new dev.livingkingdoms.quest.domain.QuestNotice(quest.id(),kind,quest.template(),quest.source().settlementId(),quest.rewards().emeralds(),quest.rewards().reputation())));
     }
 
     static QuestSavedData getOrCreate(DimensionDataStorage storage, Path directory) {
@@ -250,6 +259,7 @@ public final class QuestSavedData extends SavedData {
         unindex(player, quest);
         index(player, ready);
         setDirty();
+        if(quest.template()!=QuestTemplate.FIRST_MEETING) notice(player,ready,dev.livingkingdoms.quest.domain.QuestNotice.Kind.OBJECTIVE_COMPLETED);
         return true;
     }
 
@@ -265,6 +275,8 @@ public final class QuestSavedData extends SavedData {
         relationships.computeIfAbsent(key, ignored -> new Relationship()).reputation = updated;
         unindex(player, quest);
         setDirty();
+        notice(player,quest,quest.rewards().emeralds()+quest.rewards().reputation()>0
+                ?dev.livingkingdoms.quest.domain.QuestNotice.Kind.REWARD_CLAIMED:dev.livingkingdoms.quest.domain.QuestNotice.Kind.MISSION_COMPLETED);
         return true;
     }
 
@@ -410,7 +422,20 @@ public final class QuestSavedData extends SavedData {
                 && quest.source().settlementId().equals(settlement);
     }
 
+    /** Local event subscribers are derived from persisted active quests, including after reload. */
+    public int resolveDevelopment(UUID settlement,long completedAt) {
+        Objects.requireNonNull(settlement);if(completedAt<0) throw new IllegalArgumentException("Invalid completion clock");
+        int resolved=0;
+        for(var ref:List.copyOf(developmentQuests.getOrDefault(settlement,Set.of()))) {
+            var q=quest(ref.player,ref.quest).orElse(null);
+            if(q!=null && q.createdAt()<=completedAt && markObjective(ref.player,ref.quest)) resolved++;
+        }
+        return resolved;
+    }
+
     private void index(UUID player, QuestInstance quest) {
+        if(quest.template()==QuestTemplate.MAIN_DEVELOPMENT && quest.state()==QuestState.ACTIVE && !quest.objectiveSatisfied())
+            developmentQuests.computeIfAbsent(quest.source().settlementId(),ignored->new LinkedHashSet<>()).add(new QuestReference(player,quest.id()));
         if (quest.template() == QuestTemplate.LOCAL_DEFENSE) {
             if ((quest.state() == QuestState.AVAILABLE || quest.state() == QuestState.ACTIVE)
                     && quest.objective() instanceof QuestObjective.Party party) {
@@ -425,6 +450,10 @@ public final class QuestSavedData extends SavedData {
     }
 
     private void unindex(UUID player, QuestInstance quest) {
+        if(quest.template()==QuestTemplate.MAIN_DEVELOPMENT) {
+            var refs=developmentQuests.get(quest.source().settlementId());
+            if(refs!=null) {refs.remove(new QuestReference(player,quest.id()));if(refs.isEmpty()) developmentQuests.remove(quest.source().settlementId());}
+        }
         if (quest.objective() instanceof QuestObjective.Party party) {
             Map<UUID, Set<QuestReference>> targetIndex = quest.template() == QuestTemplate.LOCAL_DEFENSE ? defenseQuests : partyQuests;
             Set<QuestReference> references = targetIndex.get(party.partyId());
@@ -472,6 +501,9 @@ public final class QuestSavedData extends SavedData {
         relationship.quests.put(quest, new AcceptedQuest(QuestState.COMPLETED, accepted.terms));
         relationship.reputation = updatedReputation;
         setDirty();
+        if(transitionSink!=null) transitionSink.accept(new dev.livingkingdoms.quest.domain.QuestNotice.Transition(player,
+                new dev.livingkingdoms.quest.domain.QuestNotice(UUID.nameUUIDFromBytes((player+":"+settlement+":"+quest).getBytes(java.nio.charset.StandardCharsets.UTF_8)),
+                        dev.livingkingdoms.quest.domain.QuestNotice.Kind.REWARD_CLAIMED,QuestTemplate.MAIN_IRON,settlement,accepted.terms.rewardEmeralds(),accepted.terms.reputationReward())));
         return true;
     }
 

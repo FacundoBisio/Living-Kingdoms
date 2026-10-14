@@ -111,7 +111,7 @@ class BuilderSavedDataTest {
     @Test void futureSchemaAndInvalidBuilderWorkplaceFailClosed() {
         var c=citizen(); var d=prepared(c); d.assignBuilder(c,workplace(d,BuildingKind.TOWN_HALL),0); var tag=d.save(new CompoundTag(),null);
         tag.getList("professions",10).getCompound(0).putUUID("workplace",workplace(d,BuildingKind.FARM)); assertThrows(IllegalArgumentException.class,() -> ProfessionSavedData.load(tag,null));
-        var future=d.save(new CompoundTag(),null); future.putInt("schema_version",4); assertThrows(IllegalArgumentException.class,() -> ProfessionSavedData.load(future,null));
+        var future=d.save(new CompoundTag(),null); future.putInt("schema_version",5); assertThrows(IllegalArgumentException.class,() -> ProfessionSavedData.load(future,null));
         assertThrows(IllegalArgumentException.class,() -> new Profession(c.id(),s.id(),ProfessionType.BUILDER,new LevelValue(1),0,null,true,WorkState.IDLE,0,0,0,Set.of()));
     }
     @Test void levelBonusIsModestCappedAndConfigurable() {

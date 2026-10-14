@@ -124,7 +124,7 @@ public final class ExpandedQuestService {
         // Load/validate the new resource store before consuming the existing quest receipt or items.
         var stock=quest.template()==QuestTemplate.FOOD_REQUEST
                 ? dev.livingkingdoms.profession.persistence.ProfessionSavedData.get(player.server) : null;
-        if(stock!=null) stock.ensureFood(quest.source().settlementId(),dev.livingkingdoms.config.ProfessionConfig.FOOD_CAPACITY.get());
+        if(stock!=null) stock.ensureFood(quest.source().settlementId(),dev.livingkingdoms.profession.ProfessionService.foodCapacity(player.server,quest.source().settlementId()));
         // The full inventory exchange is preflighted before the one-time state/reputation transition.
         data.markObjective(player.getUUID(), quest.id());
         if (!data.completeExpanded(player.getUUID(), quest.id())) return false;
@@ -132,7 +132,7 @@ public final class ExpandedQuestService {
         if(quest.template()==QuestTemplate.FOOD_REQUEST) {
             int units=requirements.stream().filter(r -> r.resource()==ResourceKind.WHEAT).mapToInt(r -> r.count()).sum()
                     *dev.livingkingdoms.config.ProfessionConfig.WHEAT_FOOD.get();
-            stock.addFood(quest.source().settlementId(),units);
+            stock.pledgeFood(quest.source().settlementId(),units);
         }
         player.inventoryMenu.broadcastChanges();
         if (player.containerMenu != player.inventoryMenu) player.containerMenu.broadcastChanges();

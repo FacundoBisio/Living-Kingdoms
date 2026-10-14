@@ -26,6 +26,8 @@ public final class VillageClient {
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(KingdomKeys::tick);
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(KingdomHud::onTick);
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(KingdomHud::onLogout);
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(QuestNotifications::tick);
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(QuestNotifications::logout);
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(KingdomHud::onRenderGui);
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(KingdomHud::onBossProgress);
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(TerritoryOverlay::render);
@@ -34,6 +36,7 @@ public final class VillageClient {
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(VillageClient::onLogin);
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(VillageClient::onLogout);
         UiPayloads.hudReceiver=payload -> KingdomHud.update(payload.data());
+        UiPayloads.notificationReceiver=QuestNotifications::receive;
         UiPayloads.territoryReceiver=payload -> TerritoryOverlay.update(payload.data());
         UiPayloads.clientReceiver = payload -> {
             Minecraft client = Minecraft.getInstance();
@@ -43,7 +46,8 @@ public final class VillageClient {
             String kind = payload.data().getString("screen");
             if (kind.equals("closed")) {
                 boolean matching=client.screen instanceof VillageScreen village && (!data.hasUUID("session") || village.sameSession(data))
-                        || client.screen instanceof MayorOnboardingScreen mayor && (!data.hasUUID("session") || mayor.sameSession(data));
+                        || client.screen instanceof MayorOnboardingScreen mayor && (!data.hasUUID("session") || mayor.sameSession(data))
+                        || client.screen instanceof StockScreen stock && (!data.hasUUID("session") || stock.sameSession(data));
                 if(data.hasUUID("session")) closeSession(data.getUUID("session"));
                 if(matching) client.setScreen(null);
             } else if(!data.hasUUID("session")) {
@@ -52,6 +56,9 @@ public final class VillageClient {
                     && !payload.data().getString("onboarding_stage").equals("JOINED")) {
                 if (client.screen instanceof MayorOnboardingScreen screen && screen.sameSession(payload.data())) screen.update(payload.data());
                 else client.setScreen(new MayorOnboardingScreen(payload.data()));
+            } else if(kind.equals("stock")) {
+                if(client.screen instanceof StockScreen stock && stock.sameSession(data)) stock.update(data);
+                else client.setScreen(new StockScreen(data));
             } else if (client.screen instanceof VillageScreen screen && screen.sameSession(payload.data())) {
                 screen.update(payload.data());
             } else if (kind.equals("board") || kind.equals("dialogue") || kind.equals("construction")
@@ -65,8 +72,10 @@ public final class VillageClient {
             var client=Minecraft.getInstance();
             client.execute(()-> {
                 KingdomHud.invalidateLayout();
+                QuestNotifications.reload();
                 if(client.screen instanceof VillageScreen village) village.reloadUi();
                 else if(client.screen instanceof MayorOnboardingScreen mayor) mayor.reloadUi();
+                else if(client.screen instanceof StockScreen stock) stock.reloadUi();
             });
         });
     }

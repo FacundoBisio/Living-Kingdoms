@@ -62,6 +62,21 @@ public final class ProfessionSavedData extends SavedData {
         authority(); var old=Objects.requireNonNull(food.get(settlement),"Food store not initialized"); var next=old.add(units);
         if(!old.equals(next)) { food.put(settlement,next); setDirty(); } return next.stock()-old.stock();
     }
+    public int pledgeFood(UUID settlement,int units) {
+        authority();var old=Objects.requireNonNull(food.get(settlement),"Food store not initialized");var next=old.pledge(units);
+        if(!old.equals(next)) {food.put(settlement,next);setDirty();}return next.stock()-old.stock();
+    }
+    /** Economic transfers preserve the original production total; input is not a harvest. */
+    public boolean exchangeFood(UUID settlement,FoodStock expected,int consumed,int deposited) {
+        return exchangeFood(settlement,expected,consumed,deposited,false);
+    }
+    public boolean exchangeFood(UUID settlement,FoodStock expected,int consumed,int deposited,boolean directWithdrawal) {
+        authority();if(consumed<0 || deposited<0) throw new IllegalArgumentException("Invalid food transfer");
+        if(!expected.equals(food.get(settlement)) || consumed>expected.stock() || deposited>expected.capacity()-expected.stock()+consumed) return false;
+        if(directWithdrawal && consumed>expected.stock()-expected.pledged()) return false;
+        var next=(directWithdrawal?expected.withdraw(consumed):expected.consume(consumed)).deposit(deposited);
+        if(!next.equals(expected)) {food.put(settlement,next);setDirty();}return true;
+    }
     public void initialize(Citizen citizen) {
         authority(); var existing=professions.get(citizen.id());
         if(existing!=null) {
@@ -92,9 +107,14 @@ public final class ProfessionSavedData extends SavedData {
         synchronize(settlement,layout,farmSlots,guardSlots,0,citizens);
     }
     public void synchronize(Settlement settlement,SettlementLayoutMetadata layout,int farmSlots,int guardSlots,int builderSlots,List<Citizen> citizens) {
+        synchronize(settlement,layout,farmSlots,guardSlots,builderSlots,citizens,0,Map.of());
+    }
+    public void synchronize(Settlement settlement,SettlementLayoutMetadata layout,int farmSlots,int guardSlots,int builderSlots,List<Citizen> citizens,int economicSlots,Map<UUID,Integer> levels) {
         authority(); var desired=new LinkedHashMap<UUID,FunctionalBuilding>();
         if(layout!=null) for(var b:layout.buildings()) {
-            int slots=switch(b.kind()) { case FARM -> farmSlots; case BARRACKS -> guardSlots; case CORE,TOWN_HALL -> builderSlots; default -> 0; };
+            int slots=switch(b.kind()) { case FARM -> farmSlots; case BARRACKS -> guardSlots; case CORE,TOWN_HALL -> builderSlots;
+                case LUMBERJACK_HUT,MINE,BLACKSMITH -> economicSlots;default -> 0; };
+            if(slots>0) slots=Math.min(128,slots+levels.getOrDefault(Housing.identity(settlement.id(),b),1)-1);
             var functional=FunctionalBuilding.from(settlement.id(),settlement.territory().dimension(),b,slots);
             if(desired.put(functional.id(),functional)!=null) throw new IllegalArgumentException("Duplicate functional building");
         }
@@ -104,7 +124,8 @@ public final class ProfessionSavedData extends SavedData {
             var t=settlement.territory(); var center=new BlockPos(t.x(),t.y(),t.z());
             var plaza=new SettlementLayoutMetadata.Building(BuildingKind.TOWN_HALL,ResourceLocation.parse("livingkingdoms:allied/converted/plaza"),
                     center,Rotation.NONE,new PlotBounds(t.x(),t.z(),t.x(),t.z()),center.east(2));
-            var functional=FunctionalBuilding.from(settlement.id(),t.dimension(),plaza,builderSlots); desired.put(functional.id(),functional);
+            int slots=Math.min(128,builderSlots+levels.getOrDefault(Housing.identity(settlement.id(),plaza),1)-1);
+            var functional=FunctionalBuilding.from(settlement.id(),t.dimension(),plaza,slots); desired.put(functional.id(),functional);
         }
         if(!buildings(settlement.id()).equals(List.copyOf(desired.values()))) {
             if((long)buildings.size()-buildings(settlement.id()).size()+desired.size()>65536) throw new IllegalStateException("Too many functional buildings");
@@ -126,22 +147,26 @@ public final class ProfessionSavedData extends SavedData {
         return assign(citizen,workplace,now,ProfessionType.GUARD);
     }
     public boolean assignBuilder(Citizen citizen,UUID workplace,long now) { return assign(citizen,workplace,now,ProfessionType.BUILDER); }
+    public boolean assignEconomic(Citizen citizen,UUID workplace,long now,ProfessionType type) {
+        return type.economic() && assign(citizen,workplace,now,type);
+    }
     private boolean assign(Citizen citizen,UUID workplace,long now,ProfessionType type) {
         authority(); initialize(citizen); var old=profession(citizen.id()).orElseThrow(); var b=buildings.get(workplace);
         if(now<0 || citizen.state()!=CitizenState.ACTIVE || citizen.homeId()==null || citizen.role()==CitizenRole.MAYOR
-                || (type==ProfessionType.GUARD || type==ProfessionType.BUILDER) && old.type()!=ProfessionType.UNASSIGNED || old.type()==ProfessionType.MAYOR || old.active() && old.type()!=ProfessionType.UNASSIGNED
+                || (type==ProfessionType.GUARD || type==ProfessionType.BUILDER || type.economic()) && old.type()!=ProfessionType.UNASSIGNED || old.type()==ProfessionType.MAYOR || old.active() && old.type()!=ProfessionType.UNASSIGNED
                 || b==null || !b.active() || !b.supports(type) || !b.settlementId().equals(citizen.settlementId())
                 || workers(workplace)>=b.workplaceSlots()) return false;
         var progress=careers.getOrDefault(citizen.id(),Map.of()).getOrDefault(type,
                 new Career(1,0));
         put(new Profession(citizen.id(),citizen.settlementId(),type,new LevelValue(progress.level()),progress.xp(),workplace,true,
-                WorkState.IDLE,now,0,0,old.traits())); return true;
+                WorkState.IDLE,Math.max(now,old.nextWorkAt()),0,0,old.traits())); return true;
     }
     public boolean removeFarmer(UUID citizen) {
         return remove(citizen,ProfessionType.FARMER);
     }
     public boolean removeGuard(UUID citizen) { return remove(citizen,ProfessionType.GUARD); }
     public boolean removeBuilder(UUID citizen) { return remove(citizen,ProfessionType.BUILDER); }
+    public boolean removeEconomic(UUID citizen) { var old=profession(citizen).orElse(null);return old!=null && old.type().economic() && remove(citizen,old.type()); }
     private boolean remove(UUID citizen,ProfessionType type) {
         authority(); var old=professions.get(citizen);
         if(old==null || old.type()!=type) return false;
@@ -177,9 +202,15 @@ public final class ProfessionSavedData extends SavedData {
         put(new Profession(expected.citizenId(),expected.settlementId(),expected.type(),new LevelValue(BuilderPolicy.level(total,cap,step)),total,
                 expected.workplaceId(),true,expected.workState(),expected.nextWorkAt(),expected.cropCursor(),expected.navigationFailures(),expected.traits())); return true;
     }
-    private static boolean careerType(ProfessionType type) { return type==ProfessionType.FARMER || type==ProfessionType.GUARD || type==ProfessionType.BUILDER; }
+    public boolean economicExperience(Profession expected,int xp,int cap,int step) {
+        authority();if(!expected.type().economic() || !expected.active() || xp<1 || !expected.equals(professions.get(expected.citizenId()))) return false;
+        long total=Math.min(1_000_000_000L,expected.experience()+xp);
+        put(new Profession(expected.citizenId(),expected.settlementId(),expected.type(),new LevelValue(FarmerProgression.level(total,cap,step)),total,
+                expected.workplaceId(),true,expected.workState(),expected.nextWorkAt(),expected.cropCursor(),0,expected.traits()));return true;
+    }
+    private static boolean careerType(ProfessionType type) { return type.operational(); }
     public static ProfessionSavedData load(CompoundTag tag,HolderLookup.Provider registries) {
-        require(tag,"schema_version",Tag.TAG_INT); int version=tag.getInt("schema_version"); if(version<1 || version>3) throw new IllegalArgumentException("Unsupported profession schema");
+        require(tag,"schema_version",Tag.TAG_INT); int version=tag.getInt("schema_version"); if(version<1 || version>4) throw new IllegalArgumentException("Unsupported profession schema");
         var data=new ProfessionSavedData();
         for(var element:list(tag,"buildings",65536)) {
             var e=(CompoundTag)element; var origin=pos(e,"origin");
@@ -204,7 +235,7 @@ public final class ProfessionSavedData extends SavedData {
         }
         for(var element:list(tag,"food",65536)) {
             var e=(CompoundTag)element;
-            if(data.food.putIfAbsent(uuid(e,"settlement"),new FoodStock(integer(e,"stock"),integer(e,"capacity"),number(e,"produced")))!=null) throw new IllegalArgumentException("Duplicate food stock");
+            if(data.food.putIfAbsent(uuid(e,"settlement"),new FoodStock(integer(e,"stock"),integer(e,"capacity"),number(e,"produced"),version>=4?integer(e,"pledged"):0))!=null) throw new IllegalArgumentException("Duplicate food stock");
         }
         if(version>=2) {
             var seen=new HashSet<String>();
@@ -220,7 +251,7 @@ public final class ProfessionSavedData extends SavedData {
         data.setDirty(false); return data;
     }
     @Override public CompoundTag save(CompoundTag tag,HolderLookup.Provider registries) {
-        authority(); tag.putInt("schema_version",3); var bs=new ListTag(); var ps=new ListTag(); var fs=new ListTag();
+        authority(); tag.putInt("schema_version",4); var bs=new ListTag(); var ps=new ListTag(); var fs=new ListTag();
         for(var b:buildings.values()) {
             var e=new CompoundTag(); e.putUUID("id",b.id()); e.putUUID("settlement",b.settlementId()); e.putString("dimension",b.dimension()); e.putString("kind",b.kind().name()); e.putString("template",b.template().toString());
             putPos(e,"origin",b.origin()); putPos(e,"entrance",b.entrance()); e.putString("rotation",b.rotation().name()); e.putInt("max_x",b.bounds().maxX()); e.putInt("max_z",b.bounds().maxZ()); e.putInt("slots",b.workplaceSlots()); e.putBoolean("active",b.active()); bs.add(e);
@@ -230,7 +261,7 @@ public final class ProfessionSavedData extends SavedData {
             if(p.workplaceId()!=null) e.putUUID("workplace",p.workplaceId()); e.putBoolean("active",p.active()); e.putString("work_state",p.workState().name()); e.putLong("next_work",p.nextWorkAt()); e.putInt("cursor",p.cropCursor()); e.putInt("failures",p.navigationFailures());
             var traits=new ListTag(); for(var t:p.traits()) { var v=new CompoundTag(); v.putString("trait",t.name()); traits.add(v); } e.put("traits",traits); ps.add(e);
         }
-        food.forEach((id,f) -> {var e=new CompoundTag(); e.putUUID("settlement",id); e.putInt("stock",f.stock()); e.putInt("capacity",f.capacity()); e.putLong("produced",f.produced()); fs.add(e);});
+        food.forEach((id,f) -> {var e=new CompoundTag(); e.putUUID("settlement",id); e.putInt("stock",f.stock()); e.putInt("capacity",f.capacity()); e.putLong("produced",f.produced());e.putInt("pledged",f.pledged()); fs.add(e);});
         var cs=new ListTag(); careers.forEach((id,history) -> history.forEach((type,c) -> {
             var e=new CompoundTag(); e.putUUID("citizen",id); e.putString("type",type.name()); e.putInt("level",c.level()); e.putLong("xp",c.xp()); cs.add(e);
         })); tag.put("careers",cs);

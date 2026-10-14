@@ -186,6 +186,22 @@ public final class SettlementSavedData extends SavedData {
     public boolean overlaps(Territory territory) {
         return settlements.values().stream().anyMatch(settlement -> settlement.territory().overlaps(territory));
     }
+    /** Explicit paid growth only: center/identity stay indexed; bounded radii do not cross the oversized-index threshold. */
+    public boolean expand(Settlement expected,int radius) {
+        var old=expected.territory();
+        if(!expected.faction().isAllied() || radius<=old.radius() || radius>128 || !expected.equals(settlements.get(expected.id()))) return false;
+        var territory=new Territory(old.dimension(),old.x(),old.y(),old.z(),radius);
+        if(settlements.values().stream().anyMatch(other->!other.id().equals(expected.id()) && other.territory().overlaps(territory))) return false;
+        var layout=layouts.get(expected.id());if(layout!=null) layout.validate(territory,expected.provenance().origin()==dev.livingkingdoms.settlement.domain.SettlementOrigin.CONVERTED);
+        var next=new Settlement(expected.id(),expected.name(),expected.faction(),expected.level(),expected.population(),territory,expected.provenance(),expected.lifecycle());
+        settlements.put(expected.id(),next);setDirty();return true;
+    }
+    public boolean canExpand(Settlement expected,int radius) {
+        var old=expected.territory();if(radius<=old.radius() || radius>128) return false;
+        var territory=new Territory(old.dimension(),old.x(),old.y(),old.z(),radius);
+        return expected.equals(settlements.get(expected.id())) && expected.faction().isAllied()
+                && settlements.values().stream().noneMatch(other->!other.id().equals(expected.id()) && other.territory().overlaps(territory));
+    }
 
     public void add(Settlement settlement) {
         Objects.requireNonNull(settlement, "settlement");

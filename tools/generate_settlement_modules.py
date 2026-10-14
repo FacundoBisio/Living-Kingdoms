@@ -246,6 +246,25 @@ def module(kind, width, depth, height):
                 put(b,x,2,depth-3,"spruce_fence")
                 put(b,x,2,depth-2,"blue_wall_banner",facing="south")
             put(b,width-2,1,depth-1,"spruce_fence")
+        if kind=="warehouse":
+            for x in (2,width-3):
+                for z in (2,depth-3): put(b,x,1,z,"barrel",facing="up",open="false")
+            put(b,2,2,2,"hay_block",axis="y")
+            put(b,width-3,2,2,"oak_planks")
+        if kind=="lumberjack_hut":
+            for x in (2,3,4): put(b,x,1,2,"oak_log",axis="y")
+            put(b,2,1,depth-3,"crafting_table")
+            put(b,width-3,1,depth-3,"cartography_table")
+        if kind=="mine":
+            # Surface workshop, not an excavated shaft: avoids terrain/inventory destruction.
+            for x in (2,3,4): put(b,x,1,2,"andesite" if x==3 else "stone")
+            put(b,2,1,depth-3,"stonecutter",facing="south")
+            put(b,width-3,1,depth-3,"blast_furnace",facing="south",lit="false")
+        if kind=="market":
+            for x in (2,width-3):
+                put(b,x,1,2,"barrel",facing="south",open="false")
+                put(b,x,2,2,"yellow_carpet")
+            put(b,2,1,depth-3,"lectern",facing="south",has_book="false",powered="false")
         if kind=="town_hall":
             for x in (2,width-3):
                 put(b,x,3,depth-1,"blue_wall_banner",facing="south")
@@ -260,7 +279,8 @@ def main():
     for kind, width, depth, height in (("core", 13, 13, 11), ("town_hall", 11, 9, 11), ("house", 7, 7, 9),
                                        ("house_variant", 7, 9, 10), ("house_third", 9, 7, 10),
                                        ("blacksmith", 7, 7, 10), ("barracks", 9, 9, 10), ("watchtower", 7, 7, 12),
-                                       ("founding_camp", 9, 9, 5), ("farm", 9, 9, 5)):
+                                       ("founding_camp", 9, 9, 5), ("farm", 9, 9, 5),
+                                       ("warehouse",9,9,10),("lumberjack_hut",7,7,9),("mine",7,7,9),("market",9,9,10)):
         result = module(kind, width, depth, height)
         path = root / f"{kind}.nbt"
         if args.check:

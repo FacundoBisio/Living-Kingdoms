@@ -58,7 +58,9 @@ public final class DefenseService {
         if (buildings.isEmpty()) tower = SettlementSavedData.get(server).layout(settlement.id())
                 .map(layout -> layout.buildings().stream().anyMatch(b -> b.kind() == BuildingKind.WATCHTOWER)).orElse(false);
         double security = SecurityService.score(server, settlement.id()) / 100.0 * DefenseConfig.SECURITY_DETECTION_BONUS.get();
-        return Math.min(DefenseConfig.MAX_DETECTION_RANGE.get(), DefenseConfig.NORMAL_DETECTION_RANGE.get() + security
+        int towerLevel=dev.livingkingdoms.profession.persistence.ProfessionSavedData.get(server).buildings(settlement.id()).stream()
+                .filter(b->b.active() && b.kind()==BuildingKind.WATCHTOWER).mapToInt(b->dev.livingkingdoms.economy.BuildingDevelopment.level(server,settlement.id(),b.id())).max().orElse(1);
+        return Math.min(DefenseConfig.MAX_DETECTION_RANGE.get(), DefenseConfig.NORMAL_DETECTION_RANGE.get() + security + (tower?towerLevel-1:0)*4
                 + (tower ? DefenseConfig.WATCHTOWER_DETECTION_BONUS.get() : 0));
     }
 
