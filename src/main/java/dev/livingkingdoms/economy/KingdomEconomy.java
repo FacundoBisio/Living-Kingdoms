@@ -90,6 +90,18 @@ public final class KingdomEconomy {
         if(!commit(player.server,transfer)) return 0;
         inventory.orElseThrow().apply(player.getInventory());sync(player);return amount;
     }
+    /** Native chest-style shift-click spends only the selected inventory slot, preserving its other stacks. */
+    public static int depositSlot(ServerPlayer player,UUID settlement,StockResource resource,int slot,int limit) {
+        if(!authorized(player,settlement) || slot<0 || slot>=36 || limit<1 || limit>64 || resource.material()==null) return 0;
+        var stack=player.getInventory().getItem(slot);
+        boolean matches=switch(resource) {case FOOD->stack.is(net.minecraft.world.item.Items.WHEAT);case WOOD->stack.is(net.minecraft.tags.ItemTags.LOGS);case STONE->stack.is(net.minecraft.world.item.Items.STONE);case IRON->stack.is(net.minecraft.world.item.Items.IRON_INGOT);case EQUIPMENT->false;};
+        if(!matches) return 0;
+        var account=ensure(player.server,settlement);var food=ProfessionService.food(player.server,settlement);int nutrition=ProfessionConfig.WHEAT_FOOD.get();
+        int room=resource==StockResource.FOOD?food.capacity()-food.stock():account.room(resource);
+        int amount=Math.min(limit,Math.min(stack.getCount(),resource.itemsFromUnits(room,nutrition)));if(amount<1) return 0;
+        var transfer=plan(player.server,settlement,Map.of(),Map.of(resource,resource.unitsForItems(amount,nutrition)),false).orElseThrow();
+        if(!commit(player.server,transfer)) return 0;stack.shrink(amount);player.getInventory().setChanged();sync(player);return amount;
+    }
     public static boolean consume(MinecraftServer server,Settlement settlement) {
         var account=ensure(server,settlement.id());long now=now(server);
         if(now-account.consumedAt()<EconomyConfig.CONSUMPTION_INTERVAL.get()) return false;

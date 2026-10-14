@@ -1,0 +1,20 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "livingkingdoms:block/kingdom_storage",
+      "y": 0
+    },
+    "facing=east": {
+      "model": "livingkingdoms:block/kingdom_storage",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "livingkingdoms:block/kingdom_storage",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "livingkingdoms:block/kingdom_storage",
+      "y": 270
+    }
+  }
+}

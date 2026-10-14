@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "pattern": [
+    "LIL",
+    "LCL",
+    "LLL"
+  ],
+  "key": {
+    "L": {
+      "tag": "minecraft:planks"
+    },
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "C": {
+      "item": "minecraft:chest"
+    }
+  },
+  "result": {
+    "id": "livingkingdoms:kingdom_storage",
+    "count": 1
+  }
+}

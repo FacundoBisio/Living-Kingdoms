@@ -22,9 +22,13 @@ public final class KingdomBlocks {
             QuestBoardBlock::new, BlockBehaviour.Properties.of().strength(2.0F).sound(SoundType.WOOD).noOcclusion());
     public static final DeferredBlock<ConstructionMarkerBlock> CONSTRUCTION_MARKER = BLOCKS.registerBlock("construction_marker",
             ConstructionMarkerBlock::new, BlockBehaviour.Properties.of().strength(1.5F).sound(SoundType.WOOD).noLootTable());
+    public static final DeferredBlock<KingdomStorageBlock> KINGDOM_STORAGE=BLOCKS.registerBlock("kingdom_storage",
+            KingdomStorageBlock::new,BlockBehaviour.Properties.of().strength(2.5F).sound(SoundType.WOOD).noOcclusion());
 
     static {
         ITEMS.registerSimpleBlockItem(QUEST_BOARD);
+        ITEMS.registerSimpleBlockItem(KINGDOM_STORAGE);
+        BLOCK_TYPES.register("kingdom_storage",()->KingdomStorageBlock.CODEC);
         BLOCK_TYPES.register("quest_board", () -> QuestBoardBlock.CODEC);
         BLOCK_TYPES.register("construction_marker", () -> ConstructionMarkerBlock.CODEC);
     }
@@ -37,7 +41,7 @@ public final class KingdomBlocks {
     }
 
     private static void creativeTab(BuildCreativeModeTabContentsEvent event) {
-        if (event.getTabKey() == CreativeModeTabs.FUNCTIONAL_BLOCKS) event.accept(QUEST_BOARD);
+        if (event.getTabKey() == CreativeModeTabs.FUNCTIONAL_BLOCKS) {event.accept(QUEST_BOARD);event.accept(KINGDOM_STORAGE);}
     }
 
     private KingdomBlocks() {}
