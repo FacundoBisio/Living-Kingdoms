@@ -32,6 +32,8 @@ public final class LivingKingdoms {
         container.registerConfig(ModConfig.Type.SERVER,dev.livingkingdoms.config.CommerceConfig.SPEC,"livingkingdoms-commerce.toml");
         dev.livingkingdoms.commerce.MerchantWork.register(NeoForge.EVENT_BUS);
         dev.livingkingdoms.commerce.CommerceService.register(NeoForge.EVENT_BUS);
+        modBus.addListener(dev.livingkingdoms.citizenvisual.CitizenVisualPayloads::register);
+        dev.livingkingdoms.citizenvisual.CitizenVisualService.register(NeoForge.EVENT_BUS);
         dev.livingkingdoms.item.KingdomItems.register(modBus);
         modBus.addListener(dev.livingkingdoms.ui.UiPayloads::register);
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.npc.MayorPresentation::onJoin);

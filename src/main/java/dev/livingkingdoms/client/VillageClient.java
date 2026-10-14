@@ -21,6 +21,7 @@ public final class VillageClient {
         bus.addListener((net.neoforged.neoforge.client.event.RegisterMenuScreensEvent event)->event.register(dev.livingkingdoms.storage.KingdomStorage.MENU.get(),StorageScreen::new));
         CommerceScreen.register();
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut event)->CommerceScreen.clear());
+        dev.livingkingdoms.client.citizenvisual.CitizenVisualClient.register(bus,container);
         bus.addListener(VillageClient::registerUiReload);
         bus.addListener(MayorCircletLayer::register);
         bus.addListener(KingdomKeys::register);
