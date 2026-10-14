@@ -34,6 +34,7 @@ public final class LivingKingdoms {
         dev.livingkingdoms.commerce.CommerceService.register(NeoForge.EVENT_BUS);
         modBus.addListener(dev.livingkingdoms.citizenvisual.CitizenVisualPayloads::register);
         dev.livingkingdoms.citizenvisual.CitizenVisualService.register(NeoForge.EVENT_BUS);
+        modBus.addListener(dev.livingkingdoms.construction.preview.PreviewPayloads::register);
         dev.livingkingdoms.item.KingdomItems.register(modBus);
         modBus.addListener(dev.livingkingdoms.ui.UiPayloads::register);
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.npc.MayorPresentation::onJoin);

@@ -122,8 +122,16 @@ public final class ConstructionService {
     }
     public static ConstructionSavedData.Entry reserve(ServerLevel level,UUID settlementId,SettlementLayout plan,
             Map<ResourceKind,Integer> requirements,long duration,ServerPlayer actor) {
+        return reserveWithMetadata(level,settlementId,plan,requirements,duration,actor,
+                SettlementSavedData.get(level.getServer()).layout(settlementId).orElseThrow());
+    }
+    /** Converted villages may survey their native plaza without persisting metadata until confirmation succeeds. */
+    public static ConstructionSavedData.Entry reserveWithMetadata(ServerLevel level,UUID settlementId,SettlementLayout plan,
+            Map<ResourceKind,Integer> requirements,long duration,ServerPlayer actor,SettlementLayoutMetadata surveyedMetadata) {
         var settlements=SettlementSavedData.get(level.getServer()); var settlement=settlements.get(settlementId).orElseThrow();
-        var metadata=settlements.layout(settlementId).orElseThrow();
+        var metadata=settlements.layout(settlementId).orElse(surveyedMetadata);
+        if(settlements.layout(settlementId).isEmpty() && settlement.provenance().origin()!=SettlementOrigin.CONVERTED)
+            throw new IllegalArgumentException("Only converted villages may initialize a surveyed native plaza");
         if(!settlement.faction().isAllied() || !plan.territory().equals(settlement.territory()) || plan.buildings().size()!=1)
             throw new IllegalArgumentException("Invalid construction context");
         metadata.append(plan).validate(settlement.territory(),settlement.provenance().origin()==SettlementOrigin.CONVERTED);
@@ -148,6 +156,7 @@ public final class ConstructionService {
         } catch(RuntimeException failure) {
             level.setBlock(entry.marker(),original,18); storage.removeUnstarted(p); throw failure;
         }
+        if(settlements.layout(settlementId).isEmpty()) settlements.updateLayout(settlementId,metadata);
         return entry;
     }
     public static boolean deposit(ServerPlayer player,UUID settlementId,UUID projectId) {

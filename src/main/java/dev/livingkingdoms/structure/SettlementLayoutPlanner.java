@@ -195,6 +195,36 @@ public final class SettlementLayoutPlanner {
         return Optional.empty();
     }
 
+    /** Explicit placement uses the same plot survey and bounded road routing as automatic growth. */
+    public Optional<SettlementLayout> planAdditionAt(ServerLevel level, Territory territory, BuildingCatalog catalog,
+            BuildingKind kind, List<PlotBounds> occupied, List<BlockPos> ports,
+            Map<BlockPos, BlockState> existingPaths, BlockPos minimum, Rotation rotation, GenerationDiagnostics diagnostics) {
+        if (SettlementLayoutMetadata.anchor(kind) || ports.isEmpty()
+                || !territory.dimension().equals(level.dimension().location().toString())) return Optional.empty();
+        var module = catalog.get(kind);
+        var footprint = bounds(minimum, module.rotatedSize(rotation));
+        if (occupied.stream().anyMatch(other -> footprint.conflicts(other, SettlementGenerationConfig.SPACING.get()))
+                || existingPaths.keySet().stream().anyMatch(pos -> footprint.contains(pos.getX(), pos.getZ()))) return Optional.empty();
+        var surveyed = planPlot(level, territory, module, minimum, rotation,
+                SettlementGenerationConfig.tolerance(kind, false), diagnostics);
+        if (surveyed.isEmpty()) return Optional.empty();
+        var building = surveyed.get().buildings().getFirst();
+        var before = new LinkedHashMap<>(surveyed.get().before());
+        var allOccupied = new ArrayList<>(occupied); allOccupied.add(footprint);
+        for (var port : ports.stream().sorted(Comparator.comparingDouble(p -> p.distSqr(building.entrance()))).toList()) {
+            var pathBefore = new LinkedHashMap<BlockPos, BlockState>();
+            var route = paths.connect(level, new SettlementTerrain(level), territory, building.entrance(), port,
+                    allOccupied, existingPaths, pathBefore, SettlementGenerationConfig.PATH_NODES.get());
+            if (route.isPresent()) {
+                pathBefore.forEach(before::putIfAbsent);
+                var plan = new SettlementLayout(territory, catalog.style(), List.of(building), route.get(), before);
+                plan.validateGeometry();
+                return Optional.of(plan);
+            }
+        }
+        return Optional.empty();
+    }
+
     /** Public plot validation is useful for authoring tests and explicit future building requests. */
     public Optional<SettlementLayout> planPlot(ServerLevel level, Territory territory, BuildingTemplate module,
             BlockPos minimumCorner, Rotation rotation, Tolerance tolerance, GenerationDiagnostics diagnostics) {
