@@ -774,7 +774,7 @@ public final class VillageScreen extends KingdomScreen {
         else {
             for(Component detail:citizenDetails(person)) y=paragraph(g,detail,x,y,w,INK);
             if(!person.getBoolean("assign") && !person.getBoolean("assign_guard") && !person.getBoolean("assign_builder") && !person.getBoolean("assign_lumberjack")
-                    && !person.getBoolean("assign_miner") && !person.getBoolean("assign_blacksmith") && !person.getBoolean("remove")) y=paragraph(g,tr("citizens.requirement"),x,y,w,MUTED);
+                    && !person.getBoolean("assign_miner") && !person.getBoolean("assign_blacksmith") && !person.getBoolean("assign_merchant") && !person.getBoolean("remove")) y=paragraph(g,tr("citizens.requirement"),x,y,w,MUTED);
         }
         if(data.getInt("roster_total")>people.size()) y=paragraph(g,tr("citizens.truncated",people.size(),data.getInt("roster_total")),x,y,w,MUTED);
         y=paragraph(g,tr("citizens.shared"),x,y,w,MUTED);
