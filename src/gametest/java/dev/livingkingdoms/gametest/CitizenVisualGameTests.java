@@ -13,18 +13,25 @@ import dev.livingkingdoms.profession.persistence.ProfessionSavedData;
 import dev.livingkingdoms.progression.domain.LevelValue;
 import dev.livingkingdoms.settlement.domain.*;
 import dev.livingkingdoms.settlement.persistence.SettlementSavedData;
+import dev.livingkingdoms.structure.BuildingKind;
+import dev.livingkingdoms.structure.ArchitectureStyle;
+import dev.livingkingdoms.structure.PlotBounds;
+import dev.livingkingdoms.structure.SettlementLayoutMetadata;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.Rotation;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import java.util.UUID;
 import java.util.Set;
+import java.util.List;
 
 @GameTestHolder(KingdomGameTests.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -56,9 +63,20 @@ public final class CitizenVisualGameTests {
         helper.assertTrue(villager.getUUID().equals(uuid) && villager.getVillagerData().equals(career) && villager.isNoAi() == ai
                 && beforeNbt.equals(villager.saveWithoutId(new CompoundTag())), "Snapshot never changes UUID, AI, inventory or native state");
         var initial = jobs.profession(citizen.id()).orElseThrow();
+        // GameTests share the server's SavedData. A random nonexistent workplace
+        // poisons other tests' whole-store reloads depending on their execution order.
+        var barracks = new SettlementLayoutMetadata.Building(BuildingKind.BARRACKS,
+                ResourceLocation.fromNamespaceAndPath("livingkingdoms", "allied/plains/barracks"), pos,
+                Rotation.NONE, new PlotBounds(pos.getX(), pos.getZ(), pos.getX() + 2, pos.getZ() + 2), pos.east());
+        jobs.synchronize(settlement, new SettlementLayoutMetadata(ArchitectureStyle.PLAINS,
+                List.of(barracks), List.of(pos.below()), List.of()), 0, 1, List.of(citizen));
+        var workplace = jobs.buildings(settlement.id()).getFirst();
         var guard = new Profession(citizen.id(), settlement.id(), ProfessionType.GUARD, new LevelValue(3),
-                40, UUID.randomUUID(), true, WorkState.PATROLLING, 0, 0, 0, Set.of());
+                40, workplace.id(), true, WorkState.PATROLLING, 0, 0, 0, Set.of());
         helper.assertTrue(jobs.replace(initial, guard), "Real stored profession changed");
+        var reloadedJobs = ProfessionSavedData.load(jobs.save(new CompoundTag(), level.registryAccess()), level.registryAccess());
+        helper.assertTrue(reloadedJobs.profession(citizen.id()).orElseThrow().equals(guard)
+                && reloadedJobs.building(workplace.id()).isPresent(), "Visual fixture retains a valid persisted workplace");
         villager.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.IRON_SWORD));
         villager.setItemSlot(EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
         villager.setDropChance(EquipmentSlot.MAINHAND, .1F);
@@ -81,6 +99,7 @@ public final class CitizenVisualGameTests {
         helper.assertTrue(CitizenVisualService.snapshot(villager) == null, "Conflicting citizen metadata is rejected");
         villager.getPersistentData().remove(CitizenService.CITIZEN_ID_KEY);
         citizens.markDead(uuid);
+        jobs.retire(citizen.id());
         helper.assertTrue(CitizenVisualService.snapshot(villager) == null, "Retired/dead citizens lose visual authority");
         villager.discard(); helper.succeed();
     }

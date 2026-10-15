@@ -23,3 +23,11 @@ Durante las verificaciones se corrigieron rutas relativas de fixtures de tests; 
 Pendiente manual: iniciar Minecraft por cuenta del usuario, comparar caras/UV, herramientas y armaduras, sueño, etiquetas, shaders y rendimiento con varios ciudadanos; observar dos clientes con modelos distintos y probar una copia de un mundo anterior. No se ejecutará ni controlará el cliente desde Codex.
 
 Comparación y guía detallada: [v0181-model-comparison.md](v0181-model-comparison.md).
+
+## Validación para publicar en GitHub
+
+La comprobación completa de publicación detectó que el fixture visual registraba un guardia con un UUID de lugar de trabajo inexistente. Su dato inválido contaminaba el SavedData compartido y podía hacer fallar la recarga del test de Farmer según el orden de ejecución. Se corrigió únicamente el fixture: registra un cuartel válido, verifica la recarga completa del perfil y retira la profesión al finalizar. No se relajaron las validaciones ni se modificó el gameplay o el formato persistente.
+
+Tras la corrección: **469 JUnit verificados, 174 GameTests aprobados y build correcto**, salida 0. Log final: `build/v0181-main-publish-final-validation.log`; mundo aislado: `runs/gametest-v0181-main-publish-final`. El log incluye una interrupción prolongada, por lo que su duración no se usa como medición de rendimiento. Los logs, mundos, cachés y JAR del mod permanecen excluidos de Git.
+
+También se verificaron los 14 templates, el almacén, las 80 skins originales y sus 80 variantes adaptadas, los recursos Argon versionados y sus hashes, el contenido del JAR y `git diff --check`. El JAR reconstruido para publicación pesa 1.406.951 bytes y tiene SHA-256 `d49b98efe98fef73afde307e36b0c466777d73f0702d62f1b358acb5ac759ee7`; el hash anterior corresponde a la primera entrega local.
