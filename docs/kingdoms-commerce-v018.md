@@ -1,77 +1,77 @@
 # Kingdoms & Commerce 0.18.0
 
-Rama `codex/kingdoms-commerce-v018`, basada en `main/origin/main` `203a976` (0.17.0 completa). Minecraft 1.21.1, NeoForge 21.1.252 y Java 21; sin nuevas dependencias. Se conservaron los sistemas de identidad, rutinas, economía, construcción, misiones, HUD y diálogos. Commits locales; main no fue modificado y no se hizo merge/push.
+Branch `codex/kingdoms-commerce-v018`, based on `main/origin/main` `203a976` (complete 0.17.0). Minecraft 1.21.1, NeoForge 21.1.252 and Java 21; no new dependencies. Identity, routines, economy, construction, quests, HUD and dialogue systems were preserved. Local commits; main was not modified and no merge/push was made.
 
-## Flujo jugable de supervivencia
+## Survival gameplay flow
 
-1. Fundar o incorporar una aldea con Kingdom Charter y completar la incorporación con el alcalde.
-2. Fabricar **Almacén del reino**: mesa de trabajo, patrón `LIL / LCL / LLL`, donde L = tablones, I = hierro y C = cofre. Colocarlo dentro del territorio. Clic derecho abre inventario y recursos del mismo KingdomEconomy que usan los ciudadanos.
-3. Shift-clic en una pila del inventario aporta esa pila; clic en un recurso retira hasta 16 unidades físicas (una pechera), clic derecho retira una. Pasar el cursor muestra saldo/capacidad, materiales reservados y consumidos por obras y reservas alimentarias. Las reservas de obra ya se pagaron y permanecen en ConstructionProject: no se descuentan otra vez del saldo disponible. El equipo no acepta depósitos en el almacén; los herreros lo producen.
-4. **Alcalde → Construcción → Elegir edificio → Previsualizar**. Elegir el tipo, girar con R, mover la esquina al terreno señalado con G, confirmar con Enter o cancelar con Retroceso. Teclas remapeables. El contorno verde/rojo corresponde al último estudio del servidor; azul indica la entrada. Confirmar crea el proyecto pendiente existente; después se aportan materiales con Mochila/Almacén y trabaja Builder. No se cobra ni coloca nada durante la vista previa. Es necesario hablar directamente con el alcalde para iniciar la sesión de parcela; el acceso rápido o un tablero no otorgan esa capacidad.
-5. Construir **Market** mediante el mismo flujo, y asignar **Merchant** desde **Habitantes → Profesión**. Necesita hogar, puesto libre, estación intacta, horario de trabajo y seguridad. Interactuar con el comerciante compra o vende una unidad por oferta con esmeraldas. Shift + usar abre su ficha de actividad.
-6. **Alcalde → Construcción → Edificios** abre administración: mejoras, reparaciones estructurales, expansión, equipo de guardias, reparación del objeto sostenido y registro histórico. Las acciones gastan recursos reales o crean órdenes de trabajo; no requieren comandos.
+1. Found or join a village with a Kingdom Charter and complete onboarding with the Mayor.
+2. Craft a **Kingdom Storage**: crafting table, pattern `LIL / LCL / LLL`, where L = planks, I = iron and C = chest. Place it inside the territory. Right-click opens the inventory and resources of the same KingdomEconomy that citizens use.
+3. Shift-click an inventory stack to deposit that stack; click a resource to withdraw up to 16 physical units (one chestplate), right-click withdraws one. Hovering shows balance/capacity, materials reserved and consumed by construction, and food reserves. Construction reservations are already paid and stay in ConstructionProject: they are not deducted again from the available balance. Equipment cannot be deposited into storage; blacksmiths produce it.
+4. **Mayor → Construction → Choose building → Preview**. Choose the type, rotate with R, move the corner to the targeted terrain with G, confirm with Enter or cancel with Backspace. Keys are remappable. The green/red outline reflects the server's latest survey; blue marks the entrance. Confirming creates the existing pending project; materials are then supplied from the Backpack/Storage and a Builder works. Nothing is charged or placed during the preview. You must talk to the Mayor directly to start a plot session; the quick-access key or a board does not grant that capability.
+5. Build a **Market** through the same flow and assign a **Merchant** from **Residents → Profession**. It needs a home, a free slot, an intact station, working hours and safety. Interacting with the merchant buys or sells one unit per offer for emeralds. Shift + use opens their activity card.
+6. **Mayor → Construction → Buildings** opens administration: upgrades, structural repairs, expansion, guard equipment, repair of the held item and the history log. Actions spend real resources or create work orders; no commands are required.
 
-## Comercio y almacenamiento
+## Commerce and storage
 
-Un almacén físico es un punto de acceso al saldo único del reino, sin inventario económico duplicado en el bloque. Romper/recolocar el bloque conserva el stock y no lo convierte en drops. Menú nativo, iconos de recursos de solo lectura, inventario normal y validaciones de territorio, incorporación, alcance, vida, permisos y capacidad. No se pueden extraer los iconos mediante clonado, intercambio de hotbar o lanzamiento.
+A physical storage block is an access point to the kingdom's single balance, with no duplicated economic inventory in the block. Breaking/re-placing the block keeps the stock and does not turn it into drops. Native menu, read-only resource icons, normal inventory, and checks for territory, membership, reach, liveness, permissions and capacity. Icons cannot be extracted by cloning, hotbar swapping or throwing.
 
-El mercado comparte una tesorería y cuotas por reino; varios comerciantes no multiplican las existencias. La tesorería inicial configurable es 32 esmeraldas por reino. Reponer renueva cuotas, sin crear dinero ni bienes; el comerciante vende stock real del KingdomEconomy. Compras/ventas usan precios configurables con margen obligatorio de compra mayor que venta. Cada oferta tiene recibo de uso y revisiones de mercado, economía, comida y empleo. Una oferta desactualizada se renueva y debe confirmarse de nuevo. Inventario lleno, componentes modificados, reservas alimentarias, estación perdida, cambio de profesión o desconexión no producen intercambios parciales ni pagos duplicados. Configuración: `livingkingdoms-commerce.toml`.
+The market shares one treasury and quotas per kingdom; several merchants do not multiply stock. The configurable starting treasury is 32 emeralds per kingdom. Restocking renews quotas without creating money or goods; the merchant sells real KingdomEconomy stock. Purchases/sales use configurable prices with a mandatory margin (buy price above sell price). Each offer has a usage receipt and market, economy, food and employment revisions. A stale offer is renewed and must be confirmed again. A full inventory, modified components, food reserves, a lost station, a profession change or a disconnect never produce partial trades or duplicate payments. Configuration: `livingkingdoms-commerce.toml`.
 
-Comida mantiene las unidades nutritivas de 0.17.0: por defecto 1 trigo = 2 unidades. Raciones saludables y alimentos comprometidos por misiones remuneradas quedan protegidos de retiros/ventas hasta su consumo por habitantes o trabajo. Madera sigue siendo fungible y se retira como troncos de roble. Las profesiones económicas mantienen entradas pagadas y esperas persistidas; no se agregaron talas o minas destructivas.
+Food keeps the 0.17.0 nutrition units: by default 1 wheat = 2 units. Healthy rations and food pledged to paid quests are protected from withdrawals/sales until residents or work consume them. Wood stays fungible and is withdrawn as oak logs. Economic professions keep paid inputs and persisted waits; no destructive logging or mining was added.
 
-## Ciudadanos y presentación
+## Citizens and presentation
 
-Las entidades siguen siendo Villager con los mismos UUID, inventarios, equipo, navegación y persistencia. Solo ciudadanos/alcaldes registrados reciben presentación humanoide; no se transforma al resto del mundo. Renderizador nativo, brazos separados, caminar/quietud/combate/descanso y 80 skins originales reproducibles. Armadura y armas reales se renderizan; herramientas cosméticas nunca entran en inventarios o drops. El gesto de trabajo se vincula al progreso real, y se oculta durante descanso/refugio o desplazamiento. Sonidos vanilla discretos y acotados, sin sonidos por frame.
+Entities remain Villagers with the same UUIDs, inventories, equipment, navigation and persistence. Only registered citizens/Mayors get the humanoid presentation; the rest of the world is not transformed. Native renderer, separate arms, walk/idle/combat/rest and 80 reproducible original skins. Real armor and weapons are rendered; cosmetic tools never enter inventories or drops. The work gesture is tied to real progress and is hidden during rest/shelter or travel. Discreet, bounded vanilla sounds, with no per-frame sounds.
 
-Nombre, profesión traducida y nivel aparecen según distancia/configuración; ficha de actividad al interactuar con ciudadanos. Alcalde y Merchant conservan su interacción normal; Shift + usar permite inspeccionarlos. `livingkingdoms-citizen-visuals.toml` controla humanoides, etiquetas, distancias y acentos de trabajo. [Comparación nativo/GeckoLib y límites](v018-citizen-rendering.md).
+Name, translated profession and level appear according to distance/configuration; an activity card opens when interacting with citizens. The Mayor and the Merchant keep their normal interaction; Shift + use inspects them. `livingkingdoms-citizen-visuals.toml` controls humanoids, labels, distances and work accents. [Native/GeckoLib comparison and limits](v018-citizen-rendering.md).
 
-## Mejoras verificables
+## Verifiable upgrades
 
-Nuevas mejoras se limitan a niveles 1–3. Niveles históricos superiores no se eliminan. Costes del siguiente nivel: 32×nivel actual madera, 16×nivel piedra y 4×nivel hierro. Las solicitudes incluyen revisión de recursos; repetir un paquete anterior no vuelve a cobrar ni subir de nivel.
+New upgrades are limited to levels 1–3. Higher historical levels are not removed. Next-level costs: 32 × current level wood, 16 × level stone and 4 × level iron. Requests include a resource revision; repeating an earlier packet neither charges again nor raises the level.
 
-| Edificio | Beneficio real |
+| Building | Real benefit |
 |---|---|
-| Town Hall / Core | +1 puesto Builder por nivel; eleva desarrollo y habilita expansión desde nivel 2. |
-| Warehouse | Capacidad adicional de materiales y comida según configuración por nivel. |
-| Farm | +1 puesto Farmer por nivel para cosechas reales. |
-| Barracks | +1 puesto Guard por nivel. |
-| Watchtower | Mayor rango de detección existente. |
-| Blacksmith / Mine / Lumberjack Hut | +1 puesto por nivel y reducción de espera productiva de 120 ticks por nivel; mínimo 200. |
-| Market | Puestos Merchant y mayores cuotas al reponer. |
-| Houses | +1 plaza habitacional por nivel; se necesitan camas para descanso físico. |
+| Town Hall / Core | +1 Builder slot per level; raises development and enables expansion from level 2. |
+| Warehouse | Extra material and food capacity, configured per level. |
+| Farm | +1 Farmer slot per level for real harvests. |
+| Barracks | +1 Guard slot per level. |
+| Watchtower | Larger existing detection range. |
+| Blacksmith / Mine / Lumberjack Hut | +1 slot per level and 120 fewer ticks of production wait per level; minimum 200. |
+| Market | Merchant slots and larger quotas on restock. |
+| Houses | +1 housing place per level; beds are needed for physical rest. |
 
-Las mejoras funcionales no sustituyen templates ni sobrescriben modificaciones del jugador. El nivel y beneficio se muestran en administración; los cambios arquitectónicos permanentes adicionales quedan fuera de esta entrega. Reparaciones solo cubren huecos estructurales seguros del template y respetan protección/eventos. Equipo de guardia consume una pechera fabricada, con la política existente de propiedad/sin drops. Reparar el objeto sostenido requiere herrero en su estación y paga 1 hierro + 1 comida. Expansión conserva identidad e índices; exige nivel 2, seguridad, sin obras pendientes y 64 madera + 32 piedra + 8 hierro.
+Functional upgrades do not replace templates or overwrite player modifications. Level and benefit are shown in administration; additional permanent architectural changes are out of scope for this release. Repairs only cover safe structural gaps from the template and respect protection/events. Guard equipment consumes a crafted chestplate, with the existing ownership/no-drop policy. Repairing the held item requires a blacksmith at their station and costs 1 iron + 1 food. Expansion keeps identity and indexes; it requires level 2, safety, no pending construction and 64 wood + 32 stone + 8 iron.
 
-## Alertas y avances
+## Alerts and advancements
 
-Hechos persistidos: muerte de ciudadano/guardia registrado, pérdida del último trabajador esencial, amenaza importante detectada, construcción y mejora completadas. Se muestran nombre/rol/reino conocidos, sin atribuir culpables o causas de ataque no comprobadas. Avisos personales para miembros incorporados conectados; no hay repetición al iniciar sesión. Historial desde Edificios → H: 128 hechos por reino; 512 recibos recientes, hasta 1024 reinos de historial. Evicción de recibos no permite repetir transiciones: los sistemas fuente conservan sus recibos duraderos. Cola de ocho avisos, 128 IDs recientes, integrada al Toast nativo. No hay sondeo del mundo para generar avisos.
+Persisted facts: death of a registered citizen/guard, loss of the last essential worker, major threat detected, construction and upgrade completed. Known name/role/kingdom are shown, without attributing unverified culprits or attack causes. Personal notices go to connected kingdom members; nothing repeats on login. History from Buildings → H: 128 facts per kingdom; 512 recent receipts, history for up to 1024 kingdoms. Receipt eviction cannot replay transitions: the source systems keep their durable receipts. Queue of eight notices and 128 recent IDs, integrated with the native Toast. No world polling generates notices.
 
-Seis avances nuevos nativos: conversión de aldea, primer Warehouse, siete profesiones operativas, primera mejora, primer comercio y desarrollo 3. Conservan los avances anteriores de fundación, guardias, Builder y defensa. Se conceden tras eventos reales; no añaden pagos repetibles ni recompensas de inventario. Construcción/debug no concede los avisos/avances de producción normales.
+Six new native advancements: village conversion, first Warehouse, seven operational professions, first upgrade, first trade and development 3. Earlier founding, guard, Builder and defense advancements are kept. They are granted after real events; they add no repeatable payouts or inventory rewards. Construction/debug does not grant the normal production notices/advancements.
 
-## Rendimiento y compatibilidad comprobados
+## Verified performance and compatibility
 
-- Trabajo/seguimiento de ciudadanos escalonado por entidad cada 20 ticks. Estado visual enviado al cambiar o cada 200 ticks a sus observadores. Cache servidor 4096 y caches cliente 1024 entradas; no búsquedas globales por frame.
-- Mercado bajo demanda: cinco ofertas y 37 slots físicos; cuotas/reposición perezosa sin recuperación multiplicada por tiempo desconectado. Sesiones acotadas.
-- Proyección: una lista cacheada de hasta 1024 celdas no vacías; grandes módulos se simplifican visualmente conservando el blueprint completo del servidor. Rotación/movimiento validados como máximo dos veces por segundo. Chunks descargados no se fuerzan. Entidades de bloque animadas no soportadas conservan contorno y se omiten del dibujo especial.
-- Almacén actualiza datos del menú como máximo cada 20 ticks o al transferir; el protocolo conserva cantidades de 32 bits. Administración usa snapshots al abrir, actualizar o actuar, sin sincronización por frame.
-- Los nueve SavedData copiados del mundo sintético 0.17.0 se cargaron con registries/tags reales y conservaron todos los hechos persistidos al guardar y recargar. Se comprobaron aparte UUID, equipo, drops, AI y presentación tras recarga nativa. No se modificaron mundos originales.
+- Citizen work/tracking is staggered per entity every 20 ticks. Visual state is sent on change or every 200 ticks to its observers. Server cache of 4096 and client caches of 1024 entries; no global per-frame lookups.
+- On-demand market: five offers and 37 physical slots; lazy quotas/restock with no recovery multiplied by offline time. Bounded sessions.
+- Projection: one cached list of up to 1024 non-empty cells; large modules are visually simplified while the server keeps the full blueprint. Rotation/movement validated at most twice per second. Unloaded chunks are not forced. Unsupported animated block entities keep their outline and are skipped by the special draw.
+- Storage updates menu data at most every 20 ticks or on transfer; the protocol keeps 32-bit quantities. Administration uses snapshots on open, refresh or action, with no per-frame sync.
+- The nine SavedData files copied from the synthetic 0.17.0 world loaded with real registries/tags and kept every persisted fact after save and reload. UUIDs, equipment, drops, AI and presentation after native reload were checked separately. Original worlds were not modified.
 
-**428 JUnit y 174 GameTests aprobados**, sin omisiones; Gradle build aprobado. Logs: `build/v018-final-release-build.log`, `build/v018-integrated-gametest-b.log`. La primera corrida nativa tuvo 170/171: se corrigió una colisión entre fixtures. La prueba de snapshot se movió de JUnit a GameTest para disponer de tags vanilla, conservando sus comprobaciones. No se desactivaron pruebas. La expectativa antigua que impedía mejoras de casas se actualizó para el beneficio nuevo, conservando los controles de costes/límites.
+**428 JUnit and 174 GameTests passed**, none skipped; Gradle build passed. Logs: `build/v018-final-release-build.log`, `build/v018-integrated-gametest-b.log`. The first native run was 170/171: a collision between fixtures was fixed. The snapshot test moved from JUnit to GameTest to have vanilla tags available, keeping its checks. No tests were disabled. The old expectation that prevented house upgrades was updated for the new benefit, keeping the cost/limit checks.
 
-Verificaciones estáticas: 14 módulos/rotaciones/reproducibilidad, 80 skins, assets del almacén, ocho iconos HUD y nueve assets cívicos anteriores. Resource validator aprobado con tres referencias vanilla verificadas en los recursos del juego. JAR comprobado contra todas las clases compiladas y recursos actuales; pins/metadatos/Java 21 y locales concordantes, sin mod o fixtures de GameTest.
+Static checks: 14 modules/rotations/reproducibility, 80 skins, storage assets, eight HUD icons and nine earlier civic assets. Resource validator passed, with three vanilla references verified against the game resources. JAR checked against all current compiled classes and resources; pins/metadata/Java 21 and locales consistent, with no GameTest mod or fixtures.
 
-JAR: `build/libs/livingkingdoms-0.18.0.jar`, **1.283.077 bytes**. SHA-256: `43af39f1dd941e022d21c18f24379e51b4493cff99a4bccf18b27a4ed90f42c3`.
+JAR: `build/libs/livingkingdoms-0.18.0.jar`, **1,283,077 bytes**. SHA-256: `43af39f1dd941e022d21c18f24379e51b4493cff99a4bccf18b27a4ed90f42c3`.
 
-## Comprobaciones manuales del usuario
+## Manual checks for the user
 
-No se abrió ni controló navegador o cliente Minecraft. La apariencia gráfica y rendimiento real no se presentan como validados por tests de servidor.
+No browser or Minecraft client was opened or controlled. Graphical appearance and real performance are not presented as validated by server tests.
 
-- Copia de mundo 0.17.0: ciudadanos/nombres/carreras/XP, materiales, edificios, misiones/reputación/recibos e historial; guardar/reabrir. Mundo nuevo: fundación y conversión.
-- Cofre: fabricar/colocar/romper/recolocar, pilas separadas, inventario lleno, reservas alimentarias y de obra. Dos clientes retirando último lote y otros bloques del mismo reino.
-- Market: construir, asignar Merchant, día/noche, estación rota, amenaza, compra/venta, último bien/cuota/tesorería, esmeraldas y reposición tras reinicio.
-- Ciudadanos: skins/seams, caminar, cama/orientación, herramienta y mano dominante, armadura/escudo, Farmer/Builder y las tres profesiones económicas, comercio y guardias en combate. Vanilla fuera del registro debe conservar su aspecto.
-- Etiquetas y ficha: inglés/español, niveles y profesiones, grupos cercanos, invisibilidad, distancias, configuración y resource packs/shaders.
-- Vista previa: nueve opciones del selector, cuatro giros, mover, terreno irregular, entrada/coste/contorno, proteger/modificar terreno entre estudio y confirmación; cancelar no debe cobrar ni colocar. Usar controles remapeados.
-- Edificios: dos mejoras pagadas, capacidad/puestos/eficiencia reales, reparar estructura/objeto, equipar guardia, expansión, historial y avances únicos. Las casas deben tener camas suficientes para el descanso.
-- Diálogo/HUD/Toast: 854×480, 1280×720, 1920×1080 y 4K, GUI 1–4/Auto; legibilidad, H/F1, chat, boss bars/minimapa y navegación con teclado.
-- Perfil con varios reinos/NPC visibles: FPS, TPS/MSPT, memoria/red y rutas bloqueadas; comparar con chunks descargados. Las advertencias de retraso al preparar grandes fixtures no constituyen un benchmark del mod.
+- 0.17.0 world copy: citizens/names/careers/XP, materials, buildings, quests/reputation/receipts and history; save/reopen. New world: founding and conversion.
+- Chest: craft/place/break/re-place, separate stacks, full inventory, food and construction reserves. Two clients withdrawing the last batch, and other blocks of the same kingdom.
+- Market: build, assign a Merchant, day/night, broken station, threat, buy/sell, last good/quota/treasury, emeralds and restock after restart.
+- Citizens: skins/seams, walking, bed/orientation, tool and dominant hand, armor/shield, Farmer/Builder and the three economic professions, trading and guards in combat. Vanilla villagers outside the registry must keep their look.
+- Labels and card: English/Spanish, levels and professions, nearby groups, invisibility, distances, configuration and resource packs/shaders.
+- Preview: the nine selector options, four rotations, moving, uneven terrain, entrance/cost/outline, protecting/modifying terrain between survey and confirmation; cancelling must not charge or place anything. Use remapped controls.
+- Buildings: two paid upgrades, real capacity/slots/efficiency, repair structure/item, equip a guard, expansion, history and one-time advancements. Houses must have enough beds for rest.
+- Dialogue/HUD/Toast: 854×480, 1280×720, 1920×1080 and 4K, GUI 1–4/Auto; readability, H/F1, chat, boss bars/minimap and keyboard navigation.
+- Profile with several kingdoms/NPCs visible: FPS, TPS/MSPT, memory/network and blocked paths; compare with unloaded chunks. Lag warnings while preparing large fixtures are not a benchmark of the mod.

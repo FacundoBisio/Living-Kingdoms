@@ -1,0 +1,6 @@
+interface:
+  display_name: "Minecraft Resources"
+  short_description: "Minecraft textures, models, sounds and language"
+  default_prompt: "Use $minecraft-resource-pack for the requested task, preserving Minecraft 1.21.1, NeoForge and Java 21."
+policy:
+  allow_implicit_invocation: false

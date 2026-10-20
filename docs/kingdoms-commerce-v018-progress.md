@@ -1,29 +1,29 @@
-# Kingdoms & Commerce 0.18.0 — progreso
+# Kingdoms & Commerce 0.18.0 — progress
 
-Base: main/origin/main `203a976`, confirmado con fetch el 13/10/2026; incluye toda la entrega 0.17.0. Rama `codex/kingdoms-commerce-v018`. Minecraft 1.21.1, NeoForge 21.1.252, Java 21. Commits locales autorizados; no merge/push. El usuario hará la validación visual: no abrir navegador ni cliente Minecraft.
+Base: main/origin/main `203a976`, confirmed with fetch on 2026-10-13; includes the whole 0.17.0 release. Branch `codex/kingdoms-commerce-v018`. Minecraft 1.21.1, NeoForge 21.1.252, Java 21. Local commits authorized; no merge/push. The user will do the visual validation: do not open a browser or Minecraft client.
 
-## Contratos y responsables
-- Principal: bloque/menú de almacén sobre KingdomEconomy, administración de edificios/guardias/reparaciones, alertas/historial/advancements, integración y pruebas.
-- commerce_v018: profesión Merchant, mercado y transacciones; ProfessionService/ProfessionSavedData/FunctionalBuilding/CitizenRoutine y paquetes commerce. Bootstrap/locales se integran centralmente.
-- citizen_visuals_v018: presentación nativa humanoide solo para ciudadanos/alcalde registrados, skins originales, etiquetas y animaciones ligadas a trabajo real. Paquetes y payload propios; conserva entidades vanilla/UUID/AI.
-- preview_v018: proyección NBT acotada, rotación y confirmación validada; ConstructionService y SettlementLayoutPlanner. Bootstrap/UI general centralizados.
+## Contracts and owners
+- Main: storage block/menu over KingdomEconomy, building/guard/repair administration, alerts/history/advancements, integration and tests.
+- commerce_v018: Merchant profession, market and transactions; ProfessionService/ProfessionSavedData/FunctionalBuilding/CitizenRoutine and commerce packets. Bootstrap/locales are integrated centrally.
+- citizen_visuals_v018: native humanoid presentation only for registered citizens/Mayor, original skins, labels and animations tied to real work. Own packets and payload; keeps vanilla entities/UUID/AI.
+- preview_v018: bounded NBT projection, rotation and validated confirmation; ConstructionService and SettlementLayoutPlanner. Bootstrap/general UI centralized.
 
-## Fases terminadas
-1. Almacén físico: saldo único, menú nativo, depósito de pila seleccionada, reservas de obra/comida; romper el bloque conserva stock.
-2. Mercado: Merchant operativo, inventario/esmeraldas reales, tesorería/cuotas persistidas, precios/config y ofertas de uso único.
-3–4. Humanoides: renderizador nativo, 80 skins, herramientas/animación ligadas al progreso, equipo real, etiquetas/ficha/config.
-5. Preview: NBT, rotación/movimiento, límites/entrada/costes y confirmación con nueva validación, mediante capacidad local del alcalde.
-6. Administración: niveles 1–3, viviendas/puestos/capacidad/eficiencia, reparación, equipo, expansión e historial por GUI.
-7. Alertas y seis avances: después de transiciones reales, recibos y cola/historial limitados; sin repetición de login.
-8. Integración validada. Cambios arquitectónicos permanentes de edificios y simulación económica avanzada no forman parte de esta entrega.
+## Completed phases
+1. Physical storage: single balance, native menu, deposit of the selected stack, construction/food reserves; breaking the block keeps the stock.
+2. Market: working Merchant, real inventory/emeralds, persisted treasury/quotas, prices/config and single-use offers.
+3–4. Humanoids: native renderer, 80 skins, tools/animation tied to progress, real equipment, labels/card/config.
+5. Preview: NBT, rotation/movement, bounds/entrance/costs and confirmation with fresh validation, through the Mayor's local capability.
+6. Administration: levels 1–3, housing/slots/capacity/efficiency, repair, equipment, expansion and history through the GUI.
+7. Alerts and six advancements: after real transitions, bounded receipts and queue/history; no replay on login.
+8. Integration validated. Permanent architectural building changes and advanced economic simulation are not part of this release.
 
-## Evidencia final
-- 428 JUnit, sin fallos/errores/omisiones; test/build exitosos: build/v018-final-release-build.log.
-- 174 GameTests aprobados; servidor/Gradle exit 0: runs/gametest-v018-integrated-b, build/v018-integrated-gametest-b.log. Incluye nueve SavedData reales copiados del mundo sintético 0.17.0, recarga de entidades/equipo y permisos/transacciones de dos actores simulados.
-- Primera corrida 170/171: fixture de alertas compartía ubicación; aislada. Snapshot pasó a GameTest por necesidad de tags de puertas cargadas, sin retirar comprobaciones. Casas ahora mejorables: expectativa de 0.17 actualizada, controles de coste/límites conservados.
-- Static/asset/JAR checks aprobados: 14 módulos, 80 skins, almacén, HUD/cívicos/locales. Resource validator aprobado (tres referencias vanilla). git diff --check aprobado.
-- Artefacto build/libs/livingkingdoms-0.18.0.jar, 1.283.077 bytes; SHA256 43af39f1dd941e022d21c18f24379e51b4493cff99a4bccf18b27a4ed90f42c3.
-- Commits: 7c65d1e almacén; d18cdd2 comercio; 3469cf1 ciudadanos; 6bcb8c1 preview; b29c977 alertas/avances; b8b7f6e administración/UI. QA/documentación final comprobadas y listas para entrega. Sin merge/push, main 203a976 intacto.
-- Usuario valida gráficos y cliente. No runClient ni navegador; no cambios de drivers. Pendiente manual: multiplayer real, copias de partidas completas, shaders/escalas, FPS/TPS/MSPT. No se mantiene el bloqueo gráfico antiguo como excusa para detener el desarrollo.
+## Final evidence
+- 428 JUnit, no failures/errors/skips; test/build successful: build/v018-final-release-build.log.
+- 174 GameTests passed; server/Gradle exit 0: runs/gametest-v018-integrated-b, build/v018-integrated-gametest-b.log. Includes nine real SavedData files copied from the synthetic 0.17.0 world, entity/equipment reload and permissions/transactions from two simulated actors.
+- First run 170/171: the alerts fixture shared a location; it was isolated. The snapshot test moved to GameTest because it needs loaded door tags, without removing checks. Houses are now upgradable: the 0.17 expectation was updated, keeping cost/limit checks.
+- Static/asset/JAR checks passed: 14 modules, 80 skins, storage, HUD/civic/locales. Resource validator passed (three vanilla references). git diff --check passed.
+- Artifact build/libs/livingkingdoms-0.18.0.jar, 1,283,077 bytes; SHA256 43af39f1dd941e022d21c18f24379e51b4493cff99a4bccf18b27a4ed90f42c3.
+- Commits: 7c65d1e storage; d18cdd2 commerce; 3469cf1 citizens; 6bcb8c1 preview; b29c977 alerts/advancements; b8b7f6e administration/UI. Final QA/documentation checked and ready for delivery. No merge/push, main 203a976 intact.
+- The user validates graphics and the client. No runClient or browser; no driver changes. Pending manual: real multiplayer, full save copies, shaders/scales, FPS/TPS/MSPT. The old graphical blocker is not kept as an excuse to stop development.
 
-Detalles y checklist: [kingdoms-commerce-v018.md](kingdoms-commerce-v018.md).
+Details and checklist: [kingdoms-commerce-v018.md](kingdoms-commerce-v018.md).

@@ -20,7 +20,7 @@
 - Use `token-optimization` for token/cost/loop efficiency work and `context-optimization` for context budgeting, retrieval, or compaction work. Load referenced files only when needed.
 - Start with `rg` and targeted file reads. Avoid dumping whole source trees, logs, dependency caches, or skill reference directories. Batch independent reads; keep useful errors and validation evidence.
 - Optimization must preserve requirements and correctness. Do not change models, enable subagents, install other skills/tools, or alter host settings merely because upstream examples suggest them.
-- Use Codex and the existing project toolchain. Cross-agent examples in upstream documents are reference material, not instructions to configure Claude, Cursor, Fabric, or Paper here.
+- Use the agent in use (Codex or Claude Code) with the existing project toolchain. Cross-agent examples in upstream documents are reference material, not instructions to configure Cursor, Fabric, or Paper here. Claude Code enters through `CLAUDE.md`, and its project skills live in `.claude/skills/`.
 
 ## Validation and delivery
 
@@ -29,4 +29,5 @@
 - For instructions/skills-only changes, validate skill discovery, file integrity, helper syntax, and the diff; do not claim Minecraft tests were run.
 - Optional upstream `.sh` helpers need Bash (Git for Windows provides `C:/Program Files/Git/bin/bash.exe` here). Resource/worldgen validators need `jq` or their bundled Node.js shim. Their static checks do not replace project builds/GameTests; the test-layout helper can misidentify generated mod metadata.
 - Do not run cleanup, dependency updates, publishing, or automatic git commit/merge/push unless requested. Preserve development worlds.
+- Write all documentation (README, `docs/`, code comments, commit messages) in English. Player-facing locale files keep every supported language.
 - Report briefly: changes, validations actually run, and concrete remaining problems.

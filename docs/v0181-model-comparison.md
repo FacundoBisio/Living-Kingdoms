@@ -1,49 +1,49 @@
-# Living Kingdoms 0.18.1: comparación e integración de Argon 4
+# Living Kingdoms 0.18.1: Argon 4 comparison and integration
 
-## Inspección previa
+## Prior inspection
 
-Se inspeccionó `livingkingdoms_citizen_assets.zip` antes de modificar el proyecto. SHA-256 del archivo: `6380d1c864396168d7df2d1007f83c3a6138cba60d083b801b3772a29b21b2bf`. La comprobación CRC del ZIP no detectó errores. Contiene nueve archivos: una geometría, un proyecto Blockbench, tres archivos de animaciones y cuatro PNG de 64×64; las carpetas de documentación, caras y ropa estaban vacías. No incluye scripts ejecutables ni instrucciones de instalación. El archivo proporcionado por el usuario es la fuente de estos recursos; atribuirlo a Argon 4 reproduce su descripción, sin afirmar una autoría o licencia externa que el archivo no documenta.
+`livingkingdoms_citizen_assets.zip` was inspected before modifying the project. File SHA-256: `6380d1c864396168d7df2d1007f83c3a6138cba60d083b801b3772a29b21b2bf`. The ZIP CRC check found no errors. It contains nine files: one geometry, one Blockbench project, three animation files and four 64×64 PNGs; the documentation, faces and clothing folders were empty. It includes no executable scripts or installation instructions. The file supplied by the user is the source of these resources; attributing it to Argon 4 repeats its own description, without claiming an external authorship or license that the file does not document.
 
-`docs/argon4-source/manifest.json` conserva el origen y SHA-256 de cada archivo importado. El proyecto `.bbmodel` y las dos texturas base permanecen como fuentes consultables en `docs/argon4-source/`. Los recursos originales de geometría, animaciones y las texturas externas de constructor y herrero se conservan sin alteraciones.
+`docs/argon4-source/manifest.json` keeps the origin and SHA-256 of each imported file. The `.bbmodel` project and the two base textures remain as reference sources in `docs/argon4-source/`. The original geometry and animation resources and the external builder and blacksmith textures are kept unaltered.
 
-## Comparación
+## Comparison
 
-| Aspecto | Humanoide de 0.18.0 | Recursos externos e integración de 0.18.1 |
+| Aspect | 0.18.0 humanoid | External resources and 0.18.1 integration |
 |---|---|---|
-| Entidad y datos | `Villager` existente, identidad registrada y profesión sincronizada | La misma entidad, UUID, IA, navegación, inventario, profesión y persistencia |
-| Modelo | `PlayerModel<Villager>` nativo con brazos y piernas independientes | Geometría Blockbench de 14 huesos y 24 cubos, adaptada a las partes nativas existentes |
-| Apariencia | 80 skins originales: ocho variantes para diez roles | Las mismas 80 identidades y ropa base, con 80 texturas derivadas para las capas geométricas |
-| Detalles | Pelo, barbas, prendas y circlet principalmente pintados | Pelo, barba, puños, botas, cuello, faldón, bolsa y banda con volumen; detalles activados según variante o profesión |
-| Animación | Movimiento, ataques, sueño y equipo vanilla; acentos cortos de trabajo real | Nueve clips externos únicos disponibles; trabajo seleccionado por actividad real, conservando movimientos nativos cuando cubren más estados |
-| Herramientas | Objetos de mano nativos, equipo real prioritario | Martillo externo separado para trabajo de constructor/herrero, conservando objetos reales y las otras herramientas existentes |
-| Dependencias | Minecraft y NeoForge, sin GeckoLib | Sin dependencia nueva: adaptación acotada del formato exportado al renderer nativo |
+| Entity and data | Existing `Villager`, registered identity and synced profession | The same entity, UUID, AI, navigation, inventory, profession and persistence |
+| Model | Native `PlayerModel<Villager>` with independent arms and legs | Blockbench geometry with 14 bones and 24 cubes, adapted to the existing native parts |
+| Appearance | 80 original skins: eight variants for ten roles | The same 80 identities and base clothing, with 80 derived textures for the geometric layers |
+| Details | Hair, beards, clothing and circlet mostly painted | Hair, beard, cuffs, boots, collar, skirt, pouch and sash with volume; details enabled by variant or profession |
+| Animation | Vanilla movement, attacks, sleep and equipment; short accents for real work | Nine unique external clips available; work chosen by real activity, keeping native movement where it covers more states |
+| Tools | Native held items, real equipment takes priority | Separate external hammer for builder/blacksmith work, keeping real items and the other existing tools |
+| Dependencies | Minecraft and NeoForge, no GeckoLib | No new dependency: bounded adaptation of the exported format to the native renderer |
 
-La geometría externa aporta volumen y líneas de tiempo editables, pero no resulta superior en todos los aspectos. Las cuatro texturas suministradas no sustituyen la variedad de las 80 skins; tampoco hay un juego completo de texturas externas para todas las profesiones. Los clips no cubren todos los estados vanilla, ni garantizan por sí mismos herramientas, equipo, sueño, monturas o combate correctos. La integración conserva esos comportamientos del modelo anterior.
+The external geometry adds volume and editable timelines, but it is not better in every respect. The four supplied textures do not replace the variety of the 80 skins, and there is no complete set of external textures for every profession. The clips do not cover every vanilla state, nor do they on their own guarantee correct tools, equipment, sleep, mounts or combat. The integration keeps those behaviors from the previous model.
 
-## Compatibilidad UV y huesos
+## UV and bone compatibility
 
-Las caras principales de cabeza, torso, brazos y piernas usan las coordenadas estándar de un jugador de Minecraft de 64×64. Eso permite conservar todos los píxeles originales de identidad y ropa base. Los cubos externos adicionales leen zonas de capas secundarias que las skins de 0.18.0 dejaban transparentes; el generador de 0.18.1 llena esas zonas con colores derivados de cada skin, sin modificar las seis regiones principales.
+The main head, torso, arm and leg faces use the standard 64×64 Minecraft player coordinates. That keeps every original identity and base-clothing pixel. The extra external cubes read secondary-layer areas that the 0.18.0 skins left transparent; the 0.18.1 generator fills those areas with colors derived from each skin, without modifying the six main regions.
 
-No se puede aplicar el ZIP sin adaptación: la barba lee píxeles de la cara, la banda comparte UV con pelo y el martillo está incorporado permanentemente en el hueso `right_hand`. La adaptación remapea barba y banda a zonas auxiliares del atlas y controla su visibilidad. También eleva la banda dos píxeles y el pelo 0,75 píxeles de modelo para evitar que cubran los ojos; esta corrección geométrica requiere revisión visual dentro del juego. El martillo se excluye del cuerpo y se renderiza por separado cuando corresponde. Así un ciudadano que descansa, un comerciante o un guardia no recibe un martillo fijo.
+The ZIP cannot be applied without adaptation: the beard reads face pixels, the sash shares UVs with the hair, and the hammer is permanently built into the `right_hand` bone. The adaptation remaps the beard and sash to auxiliary atlas areas and controls their visibility. It also raises the sash two pixels and the hair 0.75 model pixels so they do not cover the eyes; this geometric fix needs visual review in game. The hammer is excluded from the body and rendered separately when appropriate, so a resting citizen, a merchant or a guard does not get a fixed hammer.
 
-Los clips se exportan en tres JSON con diez entradas y nueve nombres únicos. `animation.citizen.work_hammer` aparece dos veces con contenido idéntico. Los otros clips son `idle`, `walk`, `run`, `guard_patrol`, `guard_attack`, `guard_block`, `farm_plant` y `lumberjack_chop`, con el prefijo `animation.citizen.`. Se seleccionan la rotación de cabeza en reposo, los clips de martillo, cultivo y tala tras progreso confirmado, y el bloqueo cuando el ciudadano usa realmente un escudo. Miner y Merchant conservan sus acentos anteriores. Los clips de locomoción y ataque quedan conservados y validados como recursos, pero se mantienen las animaciones vanilla que ya coordinan pasos, equipo, monturas y sueño. Las pistas de posición corporal no se aplican para mantener alineados cuerpo, armadura y manos; por eso la adaptación no reproduce cada canal exactamente como lo haría un reproductor GeckoLib. Ninguna animación ejecuta acciones económicas o modifica la IA.
+The clips are exported in three JSON files with ten entries and nine unique names. `animation.citizen.work_hammer` appears twice with identical content. The other clips are `idle`, `walk`, `run`, `guard_patrol`, `guard_attack`, `guard_block`, `farm_plant` and `lumberjack_chop`, with the `animation.citizen.` prefix. The idle head rotation, the hammer, farming and chopping clips after confirmed progress, and the block clip when the citizen actually uses a shield are selected. Miner and Merchant keep their earlier accents. The locomotion and attack clips are kept and validated as resources, but the vanilla animations that already coordinate steps, equipment, mounts and sleep are kept. Body position tracks are not applied, to keep body, armor and hands aligned; so the adaptation does not reproduce every channel exactly as a GeckoLib player would. No animation runs economic actions or modifies AI.
 
-Se reutiliza el renderer delegado existente. Solo los ciudadanos registrados reciben la presentación humanoide; los aldeanos vanilla ajenos al sistema conservan su renderer habitual. Etiquetas, inspección, comercio, menú del alcalde y previsualización de construcciones siguen usando sus sistemas anteriores. No hay cambio de esquema persistente ni conversión de entidades.
+The existing delegating renderer is reused. Only registered citizens get the humanoid presentation; vanilla villagers outside the system keep their usual renderer. Labels, inspection, trading, the Mayor menu and construction previews keep using their earlier systems. There is no persistent schema change or entity conversion.
 
-## Verificaciones y límites
+## Checks and limits
 
-Las pruebas de recursos comprueban geometría finita, jerarquía sin ciclos, referencias de huesos, UV dentro de 64×64, los nueve clips y la igualdad de la entrada duplicada. Comprueban las 80 skins derivadas y sus regiones principales píxel a píxel frente a los originales. También verifican los SHA-256 de las cuatro texturas externas y que las dos texturas de profesión estén empaquetadas. El generador y la validación del artefacto complementan estas comprobaciones.
+The resource tests check finite geometry, an acyclic hierarchy, bone references, UVs within 64×64, the nine clips and the equality of the duplicated entry. They check the 80 derived skins and their main regions pixel by pixel against the originals. They also verify the SHA-256 of the four external textures and that the two profession textures are packaged. The generator and the artifact validation complement these checks.
 
-Estas pruebas no validan la apariencia dentro de Minecraft. El cliente gráfico no se ejecuta ni se controla durante esta tarea. La adaptación es específica de estos recursos: no pretende importar cualquier modelo o expresión Molang de GeckoLib. Los resultados de JUnit, GameTests y build deben consultarse en el registro de entrega, sin deducir que pasar pruebas de servidor equivale a validar renderizado.
+These tests do not validate the appearance inside Minecraft. The graphical client is not run or controlled during this task. The adaptation is specific to these resources: it does not aim to import arbitrary GeckoLib models or Molang expressions. JUnit, GameTest and build results must be read from the delivery log, without inferring that passing server tests equals validated rendering.
 
-## Comparación manual pendiente
+## Pending manual comparison
 
-Usar `/kingdommodels native` y `/kingdommodels argon4`, sobre el mismo ciudadano y mundo, para comparar el modelo anterior con Argon 4 sin reiniciar ni abrir otra partida. Estos comandos locales guardan la preferencia del cliente. También puede establecerse `citizenPresentation.model = "NATIVE"` o `"ARGON4"` en `config/livingkingdoms-citizen-visuals.toml`; `ARGON4` es la opción predeterminada. La selección no cambia recursos del reino, profesión ni entidad. Mantener una copia del mundo para las comprobaciones de compatibilidad.
+Use `/kingdommodels native` and `/kingdommodels argon4` on the same citizen and world to compare the previous model with Argon 4 without restarting or opening another save. These local commands store the client preference. You can also set `citizenPresentation.model = "NATIVE"` or `"ARGON4"` in `config/livingkingdoms-citizen-visuals.toml`; `ARGON4` is the default. The selection does not change kingdom resources, profession or entity. Keep a copy of the world for the compatibility checks.
 
-1. Comparar ciudadanos de las diez profesiones y ocho variantes: cara, peinado, barba, cuello, botas, ropa y diferencias del alcalde. Revisar costuras de UV y superficies que se atraviesen.
-2. Observar caminar, correr, girar, dormir, subir a una montura y descansar. Ningún martillo ni movimiento de trabajo debería aparecer durante el descanso.
-3. Observar producción confirmada de Farmer, Lumberjack, Miner y Blacksmith, y una obra o reparación real de Builder. Comprobar que las manos, la herramienta y el objetivo coinciden visualmente; probar ciudadanos zurdos.
-4. Comprobar guardias armados y desarmados, espada, arco, escudo en uso y armadura. El equipo debe coincidir con el inventario real. Probar invisibilidad y ocultar la interfaz.
-5. Probar etiquetas a corta y larga distancia, veinte o más ciudadanos visibles y escalas de GUI distintas; revisar tiempos de frame con y sin el modelo nuevo.
-6. Abrir comercio, almacén, alcalde e inspección; comenzar una previsualización 3D y cancelarla. Guardar y cargar una copia de un mundo anterior, comprobar nombres, profesiones y XP.
-7. Con dos clientes, seleccionar modelos diferentes y comprobar que la actividad y el equipo observados siguen correspondiendo al mismo estado del servidor.
+1. Compare citizens of the ten professions and eight variants: face, hairstyle, beard, collar, boots, clothing and the Mayor's differences. Check UV seams and surfaces clipping through each other.
+2. Watch walking, running, turning, sleeping, mounting and resting. No hammer or work motion should appear during rest.
+3. Watch confirmed production by Farmer, Lumberjack, Miner and Blacksmith, and a real Builder construction or repair. Check that hands, tool and target match visually; test left-handed citizens.
+4. Check armed and unarmed guards, sword, bow, shield in use and armor. Equipment must match the real inventory. Test invisibility and hiding the HUD.
+5. Test labels at short and long distance, twenty or more visible citizens and different GUI scales; check frame times with and without the new model.
+6. Open trading, storage, Mayor and inspection; start a 3D preview and cancel it. Save and load a copy of an older world, and check names, professions and XP.
+7. With two clients, select different models and check that the observed activity and equipment still match the same server state.

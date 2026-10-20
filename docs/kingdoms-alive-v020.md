@@ -1,40 +1,42 @@
 # Kingdoms Alive 0.20.0
 
-Registro histórico de preparación. La entrega vigente solicitada es [Living Villagers 0.17.0](living-villagers-v017.md), en `codex/living-villagers-v017`; los avances siguientes se conservaron allí. Este documento no declara completada 0.20.0.
+> **Historical planning record, not a release.** The current version is 0.18.1. Phases 1–2 below (storage, consumption, economic buildings) shipped through 0.17.0 and 0.18.0; relations, diplomacy and the extended progression chapter remain unimplemented. Test counts below are from that time.
 
-Base: main local `48a2a4c`, que incluye 0.16.1; el remoto todavía está en 0.16.0. Rama única: `codex/kingdoms-alive-v020`. No se descartaron ni publicaron esos commits previos.
+Historical preparation record. The requested release at the time was [Living Villagers 0.17.0](living-villagers-v017.md), on `codex/living-villagers-v017`; the progress below was kept there. This document does not declare 0.20.0 complete.
 
-Auditoría inicial: Charter, incorporación narrativa/nombres, UI sin la pasada heredada de blur, HUD modular, identidad/viviendas de ciudadanos, Farmer/Builder/Guard, reservas y etapas de construcción, encuentros/defensa y recompensas ya existen. Se conservan esos sistemas. Faltan almacenamiento económico con consumo, tres profesiones productivas, edificios de apoyo, relaciones/comercio, gestión central y progresión que los conecte.
+Base: local main `48a2a4c`, which includes 0.16.1; the remote was still at 0.16.0. Single branch: `codex/kingdoms-alive-v020`. Those earlier commits were neither discarded nor published.
 
-Implementación por commits temáticos:
+Initial audit: Charter, narrative onboarding/names, UI without the inherited blur pass, modular HUD, citizen identity/housing, Farmer/Builder/Guard, construction reservations and stages, encounters/defense and rewards already exist. Those systems are kept. Missing: economic storage with consumption, three productive professions, support buildings, relations/trade, central management and a progression that connects them.
 
-1. Recursos compartidos y consumo, reutilizando FoodStock y los intercambios de inventario existentes.
-2. Edificios funcionales, mejoras/expansión seguras y financiación desde almacén.
-3. Lumberjack/Miner/Blacksmith, horarios/refugio y reparación, sobre ProfessionSavedData y navegación nativa.
-4. Relaciones descubiertas y comercio real entre almacenes, con autoridad del servidor.
-5. Gestión central y capítulo de progreso integrado, manteniendo las identidades/recompensas antiguas.
-6. Pruebas integradas, rendimiento, migración y JAR final.
+Implementation by thematic commits:
 
-Se aprovecha el pulido UI de 0.16.1 desde el principio; el almacén precede a las nuevas profesiones para que su producción tenga un único destino. Los mínimos funcionales de economía y diplomacia usarán límites configurables, chunks cargados y transacciones, sin extracción destructiva, simulación ilimitada de reinos lejanos ni guerras. Cada decisión de alcance y la evidencia de pruebas se anotarán brevemente al completar su fase. La aceptación gráfica seguirá pendiente hasta probar el cliente Minecraft.
+1. Shared resources and consumption, reusing FoodStock and the existing inventory exchanges.
+2. Functional buildings, safe upgrades/expansion and funding from storage.
+3. Lumberjack/Miner/Blacksmith, schedules/shelter and repair, on ProfessionSavedData and native navigation.
+4. Discovered relations and real trade between storages, with server authority.
+5. Central management and an integrated progress chapter, keeping the old identities/rewards.
+6. Integrated tests, performance, migration and final JAR.
 
-Estado: auditoría terminada; implementación en curso. **No es todavía una entrega 0.20.0 aprobada.**
+The 0.16.1 UI polish is used from the start; storage comes before the new professions so their production has a single destination. The functional minimums for economy and diplomacy will use configurable limits, loaded chunks and transactions, with no destructive extraction, unbounded simulation of distant kingdoms or wars. Each scope decision and the test evidence will be noted briefly when its phase completes. Graphical acceptance stays pending until the Minecraft client is tested.
 
-## Fase 1: almacén y consumo
+Status: audit done; implementation in progress. **Not yet an approved 0.20.0 release.**
 
-Se implementaron cuentas compartidas persistentes, intercambios reales con inventario, revisiones contra operaciones repetidas, límites de almacenamiento y consumo periódico por población. FoodStock sigue siendo la única fuente de comida; depositar trigo no incrementa las cosechas producidas. Solo el alcalde registrado y cargado activa el consumo, con comprobaciones escalonadas y sin simulación offline. Los datos nuevos corruptos/futuros se rechazan sin sobrescribir archivos.
+## Phase 1: storage and consumption
 
-Acceso de supervivencia provisional: `/kingdom stock deposit food|wood|stone|iron` y `/kingdom stock withdraw food|wood|stone|iron|equipment`. Requiere incorporación al reino y estar dentro del territorio. Mueve hasta 16 unidades (una armadura por retiro), sin consumir nada si no hay capacidad, recursos o espacio. Madera admite troncos de distintos tipos y retira unidades normalizadas como roble. La gestión gráfica y la producción de armaduras se conectarán en las fases siguientes.
+Persistent shared accounts, real inventory exchanges, revisions against repeated operations, storage limits and periodic consumption by population were implemented. FoodStock is still the only food source; depositing wheat does not increase harvested production. Only the registered, loaded Mayor triggers consumption, with staggered checks and no offline simulation. New corrupt/future data is rejected without overwriting files.
 
-Validación de esta fase: **379 JUnit y 147 GameTests aprobados**, compilación de Java 21 y `git diff --check`. Mundo aislado: `runs/gametest-v020-storage`. Las pruebas nuevas cubren inventario lleno, permisos, transacciones antiguas/multiplayer, consumo una vez y lectura real del archivo guardado. La versión de desarrollo se configuró en 0.20.0; esto no equivale a certificar la actualización completa.
+Provisional survival access: `/kingdom stock deposit food|wood|stone|iron` and `/kingdom stock withdraw food|wood|stone|iron|equipment`. Requires kingdom membership and being inside the territory. Moves up to 16 units (one armor piece per withdrawal), consuming nothing when there is no capacity, resources or space. Wood accepts logs of different types and withdraws normalized units as oak. Graphical management and armor production will be connected in later phases.
 
-## Fase 2: edificios y expansión
+Validation for this phase: **379 JUnit and 147 GameTests passed**, Java 21 compilation and `git diff --check`. Isolated world: `runs/gametest-v020-storage`. The new tests cover full inventory, permissions, old/multiplayer transactions, one-time consumption and a real read of the saved file. The development version was set to 0.20.0; that does not certify the full update.
 
-Cuatro plantillas nativas nuevas (Warehouse, Lumberjack Hut, Mine Workshop y Market) conservan intactos los diez módulos anteriores. Blacksmith reutiliza su plantilla existente; su coste de hierro incluye el valor del yunque para evitar obtener hierro gratis desmantelándolo. La mina usa piedra decorativa sin minerales extraíbles. Los nuevos edificios pasan por las mismas reservas, protección, terreno, marcadores y etapas con Builder.
+## Phase 2: buildings and expansion
 
-El almacén financia proyectos reales. Las mejoras guardadas aumentan capacidad del Warehouse, plazas de trabajo y detección del Watchtower; el Ayuntamiento también aumenta el nivel del reino. Los niveles de los talleres se conectan con producción en la fase siguiente y los del Market con comercio. Las mejoras son funcionales, no reemplazan el modelo de la casa ni sus inventarios. Las viviendas crecen mediante casas adicionales, evitando cambiar silenciosamente ocupación/camas de partidas anteriores. La economía carga tanto su esquema inicial como el extendido con niveles.
+Four new native templates (Warehouse, Lumberjack Hut, Mine Workshop and Market) keep the ten earlier modules intact. Blacksmith reuses its existing template; its iron cost includes the anvil's value to avoid getting free iron by dismantling it. The mine uses decorative stone with no extractable ores. The new buildings go through the same reservations, protection, terrain, markers and Builder stages.
 
-Expansión: +16 de radio, hasta el límite configurable, con Ayuntamiento de nivel 2, seguridad, cola terminada, coste de recursos, comprobación de vecinos y borde del mundo. Cambia el territorio efectivo sin editar terrenos ni cargar chunks. Acceso provisional: `/kingdom development plan warehouse|lumberjack_hut|mine|blacksmith|market`, `fund`, `upgrade <building UUID>` y `expand`; la interfaz central reemplazará la necesidad de identificar edificios por UUID.
+Storage funds real projects. Saved upgrades increase Warehouse capacity, work slots and Watchtower detection; the Town Hall also raises the kingdom level. Workshop levels connect with production in the next phase and Market levels with trade. Upgrades are functional; they do not replace the house model or its inventories. Housing grows through additional houses, avoiding silently changing occupancy/beds of earlier saves. The economy loads both its initial schema and the extended one with levels.
 
-Validación: **383 JUnit y 149 GameTests aprobados**, módulos nativos en cuatro rotaciones, persistencia de niveles, migración económica, ampliación del índice territorial, aumento real de capacidad/plazas y pago único de proyectos. Mundo aislado: `runs/gametest-v020-buildings`. Auditor geométrico y generador verifican los catorce módulos sin partes desconectadas; aceptación gráfica pendiente.
+Expansion: +16 radius, up to the configurable limit, with a level 2 Town Hall, safety, a finished queue, resource cost, neighbor check and world border. It changes the effective territory without editing terrain or loading chunks. Provisional access: `/kingdom development plan warehouse|lumberjack_hut|mine|blacksmith|market`, `fund`, `upgrade <building UUID>` and `expand`; the central interface will remove the need to identify buildings by UUID.
 
-El helper de worldgen JSON se ejecutó y reportó ausencia de archivos compatibles: aquí las estructuras son NBT colocadas por el planificador existente, no registros worldgen JSON. Se validaron mediante el auditor NBT y los codecs/colocaciones reales de Minecraft, sin añadir definiciones ficticias para satisfacer ese helper.
+Validation: **383 JUnit and 149 GameTests passed**, native modules in four rotations, level persistence, economy migration, territorial index expansion, real capacity/slot increase and one-time project payment. Isolated world: `runs/gametest-v020-buildings`. The geometry auditor and generator verify the fourteen modules with no disconnected parts; graphical acceptance pending.
+
+The worldgen JSON helper was run and reported no compatible files: here structures are NBT placed by the existing planner, not worldgen JSON registries. They were validated through the NBT auditor and Minecraft's real codecs/placements, without adding fake definitions to satisfy that helper.

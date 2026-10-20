@@ -1,76 +1,76 @@
-# Living Kingdoms 0.16.1: interfaz, Charter y validación
+# Living Kingdoms 0.16.1: interface, Charter and validation
 
-Minecraft 1.21.1, NeoForge 21.1.252 y Java 21. Rama `codex/ui-ux-polish-v0161`, creada desde `origin/main` en `9a969cc9a293f9c68860d37ded2f781ae76f60c4`. Se conservan la progresión, recompensas, mundos y sistemas de 0.16.0. Sin commit, merge ni push automáticos.
+Minecraft 1.21.1, NeoForge 21.1.252 and Java 21. Branch `codex/ui-ux-polish-v0161`, created from `origin/main` at `9a969cc9a293f9c68860d37ded2f781ae76f60c4`. The progression, rewards, worlds and systems of 0.16.0 are kept. No automatic commit, merge or push.
 
-## Causa del blur y corrección
+## Blur cause and fix
 
-El arreglo previo documentado en el README existía en `VillageScreen`, pero no cubría `MayorOnboardingScreen`. Se comprobó el código exacto de `Screen` en `neoforge-21.1.252-sources.jar`: `Screen.render` llama a `renderBackground` antes de dibujar sus widgets; el fondo heredado ejecuta `gameRenderer.processBlurEffect` y el fondo de menú. La introducción dibujaba su panel y texto antes de llamar a `super.render`, de modo que esa segunda pasada podía desenfocar y cubrir contenido ya dibujado. Cambiar solamente colores no eliminaba la causa.
+The earlier fix documented in the README existed in `VillageScreen`, but did not cover `MayorOnboardingScreen`. The exact `Screen` code was checked in `neoforge-21.1.252-sources.jar`: `Screen.render` calls `renderBackground` before drawing its widgets; the inherited background runs `gameRenderer.processBlurEffect` and the menu background. The introduction drew its panel and text before calling `super.render`, so that second pass could blur and cover content already drawn. Changing only colors did not remove the cause.
 
-Ambas pantallas heredan ahora `KingdomScreen`, cuyo `renderBackground` final no ejecuta esa pasada. Dibujan una sola capa oscura sobre el mundo y paneles opacos, con texto nativo sin escalado fraccional ni sombra. No se cambia el ajuste global de desenfoque de Minecraft. `VillageTheme` ya empleaba colores opacos; los tooltips siguen siendo nativos. Esto elimina el camino identificado en el código; falta aceptar el resultado en una GPU real y comprobar posibles shaders o modificaciones de otros mods.
+Both screens now extend `KingdomScreen`, whose final `renderBackground` does not run that pass. They draw a single dark layer over the world and opaque panels, with native text without fractional scaling or shadow. Minecraft's global blur setting is not changed. `VillageTheme` already used opaque colors; tooltips stay native. This removes the path identified in the code; the result still has to be accepted on a real GPU and checked against possible shaders or other mods' changes.
 
-La introducción muestra hasta cinco líneas por página, menos cuando queda poco espacio. Continuar, Volver y Cerrar son controles nativos. Volver consulta páginas o etapas anteriores en el cliente sin retroceder el estado del servidor. El borrador del nombre se conserva al revisar páginas, redimensionar, recargar fuentes o recibir un rechazo. Solo confirmar la última página de la etapa actual envía una acción.
+The introduction shows up to five lines per page, fewer when space is tight. Continue, Back and Close are native controls. Back reviews earlier pages or stages on the client without rolling back server state. The name draft is kept when reviewing pages, resizing, reloading fonts or receiving a rejection. Only confirming the last page of the current stage sends an action.
 
-Los diálogos posteriores del alcalde también tienen páginas cortas, flechas para revisar y el control habitual de salida. Las estadísticas completas están en Información; ya no llenan todas las conversaciones. Una amenaza sigue apareciendo en el contexto. Si la ventana deja menos de 280×200 unidades GUI, se muestra una instrucción breve para ampliarla y un botón Cerrar, evitando superponer controles.
+Later Mayor dialogues also have short pages, arrows to review and the usual exit control. Full statistics are in Information; they no longer fill every conversation. A threat still appears in context. If the window leaves less than 280×200 GUI units, a short instruction to enlarge it and a Close button are shown, avoiding overlapping controls.
 
-También se corrigieron secuencias de codificación dañadas que ya existían en ambos idiomas, incluidos acentos españoles y separadores ingleses. Las traducciones mantienen sus argumentos.
+Corrupted encoding sequences that already existed in both languages were also fixed, including Spanish accents and English separators. Translations keep their arguments.
 
-## HUD y misiones
+## HUD and quests
 
-Hay dos tarjetas independientes, con fondo oscuro semitransparente, texto opaco e íconos nativos de 8×8:
+There are two independent cards, with a semi-transparent dark background, opaque text and native 8×8 icons:
 
-- Reino: nombre, reputación y población; seguridad cuando hay una amenaza. Se muestra únicamente dentro del territorio aliado elegido por el servicio existente.
-- Misión seguida: título, objetivo breve, todos los recursos requeridos y su progreso, miembros derrotados del grupo concreto y estado listo para reclamar. Permanece fuera del reino; al estar lista indica el tablón de destino.
+- Kingdom: name, reputation and population; safety when there is a threat. Shown only inside the allied territory chosen by the existing service.
+- Tracked quest: title, short objective, every required resource and its progress, defeated members of the specific party, and ready-to-claim state. It stays visible outside the kingdom; when ready it names the destination board.
 
-El progreso procede del snapshot del servidor, no de estimaciones del cliente. El servidor incluye el tamaño original del grupo para presentar derrotados/total, incluso durante una pelea. No cambian las reglas de contribución ni de recompensas. El modo expandido añade información de reputación, seguridad y destino. El texto largo se envuelve sin puntos suspensivos. Cuando no entra todo, se conservan las líneas en páginas con contador que rotan cada seis segundos visibles; las actualizaciones de progreso no reinician continuamente ese reloj.
+Progress comes from the server snapshot, not client estimates. The server includes the party's original size to show defeated/total, even during a fight. Contribution and reward rules do not change. Expanded mode adds reputation, safety and destination details. Long text wraps without ellipses. When it does not all fit, the lines are kept in pages with a counter that rotate every six visible seconds; progress updates do not keep resetting that clock.
 
-H conserva el ajuste existente y su remapeo; K abre la administración local y J el diario remoto. El HUD se oculta al abrir pantallas/chat, F3 o F1. Evita el espacio de las boss bars que efectivamente lo cruzan. Otros overlays se acomodan mediante offsets; no hay detección automática de cada minimapa.
+H keeps its existing setting and remapping; K opens local administration and J the remote journal. The HUD hides when screens/chat, F3 or F1 are open. It avoids the space of boss bars that actually cross it. Other overlays are accommodated through offsets; there is no automatic detection of each minimap.
 
-Configuración del cliente en `livingkingdoms-client.toml`:
+Client configuration in `livingkingdoms-client.toml`:
 
-| Clave | Predeterminado | Uso |
+| Key | Default | Use |
 | --- | --- | --- |
-| `hudEnabled` | `true` | Mostrar HUD; H lo alterna |
-| `showKingdomInfo` | `true` | Tarjeta del reino |
-| `showTrackedQuest` | `true` | Tarjeta de misión |
-| `expandedHud` | `false` | Detalles adicionales |
-| `hudX`, `hudY` | `6`, `6` | Offset en unidades GUI, acotado a pantalla |
-| `hudWidth` | `200` | Ancho entre 160 y 320 |
-| `hudBackgroundAlpha` | `204` | Opacidad entre 192 y 255 |
+| `hudEnabled` | `true` | Show the HUD; H toggles it |
+| `showKingdomInfo` | `true` | Kingdom card |
+| `showTrackedQuest` | `true` | Quest card |
+| `expandedHud` | `false` | Extra details |
+| `hudX`, `hudY` | `6`, `6` | Offset in GUI units, clamped to the screen |
+| `hudWidth` | `200` | Width between 160 and 320 |
+| `hudBackgroundAlpha` | `204` | Opacity between 192 and 255 |
 
-El mínimo de opacidad conserva una relación de contraste de al menos 4,5:1 para todos los tonos sobre un fondo blanco en el modelo de composición probado. Esto no sustituye la lectura real, ni garantiza compatibilidad visual con todas las fuentes o shaders.
+The minimum opacity keeps a contrast ratio of at least 4.5:1 for every tone over a white background in the tested compositing model. This does not replace real reading, nor does it guarantee visual compatibility with every font or shader.
 
-El Quest Board prioriza objetivo, progreso y condiciones de desbloqueo. Explica el motivo del encargo y dónde reclamar. El lector inicial muestra trabajo vigente y el siguiente paso bloqueado; Historial permite consultar el resto. No borra ni altera misiones. Las filas breves mantienen título completo en tooltip, narración y lector de detalles.
+The Quest Board prioritizes objective, progress and unlock conditions. It explains why the job exists and where to claim it. The initial reader shows current work and the next locked step; History shows the rest. It does not delete or alter quests. Short rows keep the full title in the tooltip, narration and detail reader.
 
-## Charter: sistema existente verificado
+## Charter: existing system verified
 
-Se reutiliza `SettlementEstablishmentService` y `VillageSurvey`, sin otro sistema de conversión. Los mínimos predeterminados siguen siendo dos aldeanos vivos disponibles y dos camas completas. La campana no es obligatoria. La consulta ocurre al usar la Carta, sobre chunks ya cargados; no fuerza carga de mundo.
+`SettlementEstablishmentService` and `VillageSurvey` are reused, with no other conversion system. The default minimums are still two living available villagers and two complete beds. The bell is not required. The survey runs when the Charter is used, over already-loaded chunks; it does not force world loading.
 
-La conversión conserva casas, camas, inventarios y habitantes. Promueve un aldeano apropiado como alcalde cuando puede hacerlo, o crea el alcalde necesario, y coloca marcador y Quest Board en una plaza libre. El mensaje de éxito y las instrucciones siguientes quedan en el chat, con la ubicación del asentamiento y el paso de hablar con el alcalde. Cuando falta un mínimo, muestra actual/requerido de aldeanos y camas, explica cómo reintentar y conserva la Carta.
+Conversion keeps houses, beds, inventories and residents. It promotes a suitable villager to Mayor when it can, or creates the needed Mayor, and places the marker and Quest Board in a free plaza. The success message and next instructions stay in chat, with the settlement location and the step of talking to the Mayor. When a minimum is missing, it shows current/required villagers and beds, explains how to retry and keeps the Charter.
 
-El flujo narrativo y el nombre usan el sistema de 0.16.0. La prueba nueva usa la interacción real del ítem, completa esa conversación y vuelve a leer los archivos guardados mediante `DimensionDataStorage`, verificando nombre, UUID, territorio y estado JOINED. Las pruebas existentes de fundación desde cero, proyectos iniciales, geometría y rollback se conservaron. Guardar y salir/reabrir un mundo completo desde el cliente todavía requiere la prueba manual indicada abajo.
+The narrative flow and naming use the 0.16.0 system. The new test uses the real item interaction, completes that conversation and re-reads the saved files through `DimensionDataStorage`, verifying name, UUID, territory and JOINED state. The existing tests for founding from scratch, initial projects, geometry and rollback were kept. Saving and quitting/reopening a full world from the client still requires the manual test below.
 
-## Costes y compatibilidad
+## Costs and compatibility
 
-El HUD sigue recibiendo snapshots comparados/deduplicados por el servicio existente; no agrega otra sincronización. En el render solo dibuja líneas, fondos e íconos. Su presentación y layout se reconstruyen ante datos, tamaño, configuración, boss bars o recursos nuevos. El lector usa una caché por pantalla de hasta 128 textos envueltos, invalidada al actualizar datos o fuentes. La introducción y los diálogos cachean páginas y orden visual. No se agregaron dependencias, barridos de entidades, IA ni trabajo del servidor por frame.
+The HUD keeps receiving snapshots compared/deduplicated by the existing service; it adds no other sync. Rendering only draws lines, backgrounds and icons. Its presentation and layout are rebuilt on new data, size, configuration, boss bars or resources. The reader uses a per-screen cache of up to 128 wrapped texts, invalidated when data or fonts update. The introduction and dialogues cache pages and visual order. No dependencies, entity sweeps, AI or per-frame server work were added.
 
-Los datos guardados mantienen sus esquemas. El registro de red pasa a versión 10: cliente y servidor deben usar el mismo JAR 0.16.1. Se conservan los JAR y mundos de desarrollo anteriores.
+Saved data keeps its schemas. The network registry moves to version 10: client and server must use the same 0.16.1 JAR. Earlier development JARs and worlds are kept.
 
-## Validación automática
+## Automated validation
 
-- 374 pruebas JUnit, sin fallos ni omisiones; incluyen paginación, conservación de palabras, caché, contraste, paridad/UTF-8 de traducciones, límites GUI, historial, tarjetas independientes y progreso real.
-- 145 GameTests aprobados en `runs/gametest-v0161-final-validation`. Dos nuevos verifican conversión/narrativa/nombre/lectura de disco y los dos mínimos incompletos sin consumo. Las comprobaciones previas de fundación, defensa, multiplayer y recompensas siguen presentes.
-- Gradle build y comprobación del JAR: versión 0.16.1, Minecraft `[1.21.1]`, NeoForge `[21.1.252,21.2)`, idiomas actuales y ausencia del mod/clases de pruebas.
-- Atlas HUD, filtrado sin blur y nueve recursos anteriores contrastados con los bytes del JAR. El auditor tolera finales CRLF de checkout en JSON y mantiene la comparación exacta de los bytes empaquetados.
-- Validador de la skill de recursos sobre una copia temporal en `build`, con `pack.mcmeta` formato 34 comprobado contra `SharedConstants` de 1.21.1. El mod no necesita ese archivo de pack externo. Tres avisos de referencias vanilla se resuelven aparte contra los recursos de Minecraft; no se añaden archivos artificiales al mod.
+- 374 JUnit tests, no failures or skips; they include pagination, word preservation, cache, contrast, translation parity/UTF-8, GUI limits, history, independent cards and real progress.
+- 145 GameTests passed in `runs/gametest-v0161-final-validation`. Two new ones verify conversion/narrative/name/disk read and the two incomplete minimums without consumption. Earlier founding, defense, multiplayer and reward checks are still present.
+- Gradle build and JAR check: version 0.16.1, Minecraft `[1.21.1]`, NeoForge `[21.1.252,21.2)`, current languages and no test mod/classes.
+- HUD atlas, blur-free filtering and nine earlier resources compared against the JAR bytes. The auditor tolerates checkout CRLF endings in JSON and keeps the exact comparison of packaged bytes.
+- Resource skill validator on a temporary copy in `build`, with `pack.mcmeta` format 34 checked against 1.21.1 `SharedConstants`. The mod does not need that external pack file. Three vanilla reference warnings are resolved separately against Minecraft's resources; no artificial files are added to the mod.
 - `git diff --check`.
 
-La primera ejecución registró dos fallos por una colisión de nombres en el auxiliar nuevo que capturaba mensajes; se corrigió sin alterar las comprobaciones antiguas y se repitió toda la suite en otro mundo. Ambos mundos se conservaron. Los logs de rollback provocado son parte de las pruebas de rechazo, no errores de la ejecución final.
+The first run logged two failures from a name collision in the new message-capturing helper; it was fixed without altering the old checks and the whole suite was repeated in another world. Both worlds were kept. The provoked rollback logs are part of the rejection tests, not errors of the final run.
 
-## Prueba manual pendiente en Minecraft
+## Pending manual test in Minecraft
 
-Usar una copia del mundo habitual y el JAR ordinario `build/libs/livingkingdoms-0.16.1.jar`, no el `-sources.jar`. Registrar GPU, resolución, escala GUI, idioma, fuente/resource pack y shaders. No hay captura gráfica aceptada de 0.16.1 en esta entrega.
+Use a copy of the usual world and the ordinary JAR `build/libs/livingkingdoms-0.16.1.jar`, not the `-sources.jar`. Record GPU, resolution, GUI scale, language, font/resource pack and shaders. There is no accepted graphical capture of 0.16.1 in this release.
 
-| Resolución | Escalas que probar, cuando estén disponibles |
+| Resolution | Scales to test, when available |
 | --- | --- |
 | 854×480 | 1, 2, Auto |
 | 1280×720 | 1, 2, 3, Auto |
@@ -78,15 +78,15 @@ Usar una copia del mundo habitual y el JAR ordinario `build/libs/livingkingdoms-
 | 2560×1440 | 2, 3, 4, Auto |
 | 3840×2160 | 3, 4, Auto |
 
-1. En EN y ES, abrir todas las etapas iniciales del alcalde, incluyendo Nombre. Comparar desenfoque de menú en cero y su máximo, frente a mundo de día/noche y terreno claro. El texto debe conservar bordes nítidos y contraste. Volver, Continuar y Cerrar deben quedar separados del texto y del campo.
-2. Escribir un nombre con acentos; volver a páginas anteriores, redimensionar y ejecutar F3+T. El borrador debe seguir intacto. Confirmar un nombre inválido o duplicado, corregirlo y registrar; no debe avanzar dos veces ni perder caracteres. Cerrar mientras espera respuesta no debe reabrir la pantalla después.
-3. Abrir el diálogo normal, recorrer sus flechas y entrar a Información, Construcción, Inmigración y Ciudadanos. Probar tooltips y tabulación. No debe reaparecer blur al dibujar controles ni solaparse el retrato con las flechas. Reducir mucho la ventana: debe aparecer el aviso y poder cerrarse.
-4. Seguir una misión en el tablón o diario. Dentro del territorio comprobar las dos tarjetas; fuera comprobar que desaparece solo el reino. Cambiar H y remapearlo; comprobar J/K y que chat, inventario, F1 y F3 respetan la visibilidad.
-5. Para entrega de varios recursos, cambiar cantidades en inventario/mano secundaria y verificar todos los contadores. Para combate real, derrotar miembros del grupo vinculado y comprobar derrotados/total. Al terminar, debe indicar lista para reclamar y el tablón correcto; reclamar una vez debe conservar la recompensa habitual.
-6. Probar nombres de reino largos, títulos largos, modo expandido y ancho 160. Si hay páginas, leer el contenido completo durante su ciclo, también mientras se actualiza progreso. Añadir una y varias boss bars; comprobar los offsets con el minimapa usado normalmente. No debe recortarse ni solaparse texto.
-7. En el Quest Board, comprobar que aparecen el motivo, objetivo, requisito de bloqueo y destino de recompensa. Cambiar Historial, aceptar, seguir, reclamar y revisar el siguiente paso. Los valores de progresión y recompensa deben coincidir con 0.16.0.
-8. Convertir una aldea vanilla real con dos aldeanos y dos camas completas. Antes/después registrar casas, camas, habitantes e inventarios; encontrar alcalde y Quest Board, terminar introducción y nombrar. Repetir con una cama y luego con un aldeano: deben aparecer los mínimos y no consumirse la Carta.
-9. Fundar con Carta en terreno vacío sin señales de aldea, abastecer el Ayuntamiento y primera Casa. Probar conversión forzada agachado fuera de aldea: debe rechazar sin fundar. No habilitar cheats para estos flujos de supervivencia.
-10. Guardar y salir, cerrar/reabrir Minecraft y volver al mundo. Verificar nombre, alcalde, tablero, habitantes, progreso, misión seguida y preferencias H. Repetir la incorporación con dos jugadores: un nombre compartido, conversaciones personales y ninguna recompensa duplicada.
+1. In EN and ES, open every initial Mayor stage, including Name. Compare menu blur at zero and at its maximum, against a day/night world and bright terrain. Text must keep crisp edges and contrast. Back, Continue and Close must stay separate from the text and the field.
+2. Type a name with accents; go back to earlier pages, resize and press F3+T. The draft must stay intact. Confirm an invalid or duplicate name, fix it and register; it must not advance twice or lose characters. Closing while waiting for a response must not reopen the screen later.
+3. Open the normal dialogue, go through its arrows and enter Information, Construction, Immigration and Citizens. Test tooltips and tabbing. Blur must not reappear when drawing controls, and the portrait must not overlap the arrows. Shrink the window a lot: the notice must appear and be closable.
+4. Track a quest from the board or journal. Inside the territory check both cards; outside check that only the kingdom card disappears. Toggle H and remap it; check J/K and that chat, inventory, F1 and F3 respect visibility.
+5. For a multi-resource delivery, change amounts in the inventory/offhand and verify every counter. For real combat, defeat members of the linked party and check defeated/total. When finished, it must say ready to claim and name the correct board; claiming once must keep the usual reward.
+6. Test long kingdom names, long titles, expanded mode and width 160. If there are pages, read the full content during its cycle, also while progress updates. Add one and several boss bars; check the offsets with the minimap you normally use. Text must not be cropped or overlap.
+7. On the Quest Board, check that the reason, objective, lock requirement and reward destination appear. Switch History, accept, track, claim and review the next step. Progression and reward values must match 0.16.0.
+8. Convert a real vanilla village with two villagers and two complete beds. Record houses, beds, residents and inventories before/after; find the Mayor and Quest Board, finish the introduction and name it. Repeat with one bed and then with one villager: the minimums must appear and the Charter must not be consumed.
+9. Found with a Charter on empty terrain with no sign of a village, supply the Town Hall and first House. Try forced conversion while crouching outside a village: it must refuse without founding. Do not enable cheats for these survival flows.
+10. Save and quit, close/reopen Minecraft and return to the world. Verify name, Mayor, board, residents, progress, tracked quest and H preferences. Repeat onboarding with two players: one shared name, personal conversations and no duplicated reward.
 
-Aceptar visualmente solo después de completar estas comprobaciones. Fuentes de terceros pueden cambiar anchos; F3+T invalida las cachés. Muchas boss bars en una ventana pequeña pueden ocupar todo el espacio seguro y ocultar temporalmente las tarjetas; usar offsets, menor escala GUI o un panel solo. La adaptación automática a overlays de todos los mods queda fuera de esta corrección.
+Accept visually only after completing these checks. Third-party fonts can change widths; F3+T invalidates the caches. Many boss bars in a small window can take all the safe space and temporarily hide the cards; use offsets, a smaller GUI scale or a single panel. Automatic adaptation to every mod's overlays is out of scope for this fix.
