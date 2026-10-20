@@ -72,14 +72,20 @@ final class CitizenHumanoidRenderer extends MobRenderer<Villager, CitizenHumanoi
     }
     @Override protected void renderNameTag(Villager npc, Component ignored, PoseStack pose, MultiBufferSource buffers, int light, float partial) {
         if (!shouldShowName(npc)) return;
+        double distanceSqr = entityRenderDispatcher.distanceToSqr(npc);
+        int nameDistance = CitizenVisualConfig.NAME_DISTANCE.get();
+        int secondary = Math.min(CitizenVisualConfig.SECONDARY_DISTANCE.get(), nameDistance);
+        int activity = Math.min(CitizenVisualConfig.ACTIVITY_DISTANCE.get(), nameDistance);
+        boolean showActivity = presentation.activity() != null && activity > 0 && distanceSqr <= (double) activity * activity;
         pose.pushPose();
-        pose.translate(0, npc.getBbHeight() + .35, 0);
+        // A third line needs extra clearance so the stacked tag stays above the head.
+        pose.translate(0, npc.getBbHeight() + (showActivity ? .6 : .35), 0);
         pose.mulPose(entityRenderDispatcher.cameraOrientation()); pose.scale(.025F, -.025F, .025F);
         int background = (int) (Minecraft.getInstance().options.getBackgroundOpacity(.25F) * 255) << 24;
         line(presentation.name(), 0, -1, pose, buffers, background, light);
-        int distance = Math.min(CitizenVisualConfig.SECONDARY_DISTANCE.get(), CitizenVisualConfig.NAME_DISTANCE.get());
-        if (distance > 0 && entityRenderDispatcher.distanceToSqr(npc) <= (double) distance * distance)
+        if (secondary > 0 && distanceSqr <= (double) secondary * secondary)
             line(presentation.secondary(), 10, 0xFFE2C07A, pose, buffers, background, light);
+        if (showActivity) line(presentation.activity(), 20, 0xFFB8B8B8, pose, buffers, background, light);
         pose.popPose();
     }
     private void line(Component text, int y, int color, PoseStack pose, MultiBufferSource buffers, int background, int light) {

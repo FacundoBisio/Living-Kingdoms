@@ -9,7 +9,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class CitizenPresentationCacheTest {
     private static CitizenPresentation data(int id) {
         return new CitizenPresentation(id, new UUID(0, id), "Ada", 1, ProfessionType.UNASSIGNED,
-                1, WorkState.IDLE, false, false, false, "", 0);
+                1, WorkState.IDLE, false, false, false, "", 0, "");
     }
     @Test void entityIdReuseExpiryUnloadAndClockResetNeverLeakVisualIdentity() {
         var cache = new CitizenPresentationCache(2, 400); var original = data(3);

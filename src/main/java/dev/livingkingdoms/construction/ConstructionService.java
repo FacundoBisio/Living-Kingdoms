@@ -98,22 +98,40 @@ public final class ConstructionService {
     }
     public static boolean depositStock(ServerPlayer player,UUID settlementId,UUID projectId) {
         if(!dev.livingkingdoms.economy.KingdomEconomy.authorized(player,settlementId)) return false;
-        var storage=ConstructionSavedData.get(player.server);var entry=storage.get(projectId).orElse(null);
+        return supplyFromStock(player.server,settlementId,projectId,0);
+    }
+    /**
+     * Supplies a WAITING_FOR_RESOURCES project of an allied settlement from its shared stock, leaving
+     * {@code keepBack} items of each required material in storage. Partial supply is allowed. The economy
+     * transfer and project receipt use the same compare-and-set order as the manual deposit: validate,
+     * replace the project, then commit the stock. Returns true only when materials were moved.
+     * Callers own authorization; this method performs no player checks.
+     */
+    public static boolean supplyFromStock(MinecraftServer server,UUID settlementId,UUID projectId,int keepBack) {
+        if(!server.isSameThread()) throw new IllegalStateException("Construction funding requires the server thread");
+        if(keepBack<0) throw new IllegalArgumentException("Negative keep-back");
+        if(SettlementSavedData.get(server).get(settlementId).filter(s -> s.faction().isAllied()).isEmpty()) return false;
+        var storage=ConstructionSavedData.get(server);var entry=storage.get(projectId).orElse(null);
         if(entry==null || !entry.project().settlementId().equals(settlementId) || entry.project().state()!=ConstructionState.WAITING_FOR_RESOURCES) return false;
         var p=entry.project();var delivery=new EnumMap<ResourceKind,Integer>(ResourceKind.class);
         var costs=new EnumMap<dev.livingkingdoms.economy.StockResource,Integer>(dev.livingkingdoms.economy.StockResource.class);
         for(var kind:p.required().keySet()) {
             var resource=dev.livingkingdoms.economy.StockResource.of(kind);
-            int amount=Math.min(p.missing(kind),dev.livingkingdoms.economy.KingdomEconomy.itemCount(player.server,settlementId,resource));
+            int amount=supplyAmount(p.missing(kind),dev.livingkingdoms.economy.KingdomEconomy.itemCount(server,settlementId,resource),keepBack);
             if(amount>0) {delivery.put(kind,amount);costs.put(resource,resource.unitsForItems(amount,dev.livingkingdoms.config.ProfessionConfig.WHEAT_FOOD.get()));}
         }
         if(delivery.isEmpty()) return false;
-        var transfer=dev.livingkingdoms.economy.KingdomEconomy.plan(player.server,settlementId,costs,Map.of(),false).orElseThrow();
-        var next=p.supply(delivery);if(next.state()==ConstructionState.READY && !next.builderRequired()) next=next.start(now(player.server));
+        var transfer=dev.livingkingdoms.economy.KingdomEconomy.plan(server,settlementId,costs,Map.of(),false).orElse(null);
+        if(transfer==null) return false;
+        var next=p.supply(delivery);if(next.state()==ConstructionState.READY && !next.builderRequired()) next=next.start(now(server));
         // Both stores are preflighted and updated synchronously on the server thread, without hooks/yields.
-        if(!dev.livingkingdoms.economy.KingdomEconomy.valid(player.server,transfer) || !storage.replace(p,next)) return false;
-        if(!dev.livingkingdoms.economy.KingdomEconomy.commit(player.server,transfer)) throw new IllegalStateException("Construction funding changed during commit");
-        assignReady(player.server,settlementId);return true;
+        if(!dev.livingkingdoms.economy.KingdomEconomy.valid(server,transfer) || !storage.replace(p,next)) return false;
+        if(!dev.livingkingdoms.economy.KingdomEconomy.commit(server,transfer)) throw new IllegalStateException("Construction funding changed during commit");
+        assignReady(server,settlementId);return true;
+    }
+    /** Items to move for one material: never more than missing, never dipping stock below the keep-back. */
+    public static int supplyAmount(int missing,int stored,int keepBack) {
+        return Math.max(0,Math.min(missing,stored-keepBack));
     }
     /** Also reusable by later expansion policies; the initial chain is the only current caller. */
     public static ConstructionSavedData.Entry reserve(ServerLevel level,UUID settlementId,SettlementLayout plan,ServerPlayer actor) {

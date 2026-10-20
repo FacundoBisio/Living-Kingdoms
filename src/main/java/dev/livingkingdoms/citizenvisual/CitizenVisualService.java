@@ -59,7 +59,20 @@ public final class CitizenVisualService {
         return new CitizenPresentation(villager.getId(), villager.getUUID(), citizen.name(), citizen.level().value(),
                 type, profession == null ? 1 : profession.level().value(), state,
                 profession != null && profession.active(), !villager.getNavigation().isDone(), citizen.homeId() != null,
-                workplace, profession == null ? 0 : profession.experience());
+                workplace, profession == null ? 0 : profession.experience(), target(level, profession, state));
+    }
+
+    /** O(1) indexed lookups only: the builder index and the first repair order of one settlement. */
+    private static String target(ServerLevel level, dev.livingkingdoms.profession.domain.Profession profession, WorkState state) {
+        if (profession == null || !profession.active() || profession.type() != ProfessionType.BUILDER) return "";
+        var server = level.getServer();
+        if (state == WorkState.WORKING) return dev.livingkingdoms.construction.ConstructionService.projectForBuilder(server, profession.citizenId())
+                .map(entry -> entry.project().building().name().toLowerCase(Locale.ROOT)).orElse("");
+        if (state != WorkState.REPAIRING) return "";
+        var jobs = ProfessionSavedData.get(server);
+        return dev.livingkingdoms.economy.EconomySavedData.get(server).account(profession.settlementId())
+                .flatMap(account -> account.repairOrders().stream().sorted().findFirst())
+                .flatMap(jobs::building).map(building -> building.kind().name().toLowerCase(Locale.ROOT)).orElse("");
     }
 
     public static void tracking(PlayerEvent.StartTracking event) {

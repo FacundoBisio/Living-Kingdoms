@@ -43,11 +43,16 @@ public final class NpcService {
         }
 
         // Recover a loaded tagged Mayor if a previous entity save preceded its association save.
-        for (Entity existing : level.getAllEntities()) {
-            if (existing instanceof Villager villager && isMayorOf(villager, settlement.id())) {
-                return quests.associateMayor(settlement.id(), villager.getUUID())
-                        ? Optional.of(villager) : Optional.empty();
-            }
+        // Bounded to loaded entity sections inside the territory square instead of every loaded entity.
+        var territory = settlement.territory();
+        int r = Math.min(territory.radius(), 128);
+        AABB box = new AABB(territory.x() - r, level.getMinBuildHeight(), territory.z() - r,
+                territory.x() + r + 1, level.getMaxBuildHeight(), territory.z() + r + 1);
+        var tagged = level.getEntitiesOfClass(Villager.class, box, v -> isMayorOf(v, settlement.id()));
+        if (!tagged.isEmpty()) {
+            Villager villager = tagged.getFirst();
+            return quests.associateMayor(settlement.id(), villager.getUUID())
+                    ? Optional.of(villager) : Optional.empty();
         }
 
         Villager mayor = EntityType.VILLAGER.create(level);

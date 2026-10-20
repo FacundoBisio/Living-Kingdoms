@@ -5,16 +5,18 @@ import dev.livingkingdoms.profession.domain.WorkState;
 import java.util.Objects;
 import java.util.UUID;
 
-/** Small server-authored projection. It contains no inventory, authority or writable gameplay state. */
+/** Small server-authored projection; target is the lowercase building kind being built or repaired, or empty. It contains no inventory, authority or writable gameplay state. */
 public record CitizenPresentation(int entityId, UUID entityUuid, String name, int level,
         ProfessionType profession, int professionLevel, WorkState state, boolean active,
-        boolean travelling, boolean housed, String workplace, long experience) {
+        boolean travelling, boolean housed, String workplace, long experience, String target) {
     public CitizenPresentation {
         Objects.requireNonNull(entityUuid); Objects.requireNonNull(name);
         Objects.requireNonNull(profession); Objects.requireNonNull(state); Objects.requireNonNull(workplace);
+        Objects.requireNonNull(target);
         if (name.isBlank() || name.length() > 80 || name.codePoints().anyMatch(Character::isISOControl)
                 || level < 1 || level > 100 || professionLevel < 1 || professionLevel > 100
                 || workplace.length() > 48 || !workplace.matches("[a-z_]*")
+                || target.length() > 48 || !target.matches("[a-z_]*")
                 || experience < 0 || experience > 1_000_000_000L)
             throw new IllegalArgumentException("Invalid citizen presentation");
     }

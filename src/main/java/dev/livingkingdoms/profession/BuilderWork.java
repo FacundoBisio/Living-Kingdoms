@@ -21,6 +21,8 @@ import java.util.*;
 /** A local native goal travels to the reserved site; persisted project receipts own all work and XP. */
 public final class BuilderWork {
     private static final Map<Villager,ConstructionGoal> CONTROLLED=new WeakHashMap<>();
+    private static final int AUTO_SUPPLY_INTERVAL=100,AUTO_SUPPLY_CAPACITY=2048;
+    private static final Map<net.minecraft.server.MinecraftServer,LinkedHashMap<UUID,Long>> AUTO_SUPPLY_AT=new WeakHashMap<>();
     private BuilderWork() {}
 
     public static Optional<Profession> profile(Villager v) {
@@ -108,7 +110,7 @@ public final class BuilderWork {
             release(v);CitizenRoutine.shelter(v,citizen,p,now);return false;
         }
         var entry=ConstructionService.projectForBuilder(level.getServer(),p.citizenId());
-        if(entry.isEmpty()) { ConstructionService.assignReady(level.getServer(),p.settlementId()); entry=ConstructionService.projectForBuilder(level.getServer(),p.citizenId()); }
+        if(entry.isEmpty()) { autoSupply(level.getServer(),p.settlementId()); ConstructionService.assignReady(level.getServer(),p.settlementId()); entry=ConstructionService.projectForBuilder(level.getServer(),p.citizenId()); }
         if(v.isSleeping()) v.stopSleeping();
         if(entry.isEmpty()) {
             if(RepairWork.hasOrders(level,p.settlementId())) {control(v);return RepairWork.tick(v,p);}
@@ -117,6 +119,22 @@ public final class BuilderWork {
         }
         control(v);
         var goal=CONTROLLED.get(v); return goal!=null && goal.work();
+    }
+    /**
+     * Idle Builders fund the first waiting project of their settlement from shared storage. Throttled per
+     * settlement to one attempt every 100 game ticks; the project list is bounded per settlement.
+     */
+    static void autoSupply(net.minecraft.server.MinecraftServer server,UUID settlementId) {
+        if(!BuilderConfig.AUTO_SUPPLY.get()) return;
+        long now=server.overworld().getGameTime();
+        var attempts=AUTO_SUPPLY_AT.computeIfAbsent(server,ignored -> new LinkedHashMap<>());
+        Long last=attempts.get(settlementId);
+        if(last!=null && now>=last && now-last<AUTO_SUPPLY_INTERVAL) return;
+        attempts.remove(settlementId); attempts.put(settlementId,now);
+        if(attempts.size()>AUTO_SUPPLY_CAPACITY) attempts.pollFirstEntry();
+        var waiting=dev.livingkingdoms.construction.persistence.ConstructionSavedData.get(server).projects(settlementId).stream()
+                .filter(e -> e.project().state()==dev.livingkingdoms.construction.domain.ConstructionState.WAITING_FOR_RESOURCES).findFirst().orElse(null);
+        if(waiting!=null) ConstructionService.supplyFromStock(server,settlementId,waiting.project().id(),BuilderConfig.AUTO_SUPPLY_KEEP_BACK.get());
     }
     public static void onDeath(LivingDeathEvent event) {
         if(!event.isCanceled() && event.getEntity() instanceof Villager v && v.level() instanceof ServerLevel level) retire(level,v);

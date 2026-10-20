@@ -3,7 +3,8 @@ package dev.livingkingdoms.config;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
 public final class BuilderConfig {
-    public static ModConfigSpec.IntValue SLOTS,LEVEL_CAP,XP_STEP,XP_PER_STAGE,XP_COMPLETION,WORK_INTERVAL,WORK_RANGE;
+    public static ModConfigSpec.IntValue SLOTS,LEVEL_CAP,XP_STEP,XP_PER_STAGE,XP_COMPLETION,WORK_INTERVAL,WORK_RANGE,AUTO_SUPPLY_KEEP_BACK;
+    public static ModConfigSpec.BooleanValue AUTO_SUPPLY;
     public static ModConfigSpec.DoubleValue MAX_SPEED_BONUS;
     private BuilderConfig() {}
     static void define(ModConfigSpec.Builder b) {
@@ -17,6 +18,10 @@ public final class BuilderConfig {
         MAX_SPEED_BONUS=b.comment("Maximum additional work rate at the level cap.").defineInRange("maximumSpeedBonus",.25,0,.25);
         WORK_INTERVAL=b.defineInRange("workIntervalTicks",20,20,200);
         WORK_RANGE=b.defineInRange("workDistanceBlocks",4,2,6);
+        AUTO_SUPPLY=b.comment("Idle Builders draw missing construction materials for their kingdom's waiting project from its shared storage.")
+                .define("autoSupplyFromStorage",true);
+        AUTO_SUPPLY_KEEP_BACK=b.comment("Units of each material always left in storage for repairs, smithing and upgrades when Builders supply automatically.")
+                .defineInRange("autoSupplyKeepBack",8,0,4096);
         b.pop();
     }
 }

@@ -10,7 +10,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class CitizenPresentationTest {
     private static final UUID ID = UUID.fromString("ab43be0e-1d72-4a92-ab00-03ea02ca7281");
     private static CitizenPresentation data(ProfessionType profession, WorkState state, boolean active, boolean moving, long xp) {
-        return new CitizenPresentation(5, ID, "Ada del Río", 4, profession, 2, state, active, moving, true, "farm", xp);
+        return new CitizenPresentation(5, ID, "Ada del Río", 4, profession, 2, state, active, moving, true, "farm", xp, "");
     }
     @Test void walkingWorkingFlagsAndInitialTrackingNeverFabricateWorkActions() {
         var before = data(ProfessionType.FARMER, WorkState.WORKING, true, false, 10);

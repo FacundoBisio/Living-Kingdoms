@@ -9,7 +9,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class ArgonActivityTest {
     private CitizenPresentation data(ProfessionType job, WorkState state, boolean active, boolean travelling) {
         return new CitizenPresentation(1, UUID.fromString("00000000-0000-0000-0000-000000000001"), "Vale", 1,
-                job, 1, state, active, travelling, true, "", 10);
+                job, 1, state, active, travelling, true, "", 10, "");
     }
     @Test void selectsOnlyImplementedRealWorkAndRetainsNativeMinerMerchantGuardAnimation() {
         for (var job : ProfessionType.values()) {

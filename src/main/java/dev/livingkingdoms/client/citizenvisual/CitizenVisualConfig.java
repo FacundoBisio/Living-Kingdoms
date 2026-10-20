@@ -12,6 +12,7 @@ public final class CitizenVisualConfig {
     public static final ModConfigSpec.EnumValue<ModelStyle> MODEL;
     public static final ModConfigSpec.IntValue NAME_DISTANCE;
     public static final ModConfigSpec.IntValue SECONDARY_DISTANCE;
+    public static final ModConfigSpec.IntValue ACTIVITY_DISTANCE;
     static {
         var builder = new ModConfigSpec.Builder();
         builder.push("citizenPresentation");
@@ -24,6 +25,8 @@ public final class CitizenVisualConfig {
                 .defineInRange("nameDistance", 24, 4, 64);
         SECONDARY_DISTANCE = builder.comment("Profession and level line; zero hides it. Also capped by nameDistance.")
                 .defineInRange("secondaryDistance", 12, 0, 32);
+        ACTIVITY_DISTANCE = builder.comment("Current activity line; zero hides it. Also capped by nameDistance.")
+                .defineInRange("activityDistance", 8, 0, 32);
         builder.pop(); SPEC = builder.build();
     }
     private CitizenVisualConfig() {}

@@ -23,10 +23,11 @@ public final class CitizenVisualPayloads {
             buf.writeVarInt(d.level()); buf.writeEnum(d.profession()); buf.writeVarInt(d.professionLevel());
             buf.writeEnum(d.state()); buf.writeBoolean(d.active()); buf.writeBoolean(d.travelling());
             buf.writeBoolean(d.housed()); buf.writeUtf(d.workplace(), 48); buf.writeVarLong(d.experience());
+            buf.writeUtf(d.target(), 48);
             buf.writeBoolean(value.workPulse); buf.writeBoolean(value.openScreen);
         }, buf -> new Snapshot(new CitizenPresentation(buf.readVarInt(), buf.readUUID(), buf.readUtf(80),
                 buf.readVarInt(), buf.readEnum(ProfessionType.class), buf.readVarInt(), buf.readEnum(WorkState.class),
-                buf.readBoolean(), buf.readBoolean(), buf.readBoolean(), buf.readUtf(48), buf.readVarLong()),
+                buf.readBoolean(), buf.readBoolean(), buf.readBoolean(), buf.readUtf(48), buf.readVarLong(), buf.readUtf(48)),
                 buf.readBoolean(), buf.readBoolean()));
         @Override public Type<Snapshot> type() { return TYPE; }
     }
@@ -37,7 +38,7 @@ public final class CitizenVisualPayloads {
         @Override public Type<Remove> type() { return TYPE; }
     }
     public static void register(RegisterPayloadHandlersEvent event) {
-        var registrar = event.registrar("1");
+        var registrar = event.registrar("2");
         registrar.playToClient(Snapshot.TYPE, Snapshot.CODEC, (payload, context) -> receiver.accept(payload));
         registrar.playToClient(Remove.TYPE, Remove.CODEC, (payload, context) -> removeReceiver.accept(payload));
     }

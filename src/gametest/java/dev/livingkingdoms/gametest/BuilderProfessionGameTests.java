@@ -158,6 +158,55 @@ public final class BuilderProfessionGameTests {
                 && !ProfessionSavedData.get(server).profession(w.citizen().id()).orElseThrow().active() && people.summary(f.settlement().id()).free()==0,"Broken native bed retires work and cannot become a spare unverified immigration slot");
         h.assertTrue(!ConstructionService.resolve(server,prior.id(),f.player()),"No eligible Builder can complete this project normally"); h.succeed();
     }
+    @GameTest(template="empty",timeoutTicks=600)
+    public static void idleBuilderSuppliesWaitingProjectFromStorageOnceAndKeepsReserve(GameTestHelper h) {
+        var f=fixture(h,326144); var w=worker(h,f); var level=h.getLevel(); var server=level.getServer(); var sid=f.settlement().id();
+        boolean enabled=dev.livingkingdoms.config.BuilderConfig.AUTO_SUPPLY.get(); int keepBack=dev.livingkingdoms.config.BuilderConfig.AUTO_SUPPLY_KEEP_BACK.get();
+        Runnable restore=() -> { dev.livingkingdoms.config.BuilderConfig.AUTO_SUPPLY.set(enabled); dev.livingkingdoms.config.BuilderConfig.AUTO_SUPPLY_KEEP_BACK.set(keepBack); };
+        var wood=dev.livingkingdoms.economy.StockResource.WOOD; var stone=dev.livingkingdoms.economy.StockResource.STONE;
+        var plan=new SettlementGenerator().planBuildingAddition(level,sid,BuildingKind.FARM,new GenerationDiagnostics()).orElseThrow();
+        var entry=ConstructionService.reserve(level,sid,plan,Map.of(ResourceKind.LOGS,60,ResourceKind.STONE,5),400,f.player());
+        var storage=ConstructionSavedData.get(server);
+        try {
+            dev.livingkingdoms.config.BuilderConfig.AUTO_SUPPLY.set(false); dev.livingkingdoms.config.BuilderConfig.AUTO_SUPPLY_KEEP_BACK.set(8);
+            OnboardingTestSupport.legacyCollaborator(f.player(),f.settlement());
+            stock(h,f,wood,64); stock(h,f,stone,64);
+            h.assertTrue(ProfessionService.assignBuilder(f.player(),sid,w.citizen().id()),"Builder assigned while the project still waits for materials");
+            h.assertTrue(storage.get(entry.project().id()).orElseThrow().project().state()==ConstructionState.WAITING_FOR_RESOURCES,"Assignment alone never funds the project");
+            level.setDayTime(6000);
+            var before=dev.livingkingdoms.economy.KingdomEconomy.ensure(server,sid);
+            BuilderWork.tick(w.entity());
+            var untouched=storage.get(entry.project().id()).orElseThrow().project();
+            h.assertTrue(untouched.state()==ConstructionState.WAITING_FOR_RESOURCES && untouched.supplied().values().stream().allMatch(v -> v==0)
+                    && dev.livingkingdoms.economy.KingdomEconomy.ensure(server,sid).equals(before),"Disabled auto supply leaves project and stock unchanged");
+            dev.livingkingdoms.config.BuilderConfig.AUTO_SUPPLY.set(true);
+            BuilderWork.tick(w.entity());
+            var partial=storage.get(entry.project().id()).orElseThrow().project();
+            h.assertTrue(partial.state()==ConstructionState.WAITING_FOR_RESOURCES && partial.missing(ResourceKind.LOGS)==4 && partial.missing(ResourceKind.STONE)==0,
+                    "Idle Builder supplies everything above the keep-back; supplied="+partial.supplied());
+            h.assertTrue(dev.livingkingdoms.economy.KingdomEconomy.itemCount(server,sid,wood)==8 && dev.livingkingdoms.economy.KingdomEconomy.itemCount(server,sid,stone)==59,
+                    "Stock drops exactly by the supplied amounts and keeps the configured reserve");
+            stock(h,f,wood,16);
+        } catch(RuntimeException | Error failure) { restore.run(); throw failure; }
+        h.runAfterDelay(120,() -> {
+            try {
+                level.setDayTime(6000);
+                if(storage.get(entry.project().id()).orElseThrow().project().state()==ConstructionState.WAITING_FOR_RESOURCES) BuilderWork.tick(w.entity());
+                var funded=storage.get(entry.project().id()).orElseThrow().project();
+                h.assertTrue((funded.state()==ConstructionState.BUILDING || funded.state()==ConstructionState.READY) && funded.supplied().equals(funded.required()),
+                        "Throttled retry completes funding; state="+funded.state()+", supplied="+funded.supplied());
+                h.assertTrue(dev.livingkingdoms.economy.KingdomEconomy.itemCount(server,sid,wood)==20 && dev.livingkingdoms.economy.KingdomEconomy.itemCount(server,sid,stone)==59,
+                        "Materials are spent exactly once across automatic attempts");
+                h.assertTrue(!ConstructionService.supplyFromStock(server,sid,entry.project().id(),0)
+                        && dev.livingkingdoms.economy.KingdomEconomy.itemCount(server,sid,wood)==20,"A funded project cannot be supplied again");
+                h.succeed();
+            } finally { restore.run(); }
+        });
+    }
+    private static void stock(GameTestHelper h,Fixture f,dev.livingkingdoms.economy.StockResource resource,int count) {
+        f.player().getInventory().setItem(0,new ItemStack(resource.item(),count));
+        h.assertTrue(dev.livingkingdoms.economy.KingdomEconomy.deposit(f.player(),f.settlement().id(),resource,count)==count,"Fixture stock deposited: "+resource);
+    }
     private static Worker nativeResident(GameTestHelper h,Fixture f) {
         var level=h.getLevel(); var v=EntityType.VILLAGER.create(level); v.moveTo(f.center().getX()-7.5,f.center().getY(),f.center().getZ()-5.5,0,0);
         var c=new Citizen(UUID.randomUUID(),v.getUUID(),f.settlement().id(),"Rowan",new dev.livingkingdoms.progression.domain.LevelValue(1),CitizenRole.UNASSIGNED,null,CitizenState.ACTIVE,ConstructionService.now(level.getServer()));
