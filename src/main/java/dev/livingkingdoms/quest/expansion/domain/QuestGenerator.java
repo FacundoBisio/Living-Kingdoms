@@ -60,6 +60,7 @@ public final class QuestGenerator {
             QuestTemplate template = switch (target.partyType()) {
                 case PILLAGER_PATROL -> QuestTemplate.PILLAGER_REQUEST;
                 case UNDEAD_HORDE -> QuestTemplate.UNDEAD_REQUEST;
+                case BANDIT_PARTY -> QuestTemplate.BANDIT_REQUEST;
             };
             LevelValue recommended = new LevelValue((int) Math.ceil(target.levels().average()));
             int weight = 8 + Math.min(4, recommended.value() / 5);

@@ -20,8 +20,9 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.MobSpawnType;
-import net.minecraft.world.entity.monster.Pillager;
+import net.minecraft.world.entity.monster.PatrollingMonster;
 import net.minecraft.world.entity.monster.Zombie;
+import net.minecraft.world.entity.raid.Raider;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.AABB;
@@ -105,6 +106,8 @@ public final class EncounterSpawner {
         return switch (type) {
             case PILLAGER_PATROL -> EntityType.PILLAGER.create(level);
             case UNDEAD_HORDE -> index % 2 == 0 ? EntityType.ZOMBIE.create(level) : EntityType.SKELETON.create(level);
+            // Bandits are melee Vindicators backed by an occasional crossbow Pillager.
+            case BANDIT_PARTY -> index % 3 == 2 ? EntityType.PILLAGER.create(level) : EntityType.VINDICATOR.create(level);
         };
     }
 
@@ -118,14 +121,19 @@ public final class EncounterSpawner {
             Set<UUID> roster = new HashSet<>();
             for (int i = 0; i < mobs.size(); i++) {
                 Mob mob = mobs.get(i);
-                if (mob instanceof Pillager pillager) {
-                    pillager.setPatrolLeader(definition.captain() && i == 0);
-                    pillager.setPatrolTarget(proposed.offset(48, 0, 0));
+                if (mob instanceof PatrollingMonster patroller) {
+                    patroller.setPatrolLeader(definition.captain() && i == 0);
+                    patroller.setPatrolTarget(proposed.offset(48, 0, 0));
                 }
                 // The initial horde uses adult zombies and no jockeys, keeping its roster exact.
                 EventHooks.finalizeMobSpawn(mob, level, level.getCurrentDifficultyAt(mob.blockPosition()),
                         definition.type() == PartyType.PILLAGER_PATROL ? MobSpawnType.PATROL : MobSpawnType.EVENT,
                         mob instanceof Zombie ? new Zombie.ZombieGroupData(false, false) : null);
+                // Bandits are not part of the illager raid hierarchy: no captain banner and no raid membership.
+                if (definition.type() == PartyType.BANDIT_PARTY && mob instanceof Raider raider) {
+                    raider.setPatrolLeader(false);
+                    raider.setCanJoinRaid(false);
+                }
                 mob.setPersistenceRequired();
                 EncounterMember.attach(mob, partyId, definition.faction());
                 if (!roster.add(mob.getUUID())) throw new IllegalStateException("Duplicate encounter member UUID");

@@ -5,7 +5,8 @@ import dev.livingkingdoms.faction.Faction;
 /** Content identities; threat and reward are supplied by server configuration at spawn. */
 public enum PartyType {
     PILLAGER_PATROL("pillager_patrol", Faction.PILLAGER),
-    UNDEAD_HORDE("undead_horde", Faction.UNDEAD);
+    UNDEAD_HORDE("undead_horde", Faction.UNDEAD),
+    BANDIT_PARTY("bandit_party", Faction.BANDIT);
 
     private final String id;
     private final Faction faction;

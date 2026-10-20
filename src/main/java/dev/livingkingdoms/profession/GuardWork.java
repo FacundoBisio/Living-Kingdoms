@@ -114,6 +114,12 @@ public final class GuardWork {
         if(xp>0 && ProfessionSavedData.get(level.getServer()).guardExperience(p,xp,GuardConfig.LEVEL_CAP.get(),GuardConfig.XP_STEP.get()))
             GuardEquipment.apply(guard,ProfessionSavedData.get(level.getServer()).profession(p.citizenId()).orElseThrow());
     }
+    /** Current local search radius for a settlement's guards, widened while a settlement threat is underway. */
+    public static double searchRadius(ServerLevel level,Settlement s) {
+        boolean alert=dev.livingkingdoms.defense.persistence.DefenseSavedData.get(level.getServer()).active(s.id())
+                .filter(event -> event.state().threatened()).isPresent();
+        return GuardPolicy.searchRadius(GuardConfig.SEARCH_RANGE.get(),alert,GuardConfig.ALERT_SEARCH_MULTIPLIER.get(),defense(s));
+    }
     public static double defense(Settlement s) { return Math.min(s.territory().radius(),GuardConfig.DEFENSE_RANGE.get()); }
     private static boolean inside(Settlement s,Entity e,double range) { return GuardPolicy.within(e.getX(),e.getZ(),s.territory().x()+.5,s.territory().z()+.5,range); }
 
@@ -133,8 +139,8 @@ public final class GuardWork {
         @Override public void tick() {
             var level=(ServerLevel)v.level();
             var s=SettlementSavedData.get(level.getServer()).get(settlement).orElse(null);
-            if(s==null || !s.faction().isAllied() || !s.territory().dimension().equals(level.dimension().location().toString())) { v.setTarget(null); v.getNavigation().stop(); return; }
-            if(v.isPassenger() || v.isLeashed() || v.isTrading()) { v.setTarget(null); v.getNavigation().stop(); state(WorkState.IDLE); return; }
+            if(s==null || !s.faction().isAllied() || !s.territory().dimension().equals(level.dimension().location().toString())) { lowerShield(); v.setTarget(null); v.getNavigation().stop(); return; }
+            if(v.isPassenger() || v.isLeashed() || v.isTrading()) { lowerShield(); v.setTarget(null); v.getNavigation().stop(); state(WorkState.IDLE); return; }
             double defense=defense(s), chase=defense+GuardConfig.CHASE_RANGE.get();
             LivingEntity target=v.getTarget();
             if(target!=null && (!hostile(target) || target.level()!=level || !inside(s,target,chase) || !inside(s,v,chase))) {
@@ -143,7 +149,8 @@ public final class GuardWork {
             if(v.tickCount>=searchAt && target==null && inside(s,v,defense)) {
                 boolean night=Math.floorMod(level.getDayTime(),24000)>=13000;
                 searchAt=v.tickCount+(night?Math.max(20,GuardConfig.SEARCH_INTERVAL.get()/2):GuardConfig.SEARCH_INTERVAL.get());
-                target=level.getEntitiesOfClass(Mob.class,v.getBoundingBox().inflate(GuardConfig.SEARCH_RANGE.get(),6,GuardConfig.SEARCH_RANGE.get()),
+                double radius=searchRadius(level,s);
+                target=level.getEntitiesOfClass(Mob.class,v.getBoundingBox().inflate(radius,6,radius),
                         e -> e!=v && hostile(e) && inside(s,e,defense) && v.hasLineOfSight(e)).stream().min(Comparator.comparingDouble(v::distanceToSqr)).orElse(null);
                 v.setTarget(target);
                 if(target!=null && EncounterMember.read(target).isPresent()) dev.livingkingdoms.defense.DefenseService.detectMember(level,target);
@@ -152,13 +159,20 @@ public final class GuardWork {
                 if(v.isSleeping()) v.stopSleeping(); state(WorkState.ENGAGING);
                 v.getLookControl().setLookAt(target,30,30);
                 if(v.tickCount>=moveAt) { v.getNavigation().moveTo(target,.8); moveAt=v.tickCount+10; }
-                if(v.tickCount>=attackAt && v.distanceToSqr(target)<=4 && v.hasLineOfSight(target)) {
-                    attackAt=v.tickCount+25; v.swing(InteractionHand.MAIN_HAND);
+                boolean ready=v.tickCount>=attackAt; double distance=v.distanceToSqr(target);
+                if(ready && distance<=4 && v.hasLineOfSight(target)) {
+                    lowerShield();
                     var p=ProfessionSavedData.get(level.getServer()).profession(citizen).orElseThrow();
+                    attackAt=v.tickCount+GuardPolicy.attackCooldown(p.level().value(),GuardConfig.ATTACK_COOLDOWN_MIN.get());
+                    v.swing(InteractionHand.MAIN_HAND);
                     target.hurt(v.damageSources().mobAttack(v),(float)(GuardConfig.BASE_DAMAGE.get()+Math.min(2,(p.level().value()-1)*GuardConfig.DAMAGE_PER_LEVEL.get())));
-                }
+                } else if(GuardPolicy.raiseShield(GuardConfig.SHIELD_BLOCKING.get(),holdsShield(),distance,ready)) {
+                    // Vanilla LivingEntity blocking applies after its five-tick raise delay; no custom damage math.
+                    if(!v.isUsingItem()) v.startUsingItem(InteractionHand.OFF_HAND);
+                } else lowerShield();
                 return;
             }
+            lowerShield();
             var resident=CitizenSavedData.get(level.getServer()).citizen(citizen).orElse(null);
             long day=Math.floorMod(level.getDayTime(),24000);
             if(resident!=null && day>=16000 && day<22000 && !CitizenRoutine.threatened(v,resident)) {
@@ -185,6 +199,8 @@ public final class GuardWork {
             if(v.tickCount<moveAt) return; moveAt=v.tickCount+40;
             if(level.hasChunkAt(pos)) v.getNavigation().moveTo(pos.getX()+.5,pos.getY(),pos.getZ()+.5,.65); else {v.getNavigation().stop();state(WorkState.UNLOADED);}
         }
-        @Override public void stop() { v.setTarget(null); v.getNavigation().stop(); }
+        private boolean holdsShield() { return v.getOffhandItem().canPerformAction(net.neoforged.neoforge.common.ItemAbilities.SHIELD_BLOCK); }
+        private void lowerShield() { if(v.isUsingItem() && v.getUsedItemHand()==InteractionHand.OFF_HAND) v.stopUsingItem(); }
+        @Override public void stop() { lowerShield(); v.setTarget(null); v.getNavigation().stop(); }
     }
 }

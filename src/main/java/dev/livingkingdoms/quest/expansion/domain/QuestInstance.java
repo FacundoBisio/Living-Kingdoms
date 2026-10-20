@@ -37,7 +37,11 @@ public record QuestInstance(UUID id, QuestTemplate template, QuestSource source,
         if (objective instanceof QuestObjective.Meet meet && meet.role() != template.sourceRole())
             throw new IllegalArgumentException("Meeting objective must match its designated source role");
         if (objective instanceof QuestObjective.Party party && template != QuestTemplate.LOCAL_DEFENSE) {
-            PartyType expected = template == QuestTemplate.UNDEAD_REQUEST ? PartyType.UNDEAD_HORDE : PartyType.PILLAGER_PATROL;
+            PartyType expected = switch (template) {
+                case UNDEAD_REQUEST -> PartyType.UNDEAD_HORDE;
+                case BANDIT_REQUEST -> PartyType.BANDIT_PARTY;
+                default -> PartyType.PILLAGER_PATROL;
+            };
             if (party.partyType() != expected) throw new IllegalArgumentException("Quest template and target party disagree");
         }
     }

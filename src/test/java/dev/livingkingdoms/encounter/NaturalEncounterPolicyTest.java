@@ -55,6 +55,29 @@ class NaturalEncounterPolicyTest {
     }
 
     @Test
+    void zeroBanditChanceKeepsTheDayNightSplit() {
+        for (int roll = 0; roll < 4; roll++) {
+            assertEquals(PartyType.PILLAGER_PATROL, NaturalEncounterPolicy.typeForTime(false, roll, 0.0, 0.0));
+            assertEquals(NaturalEncounterPolicy.typeForTime(true, roll), NaturalEncounterPolicy.typeForTime(true, roll, 0.0, 0.0));
+        }
+    }
+
+    @Test
+    void banditsRoamDayAndNightBelowTheirChance() {
+        for (boolean night : new boolean[]{false, true}) {
+            for (int roll = 0; roll < 4; roll++) {
+                assertEquals(PartyType.BANDIT_PARTY, NaturalEncounterPolicy.typeForTime(night, roll, 0.25, 0.0));
+                assertEquals(PartyType.BANDIT_PARTY, NaturalEncounterPolicy.typeForTime(night, roll, 0.25, 0.2499));
+                assertEquals(NaturalEncounterPolicy.typeForTime(night, roll), NaturalEncounterPolicy.typeForTime(night, roll, 0.25, 0.25));
+                assertEquals(PartyType.BANDIT_PARTY, NaturalEncounterPolicy.typeForTime(night, roll, 1.0, 0.9999));
+            }
+        }
+        assertThrows(IllegalArgumentException.class, () -> NaturalEncounterPolicy.typeForTime(true, 0, 1.5, 0.0));
+        assertThrows(IllegalArgumentException.class, () -> NaturalEncounterPolicy.typeForTime(true, 0, 0.25, 1.0));
+        assertThrows(IllegalArgumentException.class, () -> NaturalEncounterPolicy.typeForTime(true, 4, 0.25, 0.0));
+    }
+
+    @Test
     void undeadRequireNightAndUnlitEnoughTerrain() {
         assertTrue(NaturalEncounterPolicy.undeadAllowed(true, 0));
         assertTrue(NaturalEncounterPolicy.undeadAllowed(true, 7));

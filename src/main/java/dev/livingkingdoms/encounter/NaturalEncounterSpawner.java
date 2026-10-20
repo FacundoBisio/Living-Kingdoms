@@ -52,7 +52,8 @@ public final class NaturalEncounterSpawner {
         int minimum = KingdomConfig.NATURAL_MIN_PLAYER_DISTANCE.get() + GROUP_MARGIN;
         int maximum = KingdomConfig.NATURAL_MAX_PLAYER_DISTANCE.get();
         if (minimum > maximum || !hasCapacity(attempt.get(), level, player.blockPosition())) return Optional.empty();
-        PartyType type = NaturalEncounterPolicy.typeForTime(level.isNight(), level.random.nextInt(4));
+        PartyType type = NaturalEncounterPolicy.typeForTime(level.isNight(), level.random.nextInt(4),
+                KingdomConfig.NATURAL_BANDIT_CHANCE.get(), level.random.nextDouble());
         for (int i = 0; i < MAX_CANDIDATES; i++) {
             double angle = level.random.nextDouble() * Math.PI * 2;
             int radius = minimum + level.random.nextInt(maximum - minimum + 1);

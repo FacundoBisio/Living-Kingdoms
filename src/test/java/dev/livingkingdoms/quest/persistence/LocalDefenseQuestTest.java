@@ -41,7 +41,11 @@ class LocalDefenseQuestTest {
     }
 
     private QuestInstance offer(SettlementThreatEvent event, UUID owner) {
-        PartyType type = event.faction() == Faction.UNDEAD ? PartyType.UNDEAD_HORDE : PartyType.PILLAGER_PATROL;
+        PartyType type = switch (event.faction()) {
+            case UNDEAD -> PartyType.UNDEAD_HORDE;
+            case BANDIT -> PartyType.BANDIT_PARTY;
+            default -> PartyType.PILLAGER_PATROL;
+        };
         return DefenseQuestService.offer(event, type, owner, QuestRules.defaults());
     }
 
@@ -84,6 +88,26 @@ class LocalDefenseQuestTest {
         assertThrows(IllegalArgumentException.class, () -> new QuestInstance(undead.id(), QuestTemplate.PILLAGER_REQUEST,
                 new QuestSource(settlement, null, QuestSourceRole.GUARD_CAPTAIN), undead.objective(),
                 undead.recommendedLevel(), undead.difficulty(), undead.rewards(), QuestState.AVAILABLE, false, 100, 2100));
+    }
+
+    @Test
+    void banditPartiesUseTheDefenseTemplateAndOnlyTheirOwnRequestTemplate() {
+        var bandit = offer(event(Faction.BANDIT, true), player);
+        assertEquals(QuestTemplate.LOCAL_DEFENSE, bandit.template());
+        assertEquals(new QuestObjective.Party(party, Faction.BANDIT, PartyType.BANDIT_PARTY), bandit.objective());
+        assertThrows(IllegalArgumentException.class, () -> DefenseQuestService.offer(event(Faction.BANDIT, true),
+                PartyType.PILLAGER_PATROL, player, QuestRules.defaults()));
+        for (QuestTemplate wrong : List.of(QuestTemplate.PILLAGER_REQUEST, QuestTemplate.UNDEAD_REQUEST)) {
+            assertThrows(IllegalArgumentException.class, () -> new QuestInstance(bandit.id(), wrong,
+                    new QuestSource(settlement, null, wrong.sourceRole()), bandit.objective(),
+                    bandit.recommendedLevel(), bandit.difficulty(), bandit.rewards(), QuestState.AVAILABLE, false, 100, 2100));
+        }
+        var request = new QuestInstance(bandit.id(), QuestTemplate.BANDIT_REQUEST,
+                new QuestSource(settlement, null, QuestSourceRole.GUARD_CAPTAIN), bandit.objective(),
+                bandit.recommendedLevel(), bandit.difficulty(), bandit.rewards(), QuestState.AVAILABLE, false, 100, 2100);
+        var data = new QuestSavedData();
+        assertTrue(data.offer(player, request));
+        assertEquals(List.of(request), reload(data).quests(player, settlement));
     }
 
     @Test

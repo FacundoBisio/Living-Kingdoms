@@ -40,6 +40,7 @@ class ExpandedQuestSavedDataTest {
             case MAIN_RETURN, MAIN_DEVELOPMENT, MAIN_WATCHTOWER -> new QuestObjective.Return();
             case MAIN_PATROL, PILLAGER_REQUEST, LOCAL_DEFENSE -> new QuestObjective.Party(target, Faction.PILLAGER, PartyType.PILLAGER_PATROL);
             case UNDEAD_REQUEST -> new QuestObjective.Party(target, Faction.UNDEAD, PartyType.UNDEAD_HORDE);
+            case BANDIT_REQUEST -> new QuestObjective.Party(target, Faction.BANDIT, PartyType.BANDIT_PARTY);
             case FOOD_REQUEST -> new QuestObjective.Resource(List.of(new ResourceRequirement(ResourceKind.WHEAT, 32)));
             case BUILDING_REQUEST -> new QuestObjective.Resource(List.of(new ResourceRequirement(ResourceKind.LOGS, 32),
                     new ResourceRequirement(ResourceKind.STONE, 32)));

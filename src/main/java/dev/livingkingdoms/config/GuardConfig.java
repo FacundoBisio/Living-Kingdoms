@@ -3,8 +3,9 @@ package dev.livingkingdoms.config;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
 public final class GuardConfig {
-    public static ModConfigSpec.IntValue SLOTS,DEFENSE_RANGE,CHASE_RANGE,SEARCH_RANGE,SEARCH_INTERVAL,XP_STEP,LEVEL_CAP,XP_PER_UNIT,IRON_ARMOR_LEVEL,ENCHANT_LEVEL,ALERT_COOLDOWN;
-    public static ModConfigSpec.DoubleValue BASE_DAMAGE,DAMAGE_PER_LEVEL,HEALTH_PER_LEVEL,ENCHANT_CHANCE,LOW_SECURITY_MODIFIER;
+    public static ModConfigSpec.IntValue SLOTS,DEFENSE_RANGE,CHASE_RANGE,SEARCH_RANGE,SEARCH_INTERVAL,XP_STEP,LEVEL_CAP,XP_PER_UNIT,IRON_ARMOR_LEVEL,ENCHANT_LEVEL,ALERT_COOLDOWN,ATTACK_COOLDOWN_MIN;
+    public static ModConfigSpec.DoubleValue BASE_DAMAGE,DAMAGE_PER_LEVEL,HEALTH_PER_LEVEL,ENCHANT_CHANCE,LOW_SECURITY_MODIFIER,ALERT_SEARCH_MULTIPLIER;
+    public static ModConfigSpec.BooleanValue SHIELD_BLOCKING;
     private GuardConfig() {}
     static void define(ModConfigSpec.Builder b) {
         b.push("guards");
@@ -23,6 +24,12 @@ public final class GuardConfig {
         ENCHANT_CHANCE=b.defineInRange("protectionOneChance",0.15,0.0,0.3);
         LOW_SECURITY_MODIFIER=b.defineInRange("lowSecurityImmigrationMultiplier",0.85,0.5,1.0);
         ALERT_COOLDOWN=b.defineInRange("alertCooldownTicks",1200,200,24000);
+        SHIELD_BLOCKING=b.comment("Guards raise their off-hand shield between attacks when a hostile is within four blocks; vanilla blocking applies.")
+                .define("shieldBlocking",true);
+        ATTACK_COOLDOWN_MIN=b.comment("Fastest melee cadence in ticks. Cadence is 25 ticks at level 1, two ticks faster per level, never below this.")
+                .defineInRange("attackCooldownMin",15,5,25);
+        ALERT_SEARCH_MULTIPLIER=b.comment("Search radius multiplier while the settlement has an approaching, detected or active threat. Capped at 48 blocks and the defense area.")
+                .defineInRange("alertSearchMultiplier",2.0,1.0,3.0);
         b.pop();
     }
 }

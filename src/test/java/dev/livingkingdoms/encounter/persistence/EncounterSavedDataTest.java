@@ -4,6 +4,7 @@ import dev.livingkingdoms.encounter.domain.HostileParty;
 import dev.livingkingdoms.encounter.domain.OriginRegion;
 import dev.livingkingdoms.encounter.domain.PartyState;
 import dev.livingkingdoms.encounter.domain.PartyType;
+import dev.livingkingdoms.faction.Faction;
 import net.minecraft.SharedConstants;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -141,8 +142,10 @@ class EncounterSavedDataTest {
         UUID firstMember = UUID.randomUUID();
         HostileParty pillagers = party(PartyType.PILLAGER_PATROL, "minecraft:overworld", Set.of(firstMember));
         HostileParty undead = party(PartyType.UNDEAD_HORDE, "minecraft:the_nether", Set.of(UUID.randomUUID()));
+        HostileParty bandits = party(PartyType.BANDIT_PARTY, "minecraft:overworld", Set.of(UUID.randomUUID(), UUID.randomUUID()));
         data.add(pillagers);
         data.add(undead);
+        data.add(bandits);
         data.recordDeath(firstMember);
         storage.save();
         IOUtilities.waitUntilIOWorkerComplete();
@@ -153,6 +156,10 @@ class EncounterSavedDataTest {
         assertFalse(reopened.isDirty());
         assertTrue(reopened.recordDeath(firstMember).isEmpty());
         assertEquals(PartyType.UNDEAD_HORDE, reopened.forMember(undead.memberIds().iterator().next()).orElseThrow().type());
+        HostileParty reopenedBandits = reopened.forMember(bandits.memberIds().iterator().next()).orElseThrow();
+        assertEquals(PartyType.BANDIT_PARTY, reopenedBandits.type());
+        assertEquals(Faction.BANDIT, reopenedBandits.faction());
+        assertEquals(bandits, reopenedBandits);
     }
 
     @Test

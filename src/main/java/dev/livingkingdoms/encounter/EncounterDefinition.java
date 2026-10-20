@@ -29,6 +29,9 @@ public record EncounterDefinition(PartyType type, Faction faction, int memberCou
             case UNDEAD_HORDE -> new EncounterDefinition(type, type.faction(),
                     KingdomConfig.ENCOUNTER_UNDEAD_SIZE.get(), KingdomConfig.ENCOUNTER_UNDEAD_THREAT.get(),
                     KingdomConfig.ENCOUNTER_REPUTATION_NORMAL.get(), false);
+            case BANDIT_PARTY -> new EncounterDefinition(type, type.faction(),
+                    KingdomConfig.ENCOUNTER_BANDIT_SIZE.get(), KingdomConfig.ENCOUNTER_BANDIT_THREAT.get(),
+                    KingdomConfig.ENCOUNTER_REPUTATION_NORMAL.get(), false);
         };
     }
 }

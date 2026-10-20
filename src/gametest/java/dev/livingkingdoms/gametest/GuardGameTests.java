@@ -4,6 +4,7 @@ import dev.livingkingdoms.advancement.KingdomMilestone;
 import dev.livingkingdoms.citizen.*;
 import dev.livingkingdoms.citizen.domain.*;
 import dev.livingkingdoms.citizen.persistence.CitizenSavedData;
+import dev.livingkingdoms.config.GuardConfig;
 import dev.livingkingdoms.construction.ConstructionService;
 import dev.livingkingdoms.encounter.*;
 import dev.livingkingdoms.encounter.domain.*;
@@ -178,6 +179,36 @@ public final class GuardGameTests {
                 SecurityService.alert(level,f.s()); SecurityService.alert(level,f.s()); h.assertTrue(messages.size()==1,"Shared settlement cooldown suppresses repeated alerts"); h.succeed();
             } finally { enemy.discard(); level.removePlayerImmediately(observer,Entity.RemovalReason.DISCARDED); }
         });
+    }
+
+    @GameTest(template="empty",timeoutTicks=400)
+    public static void guardRaisesShieldBetweenAttacksAndLowersItToStrikeABandit(GameTestHelper h) {
+        var f=fixture(h,280240,true); var w=guard(h,f); var enemy=hostile(h,f,EntityType.VINDICATOR,PartyType.BANDIT_PARTY,4); enemy.setNoAi(true);
+        h.assertTrue(w.v().getOffhandItem().is(Items.SHIELD),"Guard equipment includes an off-hand shield");
+        boolean[] seen=new boolean[2]; float[] health={enemy.getHealth()};
+        h.onEachTick(() -> {
+            if(w.v().isBlocking() && w.v().getUsedItemHand()==net.minecraft.world.InteractionHand.OFF_HAND) seen[0]=true;
+            // Damage this tick means the guard swung; the shield must have been lowered before the strike.
+            if(enemy.getHealth()<health[0] && !w.v().isUsingItem()) seen[1]=true;
+            health[0]=enemy.getHealth();
+        });
+        h.succeedWhen(() -> {
+            h.assertTrue(GuardConfig.SHIELD_BLOCKING.get(),"Shield blocking is enabled by default");
+            h.assertTrue(seen[0],"Guard raises a vanilla blocking shield while a hostile is adjacent between attacks");
+            h.assertTrue(seen[1],"Guard lowers the shield to attack the Bandit");
+        });
+    }
+    @GameTest(template="empty",timeoutTicks=200)
+    public static void settlementThreatWidensGuardSearchRadius(GameTestHelper h) {
+        var f=fixture(h,281264,true); var w=guard(h,f); var level=h.getLevel();
+        var enemy=hostile(h,f,EntityType.PILLAGER,PartyType.PILLAGER_PATROL,26); enemy.setNoAi(true);
+        double base=GuardConfig.SEARCH_RANGE.get(), defense=GuardWork.defense(f.s());
+        h.assertTrue(GuardWork.searchRadius(level,f.s())==base,"Without a settlement threat the local search radius is unchanged");
+        h.assertTrue(dev.livingkingdoms.defense.DefenseService.detectMember(level,enemy).filter(e -> e.state().threatened()).isPresent(),"Real detection opens a settlement threat");
+        double alert=GuardWork.searchRadius(level,f.s());
+        h.assertTrue(alert==GuardPolicy.searchRadius(base,true,GuardConfig.ALERT_SEARCH_MULTIPLIER.get(),defense) && alert<=GuardPolicy.MAX_ALERT_SEARCH_RADIUS
+                && (GuardConfig.ALERT_SEARCH_MULTIPLIER.get()<=1 || alert>base),"Alert multiplies the search radius within its caps");
+        h.succeedWhen(() -> h.assertTrue(w.v().getTarget()==enemy,"Alerted guard acquires an in-boundary hostile beyond the normal search radius"));
     }
 
     private static Mob hostile(GameTestHelper h,Fixture f,EntityType<? extends Mob> type,PartyType partyType,int x) {

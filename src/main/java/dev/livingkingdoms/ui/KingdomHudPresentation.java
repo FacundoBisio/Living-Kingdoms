@@ -63,6 +63,7 @@ public final class KingdomHudPresentation {
             case "main_development" -> "construction"; case "main_watchtower" -> "tower";
             case "main_return" -> "return"; case "main_patrol", "pillager_request" -> "patrol";
             case "undead_request" -> "undead";
+            case "bandit_request" -> "bandit";
             case "local_defense" -> quest.getString("defense_state").equals("approaching") || quest.getString("defense_state").equals("detected") ? "approach" : "defense";
             default -> quest.getList("requirements", 10).isEmpty() ? "task" : "delivery";
         };

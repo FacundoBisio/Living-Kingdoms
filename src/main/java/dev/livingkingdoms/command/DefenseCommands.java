@@ -18,7 +18,7 @@ public final class DefenseCommands {
         var trigger = Commands.literal("trigger").executes(c -> trigger(c.getSource(), PartyType.PILLAGER_PATROL, false));
         trigger.then(Commands.literal("reward_test").executes(c -> trigger(c.getSource(), PartyType.PILLAGER_PATROL, true)));
         for (PartyType type : PartyType.values()) {
-            String name = type == PartyType.PILLAGER_PATROL ? "pillager" : "undead";
+            String name = type.faction().id();
             trigger.then(Commands.literal(name).executes(c -> trigger(c.getSource(), type, false))
                     .then(Commands.literal("approach").executes(c -> trigger(c.getSource(),type,false)))
                     .then(Commands.literal("reward_test").executes(c -> trigger(c.getSource(), type, true))));

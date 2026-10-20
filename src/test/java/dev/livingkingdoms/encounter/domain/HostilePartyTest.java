@@ -87,6 +87,16 @@ class HostilePartyTest {
         assertThrows(IllegalArgumentException.class, () -> new HostileParty(UUID.randomUUID(), Faction.BANDIT,
                 PartyType.UNDEAD_HORDE, origin, null, PartyState.ALIVE,
                 Set.of(first), Set.of(first), 20, 2, false, true));
+        HostileParty bandits = new HostileParty(UUID.randomUUID(), Faction.BANDIT, PartyType.BANDIT_PARTY,
+                origin, null, PartyState.ALIVE, Set.of(first, second), Set.of(first, second), 20, 2, false, true);
+        assertEquals(Faction.BANDIT, bandits.faction());
+        assertEquals(Faction.BANDIT, PartyType.BANDIT_PARTY.faction());
+        assertEquals(PartyType.BANDIT_PARTY, PartyType.fromId("bandit_party"));
+        for (Faction wrong : new Faction[]{Faction.PILLAGER, Faction.UNDEAD, Faction.ALLIED_KINGDOM}) {
+            assertThrows(IllegalArgumentException.class, () -> new HostileParty(UUID.randomUUID(), wrong,
+                    PartyType.BANDIT_PARTY, origin, null, PartyState.ALIVE,
+                    Set.of(first), Set.of(first), 20, 2, false, true));
+        }
         for (PartyType type : PartyType.values()) assertEquals(type, PartyType.fromId(type.id()));
         assertThrows(IllegalArgumentException.class, () -> PartyType.fromId("unsupported"));
     }

@@ -12,6 +12,8 @@ import dev.livingkingdoms.encounter.domain.PartyState;
 import dev.livingkingdoms.encounter.domain.PartyType;
 import dev.livingkingdoms.encounter.persistence.EncounterSavedData;
 import dev.livingkingdoms.faction.Faction;
+import dev.livingkingdoms.faction.FactionEntityResolver;
+import dev.livingkingdoms.profession.GuardWork;
 import dev.livingkingdoms.quest.persistence.QuestSavedData;
 import dev.livingkingdoms.settlement.domain.Settlement;
 import dev.livingkingdoms.settlement.domain.Territory;
@@ -30,7 +32,10 @@ import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.monster.Drowned;
 import net.minecraft.world.entity.monster.Pillager;
 import net.minecraft.world.entity.monster.Skeleton;
+import net.minecraft.world.entity.monster.Vindicator;
 import net.minecraft.world.entity.monster.Zombie;
+import net.minecraft.world.entity.raid.Raider;
+import net.minecraft.world.item.BannerItem;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
@@ -281,6 +286,43 @@ public final class EncounterGameTests {
                 && !data.hasEncounterReward(party.id())
                 && SettlementSavedData.get(level.getServer()).settlements().stream().allMatch(settlement -> data.reputation(player.getUUID(), settlement.id()) == 0),
                 "Remote group defeat cannot award global settlement reputation");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void banditPartiesAreBannerlessVindicatorsWithPillagerSupportThatGuardsOppose(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos center = helper.absolutePos(new BlockPos(15360, 0, 15360));
+        preparePlot(level, center);
+        HostileParty party = spawn(helper, center, PartyType.BANDIT_PARTY, false, true);
+        int size = KingdomConfig.ENCOUNTER_BANDIT_SIZE.get();
+        helper.assertTrue(party.faction() == Faction.BANDIT && party.type() == PartyType.BANDIT_PARTY
+                && party.memberIds().size() == size && !party.debug() && party.rewardEligible(),
+                "Bandit party has the Bandit faction, its own type and the configured size");
+        List<Mob> members = members(level, party);
+        helper.assertTrue(members.stream().allMatch(mob -> mob instanceof Vindicator || mob instanceof Pillager),
+                "Bandits are vanilla Vindicators and Pillagers only");
+        helper.assertTrue(members.stream().filter(mob -> mob instanceof Pillager).count() == size / 3
+                && members.stream().filter(mob -> mob instanceof Vindicator).count() == size - size / 3,
+                "Every third bandit is a Pillager; the rest are Vindicators");
+        for (Mob mob : members) {
+            Raider raider = (Raider) mob;
+            helper.assertTrue(EncounterMember.read(mob).orElseThrow().equals(new EncounterMember(party.id(), Faction.BANDIT))
+                    && FactionEntityResolver.combatFaction(mob).orElseThrow() == Faction.BANDIT,
+                    "Every bandit is tagged with the Bandit faction and party UUID");
+            helper.assertTrue(!raider.isPatrolLeader() && !raider.canJoinRaid() && raider.getCurrentRaid() == null
+                    && !(mob.getItemBySlot(EquipmentSlot.HEAD).getItem() instanceof BannerItem),
+                    "Bandits carry no ominous banner and never join raids");
+            helper.assertTrue(mob.isPersistenceRequired() && (mob instanceof Pillager
+                    ? mob.getItemBySlot(EquipmentSlot.MAINHAND).is(Items.CROSSBOW)
+                    : mob.getItemBySlot(EquipmentSlot.MAINHAND).is(Items.IRON_AXE)), "Bandits keep native vanilla weapons");
+            helper.assertTrue(GuardWork.hostile(mob), "Guards treat every bandit as hostile");
+        }
+        CompoundTag saved = members.getFirst().saveWithoutId(new CompoundTag());
+        Mob restored = (Mob) members.getFirst().getType().create(level);
+        restored.load(saved);
+        helper.assertTrue(!((Raider) restored).canJoinRaid() && EncounterMember.read(restored).equals(EncounterMember.read(members.getFirst())),
+                "Raid exclusion and identity survive vanilla entity persistence");
         helper.succeed();
     }
 

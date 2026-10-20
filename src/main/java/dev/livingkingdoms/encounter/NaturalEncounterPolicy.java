@@ -30,6 +30,17 @@ public final class NaturalEncounterPolicy {
         return night && roll < 3 ? PartyType.UNDEAD_HORDE : PartyType.PILLAGER_PATROL;
     }
 
+    /**
+     * Bandits roam day and night: {@code banditRoll} below {@code banditChance} selects them, otherwise the
+     * day/night split of {@link #typeForTime(boolean, int)} applies to the remaining probability.
+     */
+    public static PartyType typeForTime(boolean night, int roll, double banditChance, double banditRoll) {
+        if (!(banditChance >= 0.0 && banditChance <= 1.0)) throw new IllegalArgumentException("Bandit chance must be 0 through 1");
+        if (!(banditRoll >= 0.0 && banditRoll < 1.0)) throw new IllegalArgumentException("Bandit roll must be in [0, 1)");
+        PartyType fallback = typeForTime(night, roll);
+        return banditRoll < banditChance ? PartyType.BANDIT_PARTY : fallback;
+    }
+
     public static boolean undeadAllowed(boolean night, int blockLight) {
         return night && blockLight >= 0 && blockLight <= 7;
     }

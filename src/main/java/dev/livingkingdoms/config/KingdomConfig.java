@@ -16,6 +16,8 @@ public final class KingdomConfig {
     public static final ModConfigSpec.IntValue ENCOUNTER_UNDEAD_SIZE;
     public static final ModConfigSpec.IntValue ENCOUNTER_PILLAGER_THREAT;
     public static final ModConfigSpec.IntValue ENCOUNTER_UNDEAD_THREAT;
+    public static final ModConfigSpec.IntValue ENCOUNTER_BANDIT_SIZE;
+    public static final ModConfigSpec.IntValue ENCOUNTER_BANDIT_THREAT;
     public static final ModConfigSpec.IntValue ENCOUNTER_REPUTATION_NORMAL;
     public static final ModConfigSpec.IntValue ENCOUNTER_REPUTATION_CAPTAIN;
     public static final ModConfigSpec.IntValue ENCOUNTER_REPUTATION_RANGE;
@@ -29,6 +31,7 @@ public final class KingdomConfig {
     public static final ModConfigSpec.IntValue NATURAL_MIN_PLAYER_DISTANCE;
     public static final ModConfigSpec.IntValue NATURAL_MAX_PLAYER_DISTANCE;
     public static final ModConfigSpec.IntValue NATURAL_MAX_TRACKED;
+    public static final ModConfigSpec.DoubleValue NATURAL_BANDIT_CHANCE;
     public static final ModConfigSpec.IntValue ENCOUNTER_ACTIVE_LIFETIME;
     public static final ModConfigSpec.IntValue ENCOUNTER_COMPLETED_RETENTION;
     public static final ModConfigSpec.DoubleValue ENCOUNTER_MIN_CONTRIBUTION;
@@ -65,6 +68,10 @@ public final class KingdomConfig {
                 .defineInRange("pillagerThreat", 2, 1, 100);
         ENCOUNTER_UNDEAD_THREAT = builder.comment("Faction-independent threat rating for new Undead hordes; metadata only.")
                 .defineInRange("undeadThreat", 3, 1, 100);
+        ENCOUNTER_BANDIT_SIZE = builder.comment("Members in newly spawned Bandit parties (Vindicators, every third member a Pillager).")
+                .defineInRange("banditPartySize", 3, 2, 5);
+        ENCOUNTER_BANDIT_THREAT = builder.comment("Faction-independent threat rating for new Bandit parties; metadata only.")
+                .defineInRange("banditThreat", 2, 1, 100);
         ENCOUNTER_PATROL_CAPTAIN = builder.comment("Include one vanilla Captain in newly spawned Pillager patrols.")
                 .define("patrolCaptain", true);
         ENCOUNTER_REPUTATION_NORMAL = builder.comment("Reputation for eligible parties without a Captain; snapshotted on spawn, 0 disables.")
@@ -98,6 +105,8 @@ public final class KingdomConfig {
                 .defineInRange("maximumSpawnDistance", 80, 32, 160);
         NATURAL_MAX_TRACKED = builder.comment("Global tracked party cap before natural spawning stops, including debug, unloaded and defeated records awaiting cleanup.")
                 .defineInRange("maximumTrackedParties", 256, 8, 1024);
+        NATURAL_BANDIT_CHANCE = builder.comment("Chance that a natural roaming party is bandits, day or night. The remainder keeps the day/night Pillager/Undead split.")
+                .defineInRange("banditChance", 0.25, 0.0, 1.0);
         builder.pop();
         builder.pop();
         ProgressionConfig.define(builder);
