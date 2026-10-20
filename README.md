@@ -1,6 +1,6 @@
 # Living Kingdoms
 
-Minecraft Java **1.21.1**, **Java 21**, **NeoForge 21.1.252**. Version **0.18.1** adapts the supplied Argon 4 citizen geometry and work keyframes to the existing native renderer, preserving the 80 original skins and adding compatible variants. Compare locally with `/kingdommodels native` and `/kingdommodels argon4`; no entity or saved-world migration is required. See the [model comparison and manual checklist](docs/v0181-model-comparison.md) and [0.18.1 progress](docs/citizen-models-v0181-progress.md).
+Minecraft Java **1.21.1**, **Java 21**, **NeoForge 21.1.252**. **0.19.0 (in progress)** adds citizen activity labels, Builders that draw materials from Kingdom Storage, Bandit parties and guard shield blocking; see [0.19 architecture, configuration and checklists](docs/kingdoms-v019.md). Version **0.18.1** adapts the supplied Argon 4 citizen geometry and work keyframes to the existing native renderer, preserving the 80 original skins and adding compatible variants. Compare locally with `/kingdommodels native` and `/kingdommodels argon4`; no entity or saved-world migration is required. See the [model comparison and manual checklist](docs/v0181-model-comparison.md) and [0.18.1 progress](docs/citizen-models-v0181-progress.md).
 
 The stable **0.18.0 — Kingdoms & Commerce** base provides physical kingdom storage, finite emerald trading with Merchant citizens, validated 3D construction previews, building administration, personal alerts and advancements. These systems, citizen identity and routines, quests, reputation, HUD and village conversion remain intact. See [0.18.0 survival flow and validation](docs/kingdoms-commerce-v018.md).
 
@@ -356,6 +356,6 @@ Local results and known runtime limits: [Milestone 0](docs/validation.md), [Mile
 
 ## Next milestone
 
-Local Defense is implemented on the existing Guard, encounter and quest systems. Complete the [survival, multiplayer, balance and reload checklist](docs/local-defense-quests.md) and the [remaining screenshot acceptance checklist](docs/qa-ui-structure-bugfix.md). Tune travel encounter difficulty, Watchtower warning distance and modest participation rewards on a real client before adding a small Bandit roaming-party definition. Full raids, siege/destruction, occupation, conquest, liberation and bosses remain future work.
+0.19 "Diplomacy & Defense" is in progress on `feature/v0.19-kingdoms`: citizen activity labels, Builder auto-supply, Bandit parties and guard combat improvements are in the first batch, independent NPC kingdoms in the second. Run its [manual QA and tuning checklists](docs/kingdoms-v019.md) on a real client, then tune travel encounter difficulty, Watchtower warning distance and rewards from that data. Diplomacy and trade between kingdoms build on the NPC kingdoms next. Full raids, siege/destruction, occupation, conquest, liberation and bosses remain future work.
 
 Guard assignment, Barracks construction, configuration, security rules and the 15-step PC checklist: [Guards and settlement defense](docs/guards-settlement-defense.md).

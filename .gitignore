@@ -11,3 +11,4 @@ runs/
 Thumbs.db
 __pycache__/
 .claude/settings.local.json
+.claude/worktrees/
