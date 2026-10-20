@@ -2,6 +2,7 @@ package dev.livingkingdoms.onboarding;
 
 import dev.livingkingdoms.npc.NpcIdentity;
 import dev.livingkingdoms.npc.NpcRole;
+import dev.livingkingdoms.npckingdom.NpcKingdoms;
 import dev.livingkingdoms.onboarding.domain.KingdomName;
 import dev.livingkingdoms.onboarding.domain.OnboardingStage;
 import dev.livingkingdoms.onboarding.persistence.KingdomOnboardingSavedData;
@@ -30,6 +31,8 @@ public final class KingdomOnboardingService {
 
     public static boolean canHelp(ServerPlayer player, Settlement settlement) {
         if (!settlement.faction().isAllied()) return false;
+        // Independent NPC kingdoms never accept players as members, including legacy enrollment.
+        if (NpcKingdoms.isNpc(player.server, settlement.id())) return false;
         var onboarding = KingdomOnboardingSavedData.get(player.server);
         if (onboarding.journey(player.getUUID(), settlement.id()).isEmpty()) {
             var quests = QuestSavedData.get(player.server);
@@ -47,7 +50,7 @@ public final class KingdomOnboardingService {
     }
 
     public static boolean begin(ServerPlayer player, Settlement settlement, Entity mayor) {
-        if (!validMayor(player, settlement, mayor)) return false;
+        if (!validMayor(player, settlement, mayor) || NpcKingdoms.isNpc(player.server, settlement.id())) return false;
         if (!canHelp(player, settlement)) {
             var data = KingdomOnboardingSavedData.get(player.server);
             if (data.journey(player.getUUID(), settlement.id()).isEmpty() && !data.begin(player.getUUID(), settlement.id())) return false;
@@ -57,7 +60,8 @@ public final class KingdomOnboardingService {
     }
 
     public static boolean advance(ServerPlayer player, Settlement settlement, Entity mayor, String action, String name) {
-        if (!validMayor(player, settlement, mayor) || action == null) return false;
+        // Stage advancing and REGISTER (join) are both refused for NPC kingdoms.
+        if (!validMayor(player, settlement, mayor) || action == null || NpcKingdoms.isNpc(player.server, settlement.id())) return false;
         var onboarding = KingdomOnboardingSavedData.get(player.server);
         if (onboarding.journey(player.getUUID(), settlement.id()).isEmpty()) return false;
         if (!action.equals("REGISTER")) return onboarding.advance(player.getUUID(), settlement.id(), action);

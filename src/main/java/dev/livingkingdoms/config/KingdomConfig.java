@@ -50,6 +50,7 @@ public final class KingdomConfig {
         GENERATION_MAX_SLOPE = builder.comment("Maximum height variance under the compact settlement core; buildings have separate tolerances.")
                 .defineInRange("maxTerrainVariation", 2, 0, 4);
         SettlementGenerationConfig.define(builder);
+        NpcKingdomConfig.define(builder);
         builder.pop();
         builder.push("quests");
         QUEST_REQUIRED_IRON = builder.comment("Iron ingots required for newly accepted Iron Shortage quests.")

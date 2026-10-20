@@ -103,6 +103,8 @@ public final class KingdomEconomy {
         if(!commit(player.server,transfer)) return 0;stack.shrink(amount);player.getInventory().setChanged();sync(player);return amount;
     }
     public static boolean consume(MinecraftServer server,Settlement settlement) {
+        // Independent NPC kingdoms have no player-run food economy and must not starve.
+        if(dev.livingkingdoms.npckingdom.NpcKingdoms.isNpc(server,settlement.id())) return false;
         var account=ensure(server,settlement.id());long now=now(server);
         if(now-account.consumedAt()<EconomyConfig.CONSUMPTION_INTERVAL.get()) return false;
         int population=CitizenService.population(server,settlement);

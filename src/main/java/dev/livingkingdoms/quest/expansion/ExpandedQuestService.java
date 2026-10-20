@@ -195,6 +195,8 @@ public final class ExpandedQuestService {
     private static void ensureMain(ServerPlayer player, Settlement settlement) {
         var data = QuestSavedData.get(player.server);
         UUID owner = player.getUUID();
+        // An independent NPC kingdom is never a player's main settlement.
+        if (dev.livingkingdoms.npckingdom.NpcKingdoms.isNpc(player.server, settlement.id())) return;
         // An abstract/debug settlement without a Mayor cannot strand the player's global chapter.
         if (data.mainSettlement(owner).isEmpty() && data.mayor(settlement.id()).isEmpty()) return;
         if (!data.anchorMain(owner, settlement.id())) return;

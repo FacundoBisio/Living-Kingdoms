@@ -27,6 +27,7 @@ public final class EconomyEvents {
             if(citizen==null || citizen.state()!=dev.livingkingdoms.citizen.domain.CitizenState.ACTIVE || !dev.livingkingdoms.citizen.CitizenService.canApply(citizen,mayor)) return;
             id=citizen.settlementId();
         }
+        if(dev.livingkingdoms.npckingdom.NpcKingdoms.isNpc(level.getServer(),id)) return; // NPC kingdoms are exempt from consumption.
         long now=level.getServer().overworld().getGameTime();var recent=CHECKS.computeIfAbsent(level.getServer(),ignored->new java.util.LinkedHashMap<>());
         if(recent.getOrDefault(id,-20L)>now-20) return;
         if(!recent.containsKey(id) && recent.size()>=2048) recent.remove(recent.keySet().iterator().next());recent.put(id,now);

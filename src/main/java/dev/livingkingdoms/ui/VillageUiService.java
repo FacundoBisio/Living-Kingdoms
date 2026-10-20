@@ -57,6 +57,7 @@ public final class VillageUiService {
                 .filter(s -> s.faction().isAllied()).or(() -> dev.livingkingdoms.settlement.NearestAlliedSettlementService.findNearest(player.serverLevel(),pos,1040)
                         .filter(s -> Math.hypot(pos.getX()-s.territory().x(),pos.getZ()-s.territory().z())<=s.territory().radius()+16));
         if(settlement.isEmpty()) { player.displayClientMessage(Component.translatable("ui.livingkingdoms.shortcut.no_settlement"),true); return false; }
+        if(dev.livingkingdoms.npckingdom.NpcKingdoms.refuseVisitor(player,settlement.get())) return false;
         var session=new Session(UUID.randomUUID(),settlement.get().id(),player.level().dimension().location().toString(),null,null,now(player),null,false,false,false,true);
         QuestJournalService.dismiss(player);SESSIONS.put(player,session); sendDialogue(player,session,settlement.get(),null,true); return true;
     }
@@ -78,6 +79,7 @@ public final class VillageUiService {
         var found = ExpandedQuestService.boardSettlement(player, board);
         if (found.isEmpty()) return false;
         var settlement = found.get();
+        if (dev.livingkingdoms.npckingdom.NpcKingdoms.refuseVisitor(player, settlement)) return false;
         // Safe, lazy migration for old physical settlements lacking a Mayor association.
         BlockPos marker = new BlockPos(settlement.territory().x(), settlement.territory().y(), settlement.territory().z());
         if (QuestSavedData.get(player.server).mayor(settlement.id()).isEmpty()
@@ -96,6 +98,8 @@ public final class VillageUiService {
         if (settlement.isEmpty() || !settlement.get().faction().isAllied() || !inside(player, settlement.get())
                 || QuestSavedData.get(player.server).mayor(settlement.get().id()).filter(npc.getUUID()::equals).isEmpty()) return false;
         MayorPresentation.apply(npc);
+        // Independent NPC kingdoms greet players as visitors: no onboarding, quests or management.
+        if (dev.livingkingdoms.npckingdom.NpcKingdoms.refuseVisitor(player, settlement.get())) return false;
         if (!KingdomOnboardingService.begin(player, settlement.get(), npc)) return false;
         Session session = new Session(UUID.randomUUID(), settlement.get().id(), player.level().dimension().location().toString(), null, npc.getUUID(), now(player));
         QuestJournalService.dismiss(player);SESSIONS.put(player, session);
