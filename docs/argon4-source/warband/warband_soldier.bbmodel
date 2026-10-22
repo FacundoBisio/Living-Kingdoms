@@ -1,0 +1,1396 @@
+{
+  "meta": {
+    "format_version": "4.10",
+    "model_format": "bedrock",
+    "box_uv": false
+  },
+  "name": "warband_soldier",
+  "model_identifier": "geometry.warband_soldier",
+  "visible_box": [
+    3,
+    3,
+    0
+  ],
+  "resolution": {
+    "width": 64,
+    "height": 64
+  },
+  "elements": [
+    {
+      "name": "torso_cube_1",
+      "uuid": "cube-warband_soldier-00",
+      "box_uv": false,
+      "from": [
+        -4,
+        12,
+        -2
+      ],
+      "to": [
+        4,
+        24,
+        2
+      ],
+      "inflate": 0,
+      "origin": [
+        0,
+        12,
+        0
+      ],
+      "faces": {
+        "east": {
+          "uv": [
+            16,
+            20,
+            20,
+            32
+          ],
+          "texture": 0
+        },
+        "north": {
+          "uv": [
+            20,
+            20,
+            28,
+            32
+          ],
+          "texture": 0
+        },
+        "west": {
+          "uv": [
+            28,
+            20,
+            32,
+            32
+          ],
+          "texture": 0
+        },
+        "south": {
+          "uv": [
+            32,
+            20,
+            40,
+            32
+          ],
+          "texture": 0
+        },
+        "up": {
+          "uv": [
+            20,
+            16,
+            28,
+            20
+          ],
+          "texture": 0
+        },
+        "down": {
+          "uv": [
+            28,
+            16,
+            36,
+            20
+          ],
+          "texture": 0
+        }
+      }
+    },
+    {
+      "name": "torso_cube_2",
+      "uuid": "cube-warband_soldier-01",
+      "box_uv": false,
+      "from": [
+        -4,
+        12,
+        -2
+      ],
+      "to": [
+        4,
+        24,
+        2
+      ],
+      "inflate": 0.25,
+      "origin": [
+        0,
+        12,
+        0
+      ],
+      "faces": {
+        "east": {
+          "uv": [
+            16,
+            36,
+            20,
+            48
+          ],
+          "texture": 0
+        },
+        "north": {
+          "uv": [
+            20,
+            36,
+            28,
+            48
+          ],
+          "texture": 0
+        },
+        "west": {
+          "uv": [
+            28,
+            36,
+            32,
+            48
+          ],
+          "texture": 0
+        },
+        "south": {
+          "uv": [
+            32,
+            36,
+            40,
+            48
+          ],
+          "texture": 0
+        },
+        "up": {
+          "uv": [
+            20,
+            32,
+            28,
+            36
+          ],
+          "texture": 0
+        },
+        "down": {
+          "uv": [
+            28,
+            32,
+            36,
+            36
+          ],
+          "texture": 0
+        }
+      }
+    },
+    {
+      "name": "head_cube_3",
+      "uuid": "cube-warband_soldier-02",
+      "box_uv": false,
+      "from": [
+        -4,
+        24,
+        -4
+      ],
+      "to": [
+        4,
+        32,
+        4
+      ],
+      "inflate": 0,
+      "origin": [
+        0,
+        24,
+        0
+      ],
+      "faces": {
+        "east": {
+          "uv": [
+            0,
+            8,
+            8,
+            16
+          ],
+          "texture": 0
+        },
+        "north": {
+          "uv": [
+            8,
+            8,
+            16,
+            16
+          ],
+          "texture": 0
+        },
+        "west": {
+          "uv": [
+            16,
+            8,
+            24,
+            16
+          ],
+          "texture": 0
+        },
+        "south": {
+          "uv": [
+            24,
+            8,
+            32,
+            16
+          ],
+          "texture": 0
+        },
+        "up": {
+          "uv": [
+            8,
+            0,
+            16,
+            8
+          ],
+          "texture": 0
+        },
+        "down": {
+          "uv": [
+            16,
+            0,
+            24,
+            8
+          ],
+          "texture": 0
+        }
+      }
+    },
+    {
+      "name": "beard_cube_4",
+      "uuid": "cube-warband_soldier-03",
+      "box_uv": false,
+      "from": [
+        -3.5,
+        24,
+        -4.25
+      ],
+      "to": [
+        3.5,
+        26,
+        -3.25
+      ],
+      "inflate": 0,
+      "origin": [
+        0,
+        24,
+        0
+      ],
+      "faces": {
+        "east": {
+          "uv": [
+            48,
+            17,
+            49,
+            19
+          ],
+          "texture": 0
+        },
+        "north": {
+          "uv": [
+            49,
+            17,
+            56,
+            19
+          ],
+          "texture": 0
+        },
+        "west": {
+          "uv": [
+            56,
+            17,
+            57,
+            19
+          ],
+          "texture": 0
+        },
+        "south": {
+          "uv": [
+            57,
+            17,
+            64,
+            19
+          ],
+          "texture": 0
+        },
+        "up": {
+          "uv": [
+            49,
+            16,
+            56,
+            17
+          ],
+          "texture": 0
+        },
+        "down": {
+          "uv": [
+            56,
+            16,
+            63,
+            17
+          ],
+          "texture": 0
+        }
+      }
+    },
+    {
+      "name": "head_accessories_cube_5",
+      "uuid": "cube-warband_soldier-04",
+      "box_uv": false,
+      "from": [
+        -4,
+        24,
+        -4
+      ],
+      "to": [
+        4,
+        32,
+        4
+      ],
+      "inflate": 0.25,
+      "origin": [
+        0,
+        24,
+        0
+      ],
+      "faces": {
+        "east": {
+          "uv": [
+            32,
+            8,
+            40,
+            16
+          ],
+          "texture": 0
+        },
+        "north": {
+          "uv": [
+            40,
+            8,
+            48,
+            16
+          ],
+          "texture": 0
+        },
+        "west": {
+          "uv": [
+            48,
+            8,
+            56,
+            16
+          ],
+          "texture": 0
+        },
+        "south": {
+          "uv": [
+            56,
+            8,
+            64,
+            16
+          ],
+          "texture": 0
+        },
+        "up": {
+          "uv": [
+            40,
+            0,
+            48,
+            8
+          ],
+          "texture": 0
+        },
+        "down": {
+          "uv": [
+            48,
+            0,
+            56,
+            8
+          ],
+          "texture": 0
+        }
+      }
+    },
+    {
+      "name": "head_accessories_cube_6",
+      "uuid": "cube-warband_soldier-05",
+      "box_uv": false,
+      "from": [
+        -1,
+        27,
+        -4.4
+      ],
+      "to": [
+        1,
+        31,
+        -3.4000000000000004
+      ],
+      "inflate": 0,
+      "origin": [
+        0,
+        24,
+        0
+      ],
+      "faces": {
+        "east": {
+          "uv": [
+            24,
+            1,
+            25,
+            5
+          ],
+          "texture": 0
+        },
+        "north": {
+          "uv": [
+            25,
+            1,
+            27,
+            5
+          ],
+          "texture": 0
+        },
+        "west": {
+          "uv": [
+            27,
+            1,
+            28,
+            5
+          ],
+          "texture": 0
+        },
+        "south": {
+          "uv": [
+            28,
+            1,
+            30,
+            5
+          ],
+          "texture": 0
+        },
+        "up": {
+          "uv": [
+            25,
+            0,
+            27,
+            1
+          ],
+          "texture": 0
+        },
+        "down": {
+          "uv": [
+            27,
+            0,
+            29,
+            1
+          ],
+          "texture": 0
+        }
+      }
+    },
+    {
+      "name": "right_arm_cube_7",
+      "uuid": "cube-warband_soldier-06",
+      "box_uv": false,
+      "from": [
+        4,
+        12,
+        -2
+      ],
+      "to": [
+        8,
+        24,
+        2
+      ],
+      "inflate": 0,
+      "origin": [
+        5,
+        22,
+        0
+      ],
+      "faces": {
+        "east": {
+          "uv": [
+            40,
+            20,
+            44,
+            32
+          ],
+          "texture": 0
+        },
+        "north": {
+          "uv": [
+            44,
+            20,
+            48,
+            32
+          ],
+          "texture": 0
+        },
+        "west": {
+          "uv": [
+            48,
+            20,
+            52,
+            32
+          ],
+          "texture": 0
+        },
+        "south": {
+          "uv": [
+            52,
+            20,
+            56,
+            32
+          ],
+          "texture": 0
+        },
+        "up": {
+          "uv": [
+            44,
+            16,
+            48,
+            20
+          ],
+          "texture": 0
+        },
+        "down": {
+          "uv": [
+            48,
+            16,
+            52,
+            20
+          ],
+          "texture": 0
+        }
+      }
+    },
+    {
+      "name": "right_arm_cube_8",
+      "uuid": "cube-warband_soldier-07",
+      "box_uv": false,
+      "from": [
+        4,
+        12,
+        -2
+      ],
+      "to": [
+        8,
+        24,
+        2
+      ],
+      "inflate": 0.25,
+      "origin": [
+        5,
+        22,
+        0
+      ],
+      "faces": {
+        "east": {
+          "uv": [
+            40,
+            36,
+            44,
+            48
+          ],
+          "texture": 0
+        },
+        "north": {
+          "uv": [
+            44,
+            36,
+            48,
+            48
+          ],
+          "texture": 0
+        },
+        "west": {
+          "uv": [
+            48,
+            36,
+            52,
+            48
+          ],
+          "texture": 0
+        },
+        "south": {
+          "uv": [
+            52,
+            36,
+            56,
+            48
+          ],
+          "texture": 0
+        },
+        "up": {
+          "uv": [
+            44,
+            32,
+            48,
+            36
+          ],
+          "texture": 0
+        },
+        "down": {
+          "uv": [
+            48,
+            32,
+            52,
+            36
+          ],
+          "texture": 0
+        }
+      }
+    },
+    {
+      "name": "left_arm_cube_9",
+      "uuid": "cube-warband_soldier-08",
+      "box_uv": false,
+      "from": [
+        -8,
+        12,
+        -2
+      ],
+      "to": [
+        -4,
+        24,
+        2
+      ],
+      "inflate": 0,
+      "origin": [
+        -5,
+        22,
+        0
+      ],
+      "faces": {
+        "east": {
+          "uv": [
+            32,
+            52,
+            36,
+            64
+          ],
+          "texture": 0
+        },
+        "north": {
+          "uv": [
+            36,
+            52,
+            40,
+            64
+          ],
+          "texture": 0
+        },
+        "west": {
+          "uv": [
+            40,
+            52,
+            44,
+            64
+          ],
+          "texture": 0
+        },
+        "south": {
+          "uv": [
+            44,
+            52,
+            48,
+            64
+          ],
+          "texture": 0
+        },
+        "up": {
+          "uv": [
+            36,
+            48,
+            40,
+            52
+          ],
+          "texture": 0
+        },
+        "down": {
+          "uv": [
+            40,
+            48,
+            44,
+            52
+          ],
+          "texture": 0
+        }
+      }
+    },
+    {
+      "name": "left_arm_cube_10",
+      "uuid": "cube-warband_soldier-09",
+      "box_uv": false,
+      "from": [
+        -8,
+        12,
+        -2
+      ],
+      "to": [
+        -4,
+        24,
+        2
+      ],
+      "inflate": 0.25,
+      "origin": [
+        -5,
+        22,
+        0
+      ],
+      "faces": {
+        "east": {
+          "uv": [
+            48,
+            52,
+            52,
+            64
+          ],
+          "texture": 0
+        },
+        "north": {
+          "uv": [
+            52,
+            52,
+            56,
+            64
+          ],
+          "texture": 0
+        },
+        "west": {
+          "uv": [
+            56,
+            52,
+            60,
+            64
+          ],
+          "texture": 0
+        },
+        "south": {
+          "uv": [
+            60,
+            52,
+            64,
+            64
+          ],
+          "texture": 0
+        },
+        "up": {
+          "uv": [
+            52,
+            48,
+            56,
+            52
+          ],
+          "texture": 0
+        },
+        "down": {
+          "uv": [
+            56,
+            48,
+            60,
+            52
+          ],
+          "texture": 0
+        }
+      }
+    },
+    {
+      "name": "right_leg_cube_11",
+      "uuid": "cube-warband_soldier-10",
+      "box_uv": false,
+      "from": [
+        0,
+        0,
+        -2
+      ],
+      "to": [
+        4,
+        12,
+        2
+      ],
+      "inflate": 0,
+      "origin": [
+        2,
+        12,
+        0
+      ],
+      "faces": {
+        "east": {
+          "uv": [
+            0,
+            20,
+            4,
+            32
+          ],
+          "texture": 0
+        },
+        "north": {
+          "uv": [
+            4,
+            20,
+            8,
+            32
+          ],
+          "texture": 0
+        },
+        "west": {
+          "uv": [
+            8,
+            20,
+            12,
+            32
+          ],
+          "texture": 0
+        },
+        "south": {
+          "uv": [
+            12,
+            20,
+            16,
+            32
+          ],
+          "texture": 0
+        },
+        "up": {
+          "uv": [
+            4,
+            16,
+            8,
+            20
+          ],
+          "texture": 0
+        },
+        "down": {
+          "uv": [
+            8,
+            16,
+            12,
+            20
+          ],
+          "texture": 0
+        }
+      }
+    },
+    {
+      "name": "right_leg_cube_12",
+      "uuid": "cube-warband_soldier-11",
+      "box_uv": false,
+      "from": [
+        0,
+        0,
+        -2
+      ],
+      "to": [
+        4,
+        12,
+        2
+      ],
+      "inflate": 0.25,
+      "origin": [
+        2,
+        12,
+        0
+      ],
+      "faces": {
+        "east": {
+          "uv": [
+            0,
+            36,
+            4,
+            48
+          ],
+          "texture": 0
+        },
+        "north": {
+          "uv": [
+            4,
+            36,
+            8,
+            48
+          ],
+          "texture": 0
+        },
+        "west": {
+          "uv": [
+            8,
+            36,
+            12,
+            48
+          ],
+          "texture": 0
+        },
+        "south": {
+          "uv": [
+            12,
+            36,
+            16,
+            48
+          ],
+          "texture": 0
+        },
+        "up": {
+          "uv": [
+            4,
+            32,
+            8,
+            36
+          ],
+          "texture": 0
+        },
+        "down": {
+          "uv": [
+            8,
+            32,
+            12,
+            36
+          ],
+          "texture": 0
+        }
+      }
+    },
+    {
+      "name": "left_leg_cube_13",
+      "uuid": "cube-warband_soldier-12",
+      "box_uv": false,
+      "from": [
+        -4,
+        0,
+        -2
+      ],
+      "to": [
+        0,
+        12,
+        2
+      ],
+      "inflate": 0,
+      "origin": [
+        -2,
+        12,
+        0
+      ],
+      "faces": {
+        "east": {
+          "uv": [
+            16,
+            52,
+            20,
+            64
+          ],
+          "texture": 0
+        },
+        "north": {
+          "uv": [
+            20,
+            52,
+            24,
+            64
+          ],
+          "texture": 0
+        },
+        "west": {
+          "uv": [
+            24,
+            52,
+            28,
+            64
+          ],
+          "texture": 0
+        },
+        "south": {
+          "uv": [
+            28,
+            52,
+            32,
+            64
+          ],
+          "texture": 0
+        },
+        "up": {
+          "uv": [
+            20,
+            48,
+            24,
+            52
+          ],
+          "texture": 0
+        },
+        "down": {
+          "uv": [
+            24,
+            48,
+            28,
+            52
+          ],
+          "texture": 0
+        }
+      }
+    },
+    {
+      "name": "left_leg_cube_14",
+      "uuid": "cube-warband_soldier-13",
+      "box_uv": false,
+      "from": [
+        -4,
+        0,
+        -2
+      ],
+      "to": [
+        0,
+        12,
+        2
+      ],
+      "inflate": 0.25,
+      "origin": [
+        -2,
+        12,
+        0
+      ],
+      "faces": {
+        "east": {
+          "uv": [
+            0,
+            52,
+            4,
+            64
+          ],
+          "texture": 0
+        },
+        "north": {
+          "uv": [
+            4,
+            52,
+            8,
+            64
+          ],
+          "texture": 0
+        },
+        "west": {
+          "uv": [
+            8,
+            52,
+            12,
+            64
+          ],
+          "texture": 0
+        },
+        "south": {
+          "uv": [
+            12,
+            52,
+            16,
+            64
+          ],
+          "texture": 0
+        },
+        "up": {
+          "uv": [
+            4,
+            48,
+            8,
+            52
+          ],
+          "texture": 0
+        },
+        "down": {
+          "uv": [
+            8,
+            48,
+            12,
+            52
+          ],
+          "texture": 0
+        }
+      }
+    },
+    {
+      "name": "accessories_cube_15",
+      "uuid": "cube-warband_soldier-14",
+      "box_uv": false,
+      "from": [
+        -3,
+        11,
+        -2.5
+      ],
+      "to": [
+        3,
+        14,
+        -0.5
+      ],
+      "inflate": 0.15,
+      "origin": [
+        0,
+        12,
+        0
+      ],
+      "faces": {
+        "east": {
+          "uv": [
+            48,
+            21,
+            50,
+            24
+          ],
+          "texture": 0
+        },
+        "north": {
+          "uv": [
+            50,
+            21,
+            56,
+            24
+          ],
+          "texture": 0
+        },
+        "west": {
+          "uv": [
+            56,
+            21,
+            58,
+            24
+          ],
+          "texture": 0
+        },
+        "south": {
+          "uv": [
+            58,
+            21,
+            64,
+            24
+          ],
+          "texture": 0
+        },
+        "up": {
+          "uv": [
+            50,
+            19,
+            56,
+            21
+          ],
+          "texture": 0
+        },
+        "down": {
+          "uv": [
+            56,
+            19,
+            62,
+            21
+          ],
+          "texture": 0
+        }
+      }
+    }
+  ],
+  "outliner": [
+    {
+      "name": "root",
+      "uuid": "bone-root-uuid",
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "parent": null,
+      "isOpen": true,
+      "visibility": true,
+      "children": [
+        {
+          "name": "body",
+          "uuid": "bone-body-uuid",
+          "origin": [
+            0,
+            12,
+            0
+          ],
+          "parent": "root",
+          "isOpen": true,
+          "visibility": true,
+          "children": [
+            {
+              "name": "torso",
+              "uuid": "bone-torso-uuid",
+              "origin": [
+                0,
+                12,
+                0
+              ],
+              "parent": "body",
+              "isOpen": true,
+              "visibility": true,
+              "children": [
+                "cube-warband_soldier-00",
+                "cube-warband_soldier-01"
+              ]
+            },
+            {
+              "name": "head",
+              "uuid": "bone-head-uuid",
+              "origin": [
+                0,
+                24,
+                0
+              ],
+              "parent": "body",
+              "isOpen": true,
+              "visibility": true,
+              "children": [
+                "cube-warband_soldier-02",
+                {
+                  "name": "hair",
+                  "uuid": "bone-hair-uuid",
+                  "origin": [
+                    0,
+                    24,
+                    0
+                  ],
+                  "parent": "head",
+                  "isOpen": true,
+                  "visibility": true,
+                  "children": []
+                },
+                {
+                  "name": "beard",
+                  "uuid": "bone-beard-uuid",
+                  "origin": [
+                    0,
+                    24,
+                    0
+                  ],
+                  "parent": "head",
+                  "isOpen": true,
+                  "visibility": true,
+                  "children": [
+                    "cube-warband_soldier-03"
+                  ]
+                },
+                {
+                  "name": "head_accessories",
+                  "uuid": "bone-head_accessories-uuid",
+                  "origin": [
+                    0,
+                    24,
+                    0
+                  ],
+                  "parent": "head",
+                  "isOpen": true,
+                  "visibility": true,
+                  "children": [
+                    "cube-warband_soldier-04",
+                    "cube-warband_soldier-05"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "right_arm",
+              "uuid": "bone-right_arm-uuid",
+              "origin": [
+                5,
+                22,
+                0
+              ],
+              "parent": "body",
+              "isOpen": true,
+              "visibility": true,
+              "children": [
+                "cube-warband_soldier-06",
+                "cube-warband_soldier-07",
+                {
+                  "name": "right_hand",
+                  "uuid": "bone-right_hand-uuid",
+                  "origin": [
+                    6,
+                    13,
+                    0
+                  ],
+                  "parent": "right_arm",
+                  "isOpen": true,
+                  "visibility": true,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "name": "left_arm",
+              "uuid": "bone-left_arm-uuid",
+              "origin": [
+                -5,
+                22,
+                0
+              ],
+              "parent": "body",
+              "isOpen": true,
+              "visibility": true,
+              "children": [
+                "cube-warband_soldier-08",
+                "cube-warband_soldier-09",
+                {
+                  "name": "left_hand",
+                  "uuid": "bone-left_hand-uuid",
+                  "origin": [
+                    -6,
+                    13,
+                    0
+                  ],
+                  "parent": "left_arm",
+                  "isOpen": true,
+                  "visibility": true,
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "right_leg",
+          "uuid": "bone-right_leg-uuid",
+          "origin": [
+            2,
+            12,
+            0
+          ],
+          "parent": "root",
+          "isOpen": true,
+          "visibility": true,
+          "children": [
+            "cube-warband_soldier-10",
+            "cube-warband_soldier-11"
+          ]
+        },
+        {
+          "name": "left_leg",
+          "uuid": "bone-left_leg-uuid",
+          "origin": [
+            -2,
+            12,
+            0
+          ],
+          "parent": "root",
+          "isOpen": true,
+          "visibility": true,
+          "children": [
+            "cube-warband_soldier-12",
+            "cube-warband_soldier-13"
+          ]
+        },
+        {
+          "name": "accessories",
+          "uuid": "bone-accessories-uuid",
+          "origin": [
+            0,
+            12,
+            0
+          ],
+          "parent": "root",
+          "isOpen": true,
+          "visibility": true,
+          "children": [
+            "cube-warband_soldier-14"
+          ]
+        }
+      ]
+    }
+  ],
+  "textures": [
+    {
+      "name": "warband_soldier.png",
+      "id": "0",
+      "width": 64,
+      "height": 64,
+      "uv_width": 64,
+      "uv_height": 64,
+      "source": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAB5ElEQVR42u2av07DMBDG8whVhVCHqooYGBiYOjExMHVmZGJADEw8AUMHxMDIA3TgKfocPEZeIciVHLmWw2F9ds5X30mfnKRNav9y/nO+NvuP5z6ntu+fQdnPG8LG7rdqUFMAQgDc3m0GKQDtAoIAUFIACuDEAawvV3/KHdxCenx6GUrbaHNsRd1PSQFQDfj53g6VNcf+OQrAbUxIh0p63cGeWzDU/TCAruv6q4t2AGCOzbWpAfg2GQCr3ev9Qe41BVALAL/iVXpASCiAhtvm8/MeEToN5Rb5AhSAApANYN2eQWqWy7ZH5C5VTWmvP8xmRxr7PlqyA/ArRQFI2XhT+g3af90cqToPmByAeoCOAWV5QDQA9AHcHkCV5FIYBcDtAVSZHUBuD9hcryBN7gFUhWLfYPEAYt/YyXtA6jEgO4DUhk6r7IkSBaAAKgPgD1axCgF4WyyCCjUwNGC6A+fYs/4rVgB210gBAACofX9KbAD8vUMFUCqA1D+QugvA+X/pALLP2woABIAGU+SWlQIQZqlXgiIBxKz10dig+v8XsEeLCkABCAeAxgKpc4uxJRwucwNAMz/iAaRIf0FLeekeIB4AuwegD+D2AHgW4Q6Gsuf/S48Gs+f/SwfAnvysHgBqCkA4gF+fF5T7ELCtlgAAAABJRU5ErkJggg=="
+    }
+  ]
+}

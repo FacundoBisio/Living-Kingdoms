@@ -23,6 +23,7 @@ public final class VillageClient {
         KingdomAlerts.register();
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut event)->ManagementScreen.clear());
         dev.livingkingdoms.client.citizenvisual.CitizenVisualClient.register(bus,container);
+        dev.livingkingdoms.client.warband.WarbandVisualClient.register(bus);
         dev.livingkingdoms.client.preview.ConstructionPreviewClient.register(bus);
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut event)->CommerceScreen.clear());
         bus.addListener((net.neoforged.neoforge.client.event.RegisterMenuScreensEvent event)->event.register(dev.livingkingdoms.storage.KingdomStorage.MENU.get(),StorageScreen::new));

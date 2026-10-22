@@ -1,0 +1,25 @@
+{
+  "archive_sha256": "647b0de9c4a151c5fc0ae500733c1993897b870ba4db2b21b2143b9e6ca87f07",
+  "files": {
+    "src/main/resources/assets/livingkingdoms/geo/argon4/warband_soldier.geo.json": {
+      "source": "characters/models/warband_soldier.geo.json",
+      "sha256": "7958d9a80c5fdaf93799bf3ca10569961565dce8c37f52f5076ca29f1130f060"
+    },
+    "src/main/resources/assets/livingkingdoms/animations/argon4/warband.animation.json": {
+      "source": "characters/animations/warband.animation.json",
+      "sha256": "b5d1ac1a05ae3f246b654a9cdacf68010737d5fe01a7029318bb9b00c2ad05bf"
+    },
+    "src/main/resources/assets/livingkingdoms/textures/entity/argon4/warband_soldier.png": {
+      "source": "characters/textures/warband_soldier.png",
+      "sha256": "9c7eeff2782815ab60975e1cedd6dbd5cce8326281cd01aa5a09cb8a35680162"
+    },
+    "docs/argon4-source/warband/warband_soldier.bbmodel": {
+      "source": "characters/blockbench/warband_soldier.bbmodel",
+      "sha256": "fab9a6a024d33147b8856f5b2965f660a02078baa232dd775e8bf8899d4e3399"
+    },
+    "docs/argon4-source/warband/README.md": {
+      "source": "characters/documentation/README.md",
+      "sha256": "204edcfb1ff217ec2033aeadee420752944c92cd1cdae3caa6733b277f4ed4a6"
+    }
+  }
+}

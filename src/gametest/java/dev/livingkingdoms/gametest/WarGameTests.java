@@ -13,17 +13,21 @@ import dev.livingkingdoms.profession.GuardWork;
 import dev.livingkingdoms.settlement.domain.Settlement;
 import dev.livingkingdoms.settlement.domain.Territory;
 import dev.livingkingdoms.war.WarService;
+import dev.livingkingdoms.war.WarbandAppearance;
 import dev.livingkingdoms.war.WarStandards;
 import dev.livingkingdoms.war.domain.KingdomStance;
 import dev.livingkingdoms.war.domain.RenownLedger;
 import dev.livingkingdoms.war.domain.WarFront;
 import dev.livingkingdoms.war.persistence.WarSavedData;
 import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.monster.Pillager;
 import net.minecraft.world.entity.monster.Vindicator;
@@ -66,6 +70,33 @@ public final class WarGameTests {
                     && FactionEntityResolver.combatFaction(mob).orElseThrow() == Faction.ENEMY_KINGDOM, "Soldiers resolve to the enemy kingdom");
             helper.assertTrue(GuardWork.hostile(mob), "Player kingdom guards treat every soldier as hostile");
         }
+        members.forEach(Mob::discard);
+        EncounterSavedData.get(level.getServer()).remove(party.id());
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void warbandSoldiersCarryAZeroEffectAppearanceMarkThatSurvivesSaving(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos center = helper.absolutePos(new BlockPos(17408, 0, 17408));
+        preparePlot(level, center);
+        HostileParty party = spawn(helper, center, 5, false, true);
+        List<Mob> members = members(level, party);
+        int soldiers = 0;
+        for (Mob mob : members) {
+            boolean captain = mob.getItemBySlot(EquipmentSlot.HEAD).is(Items.BLACK_BANNER);
+            helper.assertTrue(WarbandAppearance.isSoldier(mob) == !captain, "Every member except the captain carries the soldier mark");
+            if (captain) continue;
+            soldiers++;
+            var modifier = mob.getAttribute(Attributes.MAX_HEALTH).getModifier(WarbandAppearance.SOLDIER);
+            helper.assertTrue(modifier != null && modifier.amount() == 0, "The mark never changes a stat");
+            Mob copy = (Mob) mob.getType().create(level);
+            copy.load(mob.saveWithoutId(new CompoundTag()));
+            helper.assertTrue(WarbandAppearance.isSoldier(copy), "The mark is stored with the entity and survives a reload");
+        }
+        helper.assertTrue(soldiers == 4, "A five-member warband has one captain and four soldiers");
+        Vindicator vanilla = EntityType.VINDICATOR.create(level);
+        helper.assertTrue(!WarbandAppearance.isSoldier(vanilla), "Ordinary vindicators are never marked");
         members.forEach(Mob::discard);
         EncounterSavedData.get(level.getServer()).remove(party.id());
         helper.succeed();

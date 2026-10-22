@@ -1,6 +1,6 @@
 # Kingdoms at War 0.20.x
 
-Branches `feature/v0.20-war-kingdoms` (0.20.0) and `feature/v0.20.1-war-polish` (0.20.1), built on `feature/v0.19-kingdoms`. Minecraft 1.21.1, NeoForge 21.1.252, Java 21; no new dependencies. This milestone turns part of the 0.19 NPC kingdoms into enemies that send warbands against player kingdoms and defend their own land, adds loot to every defeated hostile party, and gives players a renown rank with one-time rewards.
+Branches `feature/v0.20-war-kingdoms` (0.20.0), `feature/v0.20.1-war-polish` (0.20.1) and `feature/v0.20.2-warband-model` (0.20.2), built on `feature/v0.19-kingdoms`. Minecraft 1.21.1, NeoForge 21.1.252, Java 21; no new dependencies. This milestone turns part of the 0.19 NPC kingdoms into enemies that send warbands against player kingdoms and defend their own land, adds loot to every defeated hostile party, and gives players a renown rank with one-time rewards.
 
 ## Architecture
 
@@ -83,6 +83,8 @@ Existing TOML files keep their values; new keys are added with these defaults.
 
 - Hostile kingdom guards fight warbands' enemies but do not attack players on sight; the garrison is the kingdom's answer to trespassers.
 - Hostile kingdoms use the same plains templates as independent ones; only the war standards distinguish them. There is no siege, conquest or occupation.
+- Only axemen (non-captain Vindicators) have the Argon 4 model. The captain and the crossbowmen (Pillagers) keep the vanilla look until their models exist; `crossbow_aim`, `crossbow_reload`, `captain_command` and `death_stagger` ship in the pack but are not wired yet. Warbands spawned before 0.20.2 carry no marker and stay vanilla.
+- The soldier model was validated with CPU mesh and resource tests only; its appearance in the game has not been checked.
 - Renown is per world. The HUD shows the rank and points only when the panel is expanded; the full breakdown is `/kingdom renown`.
 - Capitulation is a peace, not a conquest: the kingdom keeps its buildings and can be made hostile again only by an operator.
 - Warbands spawn only when a player is in the target kingdom, so offline kingdoms are never raided.
@@ -92,6 +94,16 @@ Existing TOML files keep their values; new keys are added with these defaults.
 
 The kingdom HUD replaces the friendly rows of a hostile NPC kingdom with a warning row ("Hostile kingdom", ruler) and its war strength (1–10). When renown is enabled the expanded panel adds the player's rank and points. The server sends only a rank id and a number; the client validates the id and shows `?` for anything unexpected.
 
+### Warband soldier model (0.20.2)
+
+Rank-and-file warband Vindicators render with an Argon 4 soldier model (`geometry.warband_soldier`, open-face dented iron helm, black and dark red tabard) instead of the vanilla illager model. The pack was authored on the citizen rig (same 14 bones and pivots, per-face UVs, 64×64 skin) so armor, held items and walking keep working. It is client presentation only: no packet, no saved-data schema and no change to combat, AI, loot or balance.
+
+- **How the client knows.** `EncounterSpawner` gives every warband member except the captain a permanent zero-amount attribute modifier (`livingkingdoms:warband_soldier` on max health, `WarbandAppearance`). It changes no stat, is stored in the entity's own NBT and travels with vanilla's attribute synchronization. Vindicators with the marker are drawn by a delegated renderer (`WarbandVisualClient`, same pattern as citizens); the vanilla renderer registry entry is never replaced, so ordinary vindicators, mansion illagers and raiders are untouched.
+- **Animation.** Walking, head tracking, riding and armor are vanilla. While the entity's own attack animation runs, the authored `animation.warband.axe_attack` replaces the vanilla swing (timed by the real swing, mirrored for left-handed soldiers); engaged soldiers hold the weapon raised. The iron helm hides itself when the soldier wears a real helmet.
+- **Assets.** `tools/integrate_argon_assets.py --warband-source <zip>` imports the pack (own manifest with hashes under `docs/argon4-source/warband/`, original ZIP kept there); `--check` verifies both packs: hashes, the exact citizen bone set, the five `animation.warband.*` clips, and fully opaque body UV islands. `ArgonCitizenGeometry.createRawRoot` bakes a pack as authored, without the citizen-only UV remaps and offsets for hair, beard and head accessories.
+- **Client option.** `[citizenPresentation] warbandSoldiers` in `livingkingdoms-citizen-visuals.toml` (default `true`); `false` restores the vanilla look. Invalid or missing resources fall back to the vanilla renderer and log one warning.
+- **Cost.** One attribute lookup per rendered Vindicator and one extra model baked at resource reload (15 cubes). Nothing is allocated per frame.
+
 ## Automated validation
 
 Recorded with the `lk-validate` sequence on Linux (`./gradlew test`, `./gradlew -PgameTestDirectory=runs/validate-<timestamp> runGameTestServer`, `./gradlew build`, `git diff --check`), 2026-10-22: **506 unit tests passed** (0 failures/errors/skips; 490 before this milestone), **184/184 required GameTests passed** in a fresh world, Gradle build passed, `git diff --check` passed.
@@ -99,6 +111,8 @@ Recorded with the `lk-validate` sequence on Linux (`./gradlew test`, `./gradlew 
 New coverage: seeded stance distribution, warband size and raid cooldown scaling, approach angle ordering, war front strength/garrison transitions, bounty scaling and caps, renown ranks and one-time receipts, warband contract weight and pay, enemy-kingdom faction relations and minimum armor; war store save/reopen, garrison index, malformed and future-schema files left unchanged; GameTests for the warband roster (captain standard, composition, raid exclusion, armor, faction, guard hostility), war-front settlement with bounty and renown on defeat (and no double weakening), no rewards for debug fixtures, and war standards that skip unsuitable ground.
 
 0.20.1 polish, same sequence, 2026-10-22: **509 unit tests passed** (0 failures/errors/skips), **186/186 required GameTests passed** in a fresh world, build and `git diff --check` passed. New coverage: veteran levels by strength, capitulation rules, the hostile HUD rows and rank display, a GameTest for veteran levels on spawned warbands and one for garrison defeat forcing capitulation.
+
+0.20.2 soldier model, same sequence, 2026-10-22: **513 unit tests passed** (0 failures/errors/skips), **187/187 required GameTests passed** in a fresh world, build, `tools/integrate_argon_assets.py --check` and `git diff --check` passed. New coverage: raw geometry bake keeps the player-model contract and the authored helm UVs (the citizen path is unchanged), the five warband clips parse next to the citizen clips with the swing starting and ending at rest, the texture is opaque on every body island and leaves the eye window open under the helm; a GameTest checks that exactly the non-captain members carry the zero-effect mark, that it changes no stat and survives an NBT round trip, and that ordinary vindicators are never marked.
 
 Graphical checks are not covered by these tests.
 
@@ -123,3 +137,12 @@ Use matching 0.20 client and server JARs and a **copy** of a 0.19 world.
 15. (0.20.1) Compare a strength 1 and a strength 8 warband with `/kingdom war status`: the stronger one wears better gear and shows higher levels in the HUD.
 16. (0.20.1) Beat the garrison of a strength 1 hostile kingdom: capitulation message, +150 renown, the kingdom turns friendly and stops raiding.
 17. (0.20.1) Open the HUD inside a hostile kingdom: warning rows and war strength; expand it to see your rank and renown.
+18. (0.20.2) Spawn a warband with `/kingdom war raid` or enter a hostile kingdom: the axemen look like dark soldiers (open-face iron helm, black and dark red tabard), not vanilla vindicators; the captain and the crossbowmen are still vanilla.
+19. (0.20.2) Look at a soldier from front, side and back at 5 and 20 blocks: face and eyes visible, nothing inside-out, no stretched or swapped textures, helm, tabard and pauldrons readable.
+20. (0.20.2) Armor: soldiers wearing leather or better show the armor on top of the model without z-fighting; with a real helmet the authored helm is hidden.
+21. (0.20.2) Animation: walking and running, the axe in hand, the raised pose while engaged, and the overhead axe swing when it attacks you; a left-handed soldier mirrors it; none of it clips through the body.
+22. (0.20.2) Light and shaders: dark skin in a cave and at night, with and without a shader pack.
+23. (0.20.2) Two clients: both see the soldier model. Set `warbandSoldiers = false` in the client config and relog: only that client sees vanilla vindicators.
+24. (0.20.2) A normal vindicator (a mansion, a vanilla raid or `/summon minecraft:vindicator`) still looks vanilla.
+25. (0.20.2) Save & Quit and reopen with a warband alive: the soldiers still use the soldier model (the marker is saved with the entity).
+26. (0.20.2) F3 frame time with a full garrison on screen: no visible drop compared with `warbandSoldiers = false`.

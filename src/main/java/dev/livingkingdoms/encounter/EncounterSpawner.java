@@ -154,6 +154,8 @@ public final class EncounterSpawner {
                     mob.setItemSlot(EquipmentSlot.HEAD, new ItemStack(Items.BLACK_BANNER));
                     mob.setDropChance(EquipmentSlot.HEAD, 0.0F);
                 }
+                // Every other warband member is a rank-and-file soldier; clients render marked soldiers with their own model.
+                if (definition.type() == PartyType.WARBAND && i > 0) dev.livingkingdoms.war.WarbandAppearance.markSoldier(mob);
                 mob.setPersistenceRequired();
                 EncounterMember.attach(mob, partyId, definition.faction());
                 if (!roster.add(mob.getUUID())) throw new IllegalStateException("Duplicate encounter member UUID");
