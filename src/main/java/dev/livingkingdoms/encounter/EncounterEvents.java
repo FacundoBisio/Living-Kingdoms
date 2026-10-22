@@ -64,6 +64,12 @@ public final class EncounterEvents {
                 KingdomConfig.ENCOUNTER_MIN_CONTRIBUTION.get(), EncounterSavedData.PARTICIPATION_EXPIRY_TICKS);
         // Quest victory is an actual defeat + participation event, independent of roaming reputation.
         if (!party.debug()) QuestSavedData.get(level.getServer()).resolveParty(party.id(), participants);
+        try {
+            // War fronts, bounty and renown; isolated so a failure never blocks quest or reputation receipts.
+            dev.livingkingdoms.war.WarService.onPartyDefeated(level, party, participants, event.getEntity().blockPosition());
+        } catch (RuntimeException failure) {
+            LOGGER.error("Could not settle war rewards for defeated party {}", party.id(), failure);
+        }
         // Default debug parties are combat fixtures, not repeatable reputation generators.
         if (!party.rewardEligible() || party.reputationReward() == 0) return;
         if (participants.isEmpty()) return;
@@ -90,6 +96,12 @@ public final class EncounterEvents {
     }
 
     private static Optional<Settlement> relevantSettlement(ServerLevel level, HostileParty party, BlockPos position, int range) {
+        return candidateSettlement(level, party, position, range)
+                // Fighting near an enemy kingdom never earns that enemy's gratitude.
+                .filter(settlement -> !dev.livingkingdoms.war.WarService.isHostile(level.getServer(), settlement.id()));
+    }
+
+    private static Optional<Settlement> candidateSettlement(ServerLevel level, HostileParty party, BlockPos position, int range) {
         if (party.associatedSettlementId() != null) {
             var associated = NearestAlliedSettlementService.findAlliedById(level, party.associatedSettlementId());
             if (associated.isPresent()) {

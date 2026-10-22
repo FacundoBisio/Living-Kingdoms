@@ -11,8 +11,10 @@ public record EquipmentRules(int lightLevel, int standardLevel, int advancedLeve
     public static EquipmentRules defaults() { return new EquipmentRules(5, 10, 20, 15, .08); }
     public Tier tier(Faction faction, LevelValue level) {
         if (faction.isAllied()) return Tier.BASIC;
-        return level.value() >= advancedLevel ? Tier.IRON : level.value() >= standardLevel ? Tier.CHAIN
+        Tier tier = level.value() >= advancedLevel ? Tier.IRON : level.value() >= standardLevel ? Tier.CHAIN
                 : level.value() >= lightLevel ? Tier.LEATHER : Tier.BASIC;
+        // Kingdom soldiers are issued armor even in the quietest regions.
+        return faction == Faction.ENEMY_KINGDOM && tier == Tier.BASIC ? Tier.LEATHER : tier;
     }
     public boolean enchant(LevelValue level, double roll) { validRoll(roll); return level.value() >= enchantLevel && roll < enchantChance; }
     public static double validRoll(double roll) {

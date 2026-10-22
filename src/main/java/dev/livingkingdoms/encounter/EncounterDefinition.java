@@ -32,6 +32,13 @@ public record EncounterDefinition(PartyType type, Faction faction, int memberCou
             case BANDIT_PARTY -> new EncounterDefinition(type, type.faction(),
                     KingdomConfig.ENCOUNTER_BANDIT_SIZE.get(), KingdomConfig.ENCOUNTER_BANDIT_THREAT.get(),
                     KingdomConfig.ENCOUNTER_REPUTATION_NORMAL.get(), false);
+            case WARBAND -> warband(dev.livingkingdoms.config.WarConfig.WARBAND_SIZE.get());
         };
+    }
+
+    /** Warband size depends on the sending kingdom's strength, so the caller supplies it. */
+    public static EncounterDefinition warband(int memberCount) {
+        return new EncounterDefinition(PartyType.WARBAND, Faction.ENEMY_KINGDOM, memberCount,
+                dev.livingkingdoms.config.WarConfig.WARBAND_THREAT.get(), dev.livingkingdoms.config.WarConfig.WARBAND_REPUTATION.get(), false);
     }
 }

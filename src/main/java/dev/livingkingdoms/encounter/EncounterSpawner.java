@@ -18,6 +18,9 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.MobSpawnType;
 import net.minecraft.world.entity.monster.PatrollingMonster;
@@ -51,16 +54,21 @@ public final class EncounterSpawner {
 
     /** Command encounters are always debug, and rewards require an explicit operator test option. */
     public static Result spawnNear(ServerLevel level, BlockPos playerPosition, PartyType type, boolean rewardTest) {
+        return spawnAround(level, playerPosition, EncounterDefinition.fromConfig(type), true, rewardTest);
+    }
+
+    /** First safe site on rings of 16, 24 and 32 blocks around {@code anchor}; at most 24 loaded proposals. */
+    public static Result spawnAround(ServerLevel level, BlockPos anchor, EncounterDefinition definition, boolean debug, boolean rewardEligible) {
+        Objects.requireNonNull(anchor, "anchor");
         EncounterSavedData data = EncounterSavedData.get(level.getServer());
         if (level.getDifficulty() == Difficulty.PEACEFUL) return Result.failed(Failure.PEACEFUL);
-        EncounterDefinition definition = EncounterDefinition.fromConfig(type);
         for (int radius : new int[]{16, 24, 32}) {
             for (int[] direction : DIRECTIONS) {
                 double scale = direction[0] != 0 && direction[1] != 0 ? radius / Math.sqrt(2) : radius;
-                BlockPos center = playerPosition.offset((int) Math.round(direction[0] * scale), 0,
+                BlockPos center = anchor.offset((int) Math.round(direction[0] * scale), 0,
                         (int) Math.round(direction[1] * scale));
                 Optional<List<Mob>> plan = plan(level, center, definition);
-                if (plan.isPresent()) return place(level, data, center, definition, plan.get(), true, rewardTest);
+                if (plan.isPresent()) return place(level, data, center, definition, plan.get(), debug, rewardEligible);
             }
         }
         return Result.failed(Failure.NO_SAFE_SITE);
@@ -68,10 +76,15 @@ public final class EncounterSpawner {
 
     /** Future natural rules can dispatch this service after the proposed region's chunks are loaded. */
     public static Result spawnAt(ServerLevel level, BlockPos origin, PartyType type, boolean debug, boolean rewardEligible) {
+        return spawnAt(level, origin, EncounterDefinition.fromConfig(type), debug, rewardEligible);
+    }
+
+    /** Same as {@link #spawnAt(ServerLevel, BlockPos, PartyType, boolean, boolean)} with an explicit roster definition. */
+    public static Result spawnAt(ServerLevel level, BlockPos origin, EncounterDefinition definition, boolean debug, boolean rewardEligible) {
         Objects.requireNonNull(origin, "origin");
+        Objects.requireNonNull(definition, "definition");
         EncounterSavedData data = EncounterSavedData.get(level.getServer());
         if (level.getDifficulty() == Difficulty.PEACEFUL) return Result.failed(Failure.PEACEFUL);
-        EncounterDefinition definition = EncounterDefinition.fromConfig(type);
         Optional<List<Mob>> plan = plan(level, origin, definition);
         return plan.map(mobs -> place(level, data, origin, definition, mobs, debug, rewardEligible))
                 .orElseGet(() -> Result.failed(Failure.NO_SAFE_SITE));
@@ -108,6 +121,8 @@ public final class EncounterSpawner {
             case UNDEAD_HORDE -> index % 2 == 0 ? EntityType.ZOMBIE.create(level) : EntityType.SKELETON.create(level);
             // Bandits are melee Vindicators backed by an occasional crossbow Pillager.
             case BANDIT_PARTY -> index % 3 == 2 ? EntityType.PILLAGER.create(level) : EntityType.VINDICATOR.create(level);
+            // Kingdom warbands: a Vindicator captain leading alternating crossbowmen and axemen.
+            case WARBAND -> index > 0 && index % 2 == 1 ? EntityType.PILLAGER.create(level) : EntityType.VINDICATOR.create(level);
         };
     }
 
@@ -130,9 +145,14 @@ public final class EncounterSpawner {
                         definition.type() == PartyType.PILLAGER_PATROL ? MobSpawnType.PATROL : MobSpawnType.EVENT,
                         mob instanceof Zombie ? new Zombie.ZombieGroupData(false, false) : null);
                 // Bandits are not part of the illager raid hierarchy: no captain banner and no raid membership.
-                if (definition.type() == PartyType.BANDIT_PARTY && mob instanceof Raider raider) {
+                if ((definition.type() == PartyType.BANDIT_PARTY || definition.type() == PartyType.WARBAND) && mob instanceof Raider raider) {
                     raider.setPatrolLeader(false);
                     raider.setCanJoinRaid(false);
+                }
+                // The warband captain carries its kingdom's black standard; it is a mark of rank, never loot.
+                if (definition.type() == PartyType.WARBAND && i == 0) {
+                    mob.setItemSlot(EquipmentSlot.HEAD, new ItemStack(Items.BLACK_BANNER));
+                    mob.setDropChance(EquipmentSlot.HEAD, 0.0F);
                 }
                 mob.setPersistenceRequired();
                 EncounterMember.attach(mob, partyId, definition.faction());

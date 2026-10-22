@@ -34,7 +34,7 @@ class SettlementNearestTest {
         }
         SettlementSavedData reopened = SettlementSavedData.load(data.save(new CompoundTag(), null), null);
         assertEquals(data.settlements(), reopened.settlements());
-        assertEquals(List.of(Faction.ALLIED_KINGDOM, Faction.PILLAGER, Faction.BANDIT, Faction.UNDEAD),
+        assertEquals(List.of(Faction.ALLIED_KINGDOM, Faction.PILLAGER, Faction.BANDIT, Faction.UNDEAD, Faction.ENEMY_KINGDOM),
                 reopened.settlements().stream().map(Settlement::faction).toList());
         assertEquals(data.settlements().getFirst(), reopened.nearestAllied(OVERWORLD, 0, 0, 0).orElseThrow());
         assertFalse(reopened.isDirty());

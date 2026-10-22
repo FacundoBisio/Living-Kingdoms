@@ -11,6 +11,7 @@ import java.util.UUID;
 /** Single server-side independence gate shared by onboarding, quests, economy and UI entry points. */
 public final class NpcKingdoms {
     public static final String VISITOR_KEY = "npckingdom.livingkingdoms.visitor";
+    public static final String HOSTILE_KEY = "npckingdom.livingkingdoms.hostile";
     private NpcKingdoms() {}
 
     public static boolean isNpc(MinecraftServer server, UUID settlement) {
@@ -22,7 +23,8 @@ public final class NpcKingdoms {
     }
 
     public static Component visitorMessage(MinecraftServer server, Settlement settlement) {
-        return Component.translatable(VISITOR_KEY, dev.livingkingdoms.ui.VillageNames.display(settlement), ruler(server, settlement.id()));
+        String key = dev.livingkingdoms.war.WarService.isHostile(server, settlement.id()) ? HOSTILE_KEY : VISITOR_KEY;
+        return Component.translatable(key, dev.livingkingdoms.ui.VillageNames.display(settlement), ruler(server, settlement.id()));
     }
 
     /** Sends the visitor notice when the settlement is NPC-ruled; returns whether it was. */

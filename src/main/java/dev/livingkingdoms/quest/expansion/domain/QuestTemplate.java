@@ -17,7 +17,8 @@ public enum QuestTemplate {
     PILLAGER_REQUEST("pillager_request", QuestCategory.DYNAMIC, 0, QuestType.HOSTILE_PARTY_ELIMINATION, QuestSourceRole.GUARD_CAPTAIN),
     UNDEAD_REQUEST("undead_request", QuestCategory.DYNAMIC, 0, QuestType.HOSTILE_PARTY_ELIMINATION, QuestSourceRole.GUARD_CAPTAIN),
     LOCAL_DEFENSE("local_defense", QuestCategory.DYNAMIC, 0, QuestType.HOSTILE_PARTY_ELIMINATION, QuestSourceRole.BOARD),
-    BANDIT_REQUEST("bandit_request", QuestCategory.DYNAMIC, 0, QuestType.HOSTILE_PARTY_ELIMINATION, QuestSourceRole.GUARD_CAPTAIN);
+    BANDIT_REQUEST("bandit_request", QuestCategory.DYNAMIC, 0, QuestType.HOSTILE_PARTY_ELIMINATION, QuestSourceRole.GUARD_CAPTAIN),
+    WARBAND_REQUEST("warband_request", QuestCategory.DYNAMIC, 0, QuestType.HOSTILE_PARTY_ELIMINATION, QuestSourceRole.GUARD_CAPTAIN);
 
     private final String id;
     private final QuestCategory category;

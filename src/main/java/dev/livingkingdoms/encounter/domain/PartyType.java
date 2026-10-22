@@ -6,7 +6,8 @@ import dev.livingkingdoms.faction.Faction;
 public enum PartyType {
     PILLAGER_PATROL("pillager_patrol", Faction.PILLAGER),
     UNDEAD_HORDE("undead_horde", Faction.UNDEAD),
-    BANDIT_PARTY("bandit_party", Faction.BANDIT);
+    BANDIT_PARTY("bandit_party", Faction.BANDIT),
+    WARBAND("warband", Faction.ENEMY_KINGDOM);
 
     private final String id;
     private final Faction faction;

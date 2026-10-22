@@ -21,8 +21,11 @@ public final class QuestRewardPolicy {
             default -> throw new IllegalArgumentException("Unsupported dynamic quest reward handler");
         }
         int steps = difficulty.rewardSteps();
-        return clamp((long) emeralds + (long) steps * rules.emeraldsPerDifficulty(),
-                (long) reputation + (long) steps * rules.reputationPerDifficulty(), rules);
+        long totalEmeralds = (long) emeralds + (long) steps * rules.emeraldsPerDifficulty();
+        long totalReputation = (long) reputation + (long) steps * rules.reputationPerDifficulty();
+        // War contracts face trained soldiers rather than roaming raiders: half again the usual pay.
+        if (template == QuestTemplate.WARBAND_REQUEST) { totalEmeralds += totalEmeralds / 2; totalReputation += totalReputation / 2; }
+        return clamp(totalEmeralds, totalReputation, rules);
     }
     private static QuestRewards clamp(long emeralds, long reputation, QuestRules rules) {
         return new QuestRewards((int) Math.min(emeralds, rules.maximumEmeralds()),

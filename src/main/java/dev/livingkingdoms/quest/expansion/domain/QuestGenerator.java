@@ -61,9 +61,11 @@ public final class QuestGenerator {
                 case PILLAGER_PATROL -> QuestTemplate.PILLAGER_REQUEST;
                 case UNDEAD_HORDE -> QuestTemplate.UNDEAD_REQUEST;
                 case BANDIT_PARTY -> QuestTemplate.BANDIT_REQUEST;
+                case WARBAND -> QuestTemplate.WARBAND_REQUEST;
             };
             LevelValue recommended = new LevelValue((int) Math.ceil(target.levels().average()));
-            int weight = 8 + Math.min(4, recommended.value() / 5);
+            // A warband marching on a kingdom is the most urgent contract a Guard Captain can post.
+            int weight = 8 + Math.min(4, recommended.value() / 5) + (target.partyType() == PartyType.WARBAND ? 6 : 0);
             result.add(new Candidate(template, new QuestObjective.Party(target.partyId(), target.faction(), target.partyType()),
                     recommended, weight));
         }

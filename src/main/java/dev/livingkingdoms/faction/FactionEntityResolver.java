@@ -29,6 +29,8 @@ public final class FactionEntityResolver {
         return NpcIdentity.read(entity).filter(identity -> identity.role() == NpcRole.GUARD)
                 .flatMap(identity -> SettlementSavedData.get(level.getServer()).get(identity.settlementId()))
                 .filter(settlement -> settlement.faction().isAllied())
-                .map(settlement -> settlement.faction());
+                // Guards of a hostile NPC kingdom fight for it, not alongside player kingdoms.
+                .map(settlement -> dev.livingkingdoms.war.WarService.isHostile(level.getServer(), settlement.id())
+                        ? Faction.ENEMY_KINGDOM : settlement.faction());
     }
 }

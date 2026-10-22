@@ -40,6 +40,7 @@ public record QuestInstance(UUID id, QuestTemplate template, QuestSource source,
             PartyType expected = switch (template) {
                 case UNDEAD_REQUEST -> PartyType.UNDEAD_HORDE;
                 case BANDIT_REQUEST -> PartyType.BANDIT_PARTY;
+                case WARBAND_REQUEST -> PartyType.WARBAND;
                 default -> PartyType.PILLAGER_PATROL;
             };
             if (party.partyType() != expected) throw new IllegalArgumentException("Quest template and target party disagree");

@@ -32,6 +32,8 @@ public final class FactionRelations {
         hostile(relations, Faction.ALLIED_KINGDOM, Faction.UNDEAD);
         hostile(relations, Faction.PILLAGER, Faction.UNDEAD);
         hostile(relations, Faction.BANDIT, Faction.UNDEAD);
+        hostile(relations, Faction.ALLIED_KINGDOM, Faction.ENEMY_KINGDOM);
+        hostile(relations, Faction.ENEMY_KINGDOM, Faction.UNDEAD);
         relations.replaceAll((faction, row) -> Map.copyOf(row));
         return Map.copyOf(relations);
     }

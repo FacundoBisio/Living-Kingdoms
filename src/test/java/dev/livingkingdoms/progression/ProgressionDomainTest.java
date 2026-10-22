@@ -106,6 +106,8 @@ class ProgressionDomainTest {
             assertEquals(EquipmentRules.Tier.IRON, rules.tier(faction, new LevelValue(20)));
         }
         assertEquals(EquipmentRules.Tier.BASIC, rules.tier(Faction.ALLIED_KINGDOM, new LevelValue(100)));
+        assertEquals(EquipmentRules.Tier.LEATHER, rules.tier(Faction.ENEMY_KINGDOM, new LevelValue(1)), "Kingdom soldiers are always armored");
+        assertEquals(EquipmentRules.Tier.IRON, rules.tier(Faction.ENEMY_KINGDOM, new LevelValue(20)));
         assertThrows(IllegalArgumentException.class, () -> new EquipmentRules(10, 5, 20, 15, .1));
     }
     @Test void smallEnchantmentProbabilityHonorsThresholdAndExactChance() {

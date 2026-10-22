@@ -104,6 +104,9 @@ public final class LivingKingdoms {
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.construction.ConstructionEvents::onChunkLoad);
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.npckingdom.NpcKingdomService::onChunkLoad);
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.npckingdom.NpcKingdomService::onServerTick);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.war.WarService::onServerTick);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.war.RewardService::onLogin);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.command.WarCommands::register);
         NeoForge.EVENT_BUS.addListener(QuestInteractions::onRightClickBlock);
         NeoForge.EVENT_BUS.addListener(NpcInteractions::onInteract);
         NeoForge.EVENT_BUS.addListener(NpcInteractions::onInteractSpecific);

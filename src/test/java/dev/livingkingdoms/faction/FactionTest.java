@@ -15,7 +15,7 @@ class FactionTest {
             assertSame(faction, Faction.fromId(faction.id()));
             assertEquals(faction == Faction.ALLIED_KINGDOM, faction.isAllied());
         }
-        assertEquals(4, ids.size());
+        assertEquals(5, ids.size());
         assertThrows(IllegalArgumentException.class, () -> Faction.fromId("missing"));
     }
 
@@ -47,6 +47,15 @@ class FactionTest {
         assertTrue(FactionRelations.isHostile(Faction.BANDIT, Faction.UNDEAD));
         assertFalse(FactionRelations.isHostile(Faction.PILLAGER, Faction.BANDIT));
         assertEquals(FactionRelation.NEUTRAL, FactionRelations.getRelation(Faction.BANDIT, Faction.PILLAGER));
+    }
+
+    @Test
+    void enemyKingdomsFightAlliedKingdomsAndUndeadButIgnoreOutlaws() {
+        assertTrue(FactionRelations.isHostile(Faction.ENEMY_KINGDOM, Faction.ALLIED_KINGDOM));
+        assertTrue(FactionRelations.isHostile(Faction.ENEMY_KINGDOM, Faction.UNDEAD));
+        assertFalse(FactionRelations.isHostile(Faction.ENEMY_KINGDOM, Faction.PILLAGER));
+        assertFalse(FactionRelations.isHostile(Faction.ENEMY_KINGDOM, Faction.BANDIT));
+        assertSame(Faction.ENEMY_KINGDOM, Faction.fromId("enemy_kingdom"));
     }
 
     @Test

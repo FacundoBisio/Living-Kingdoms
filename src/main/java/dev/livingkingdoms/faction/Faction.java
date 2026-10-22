@@ -5,7 +5,9 @@ public enum Faction {
     ALLIED_KINGDOM("allied_kingdom", true),
     PILLAGER("pillager", false),
     BANDIT("bandit", false),
-    UNDEAD("undead", false);
+    UNDEAD("undead", false),
+    /** Soldiers of hostile NPC kingdoms (warbands, garrisons and their guards). */
+    ENEMY_KINGDOM("enemy_kingdom", false);
 
     /** Source compatibility for the first milestones; persisted legacy "allied" is also accepted. */
     @Deprecated

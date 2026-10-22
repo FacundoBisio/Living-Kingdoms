@@ -112,7 +112,8 @@ public final class NaturalEncounterSpawner {
         if(nearby.isPresent() && dev.livingkingdoms.defense.DefenseService.current(level.getServer(),nearby.get().id()).isPresent()) return Optional.empty();
         if (type == PartyType.UNDEAD_HORDE && !darkAtNight(level, proposed)) return Optional.empty();
         EncounterSpawner.Result result = EncounterSpawner.spawnAt(level, proposed, type, false, true);
-        if(result.successful()) nearby.ifPresent(s -> dev.livingkingdoms.defense.DefenseService.beginApproach(level,s,result.party()));
+        if(result.successful()) nearby.filter(s -> !dev.livingkingdoms.war.WarService.isHostile(level.getServer(),s.id()))
+                .ifPresent(s -> dev.livingkingdoms.defense.DefenseService.beginApproach(level,s,result.party()));
         return Optional.ofNullable(result.party());
     }
 
