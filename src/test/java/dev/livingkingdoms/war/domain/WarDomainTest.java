@@ -153,6 +153,32 @@ class WarDomainTest {
         assertTrue(warPay.emeralds() > banditPay.emeralds() || warPay.emeralds() == rules.maximumEmeralds());
     }
 
+    @Test void strongKingdomsFieldVeteransAboveTheRegionalLevel() {
+        assertEquals(0, WarPolicy.levelBonus(1));
+        assertEquals(1, WarPolicy.levelBonus(3));
+        assertEquals(4, WarPolicy.levelBonus(10));
+        var levels = List.of(new dev.livingkingdoms.progression.domain.LevelValue(3), new dev.livingkingdoms.progression.domain.LevelValue(29));
+        assertEquals(List.of(5, 30), dev.livingkingdoms.progression.domain.PartyLevels.withBonus(levels, 2, 30).stream()
+                .map(dev.livingkingdoms.progression.domain.LevelValue::value).toList());
+        assertEquals(levels, dev.livingkingdoms.progression.domain.PartyLevels.withBonus(levels, 0, 30));
+        assertThrows(IllegalArgumentException.class, () -> dev.livingkingdoms.progression.domain.PartyLevels.withBonus(levels, -1, 30));
+    }
+
+    @Test void onlyAKingdomAtItsWeakestCapitulatesAndPeaceClearsTheGarrison() {
+        UUID garrison = UUID.randomUUID();
+        WarFront strong = WarFront.initial(KingdomStance.HOSTILE).withStrength(3).garrisonSpawned(garrison);
+        assertFalse(strong.capitulatesOnGarrisonDefeat());
+        WarFront weakest = WarFront.initial(KingdomStance.HOSTILE).garrisonSpawned(garrison);
+        assertTrue(weakest.capitulatesOnGarrisonDefeat());
+        WarFront peace = weakest.withStandardsPlaced().capitulated(500);
+        assertEquals(KingdomStance.INDEPENDENT, peace.stance());
+        assertNull(peace.garrisonParty());
+        assertTrue(peace.standardsPlaced(), "Standards stay as a trophy");
+        assertFalse(peace.raidReady(Long.MAX_VALUE) || peace.garrisonReady(Long.MAX_VALUE) || peace.capitulatesOnGarrisonDefeat());
+        assertEquals(WarFront.MAX_STRENGTH, weakest.withStrength(99).strength());
+        assertEquals(WarFront.MIN_STRENGTH, weakest.withStrength(-5).strength());
+    }
+
     @Test void stanceIdsRoundTrip() {
         for (KingdomStance stance : KingdomStance.values()) assertEquals(stance, KingdomStance.fromId(stance.id()));
         assertThrows(IllegalArgumentException.class, () -> KingdomStance.fromId("peaceful"));

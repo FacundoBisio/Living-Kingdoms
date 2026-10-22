@@ -31,7 +31,7 @@ public final class WarbandSpawner {
         int min = Math.max(DefenseConfig.APPROACH_MIN_DISTANCE.get() + 6, target.territory().radius() + 7);
         int max = DefenseConfig.APPROACH_MAX_DISTANCE.get() - 6;
         if (min > max) return Optional.empty();
-        EncounterDefinition definition = EncounterDefinition.warband(WarPolicy.warbandSize(WarConfig.WARBAND_SIZE.get(), strength));
+        EncounterDefinition definition = EncounterDefinition.warband(WarPolicy.warbandSize(WarConfig.WARBAND_SIZE.get(), strength), WarPolicy.levelBonus(strength));
         String dimension = level.dimension().location().toString();
         double bearing = WarPolicy.bearing(target.territory().x(), target.territory().z(), attacker.territory().x(), attacker.territory().z());
         for (double angle : WarPolicy.approachAngles(bearing)) {
@@ -58,7 +58,8 @@ public final class WarbandSpawner {
         WarSavedData data = WarSavedData.get(server);
         var front = data.front(kingdom.id()).orElse(null);
         if (front == null || !front.garrisonReady(now)) return Optional.empty();
-        EncounterDefinition definition = EncounterDefinition.warband(WarPolicy.warbandSize(WarConfig.WARBAND_SIZE.get(), front.strength()));
+        EncounterDefinition definition = EncounterDefinition.warband(WarPolicy.warbandSize(WarConfig.WARBAND_SIZE.get(), front.strength()),
+                WarPolicy.levelBonus(front.strength()));
         var result = EncounterSpawner.spawnAround(level, trespasser.blockPosition(), definition, false, true);
         if (!result.successful()) return Optional.empty();
         if (!data.putFront(kingdom.id(), front.garrisonSpawned(result.party().id()))) {

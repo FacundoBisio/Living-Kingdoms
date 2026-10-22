@@ -159,7 +159,7 @@ public final class EncounterSpawner {
                 if (!roster.add(mob.getUUID())) throw new IllegalStateException("Duplicate encounter member UUID");
             }
             BlockPos origin = new BlockPos(proposed.getX(), mobs.getFirst().blockPosition().getY(), proposed.getZ());
-            var levels = ProgressionService.initializeParty(level, origin, definition.faction(), mobs);
+            var levels = ProgressionService.initializeParty(level, origin, definition.faction(), mobs, definition.levelBonus());
             UUID settlementId = NearestAlliedSettlementService.findNearest(level, origin, KingdomConfig.ENCOUNTER_REPUTATION_RANGE.get())
                     .map(Settlement::id).orElse(null);
             HostileParty party = new HostileParty(partyId, definition.faction(), definition.type(),

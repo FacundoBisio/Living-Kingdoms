@@ -11,6 +11,7 @@ public final class WarConfig {
     public static ModConfigSpec.IntValue RAID_RANGE;
     public static ModConfigSpec.IntValue RAID_COOLDOWN;
     public static ModConfigSpec.IntValue FIRST_RAID_DELAY;
+    public static ModConfigSpec.IntValue INITIAL_STRENGTH;
     public static ModConfigSpec.IntValue WARBAND_SIZE;
     public static ModConfigSpec.IntValue WARBAND_THREAT;
     public static ModConfigSpec.IntValue WARBAND_REPUTATION;
@@ -43,6 +44,9 @@ public final class WarConfig {
                 .defineInRange("raidCooldownTicks", 24000, 1200, 1728000);
         FIRST_RAID_DELAY = builder.comment("Ticks a newly discovered hostile kingdom waits before its first raid.")
                 .defineInRange("firstRaidDelayTicks", 12000, 0, 1728000);
+        INITIAL_STRENGTH = builder.comment("War strength of a newly discovered hostile kingdom (1-10). Breaking its garrison at",
+                        "strength 1 makes it capitulate, so this is roughly how many victories liberation takes.")
+                .defineInRange("initialStrength", 3, 1, 10);
         WARBAND_SIZE = builder.comment("Warband members at strength 1; one more every two strength levels (max 8).")
                 .defineInRange("warbandSize", 4, 2, 8);
         WARBAND_THREAT = builder.comment("Threat rating of warbands; metadata used by difficulty and alerts.")

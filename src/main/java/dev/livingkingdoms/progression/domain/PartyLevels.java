@@ -7,6 +7,13 @@ import java.util.function.IntUnaryOperator;
 /** Shared bounded distribution with at least two levels when the configured range allows it. */
 public final class PartyLevels {
     private PartyLevels() {}
+    /** Shifts every level up by {@code bonus}, clamped to {@code maximum}; order and count are preserved. */
+    public static List<LevelValue> withBonus(List<LevelValue> levels, int bonus, int maximum) {
+        if (bonus < 0 || maximum < 1 || maximum > LevelValue.MAX_SUPPORTED) throw new IllegalArgumentException("Invalid level bonus");
+        if (bonus == 0) return List.copyOf(levels);
+        return levels.stream().map(level -> new LevelValue((int) Math.min(maximum, (long) level.value() + bonus))).toList();
+    }
+
     public static List<LevelValue> generate(RegionalDifficulty region, RegionalRules rules, int count, IntUnaryOperator random) {
         if (count < 1 || count > 16) throw new IllegalArgumentException("Invalid party size");
         List<LevelValue> result = new ArrayList<>();

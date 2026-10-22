@@ -17,6 +17,11 @@ import java.util.List;
 public final class ProgressionService {
     private ProgressionService() {}
     public static LevelSummary initializeParty(ServerLevel level, BlockPos origin, Faction faction, List<Mob> members) {
+        return initializeParty(level, origin, faction, members, 0);
+    }
+
+    /** {@code levelBonus} is added after the shared regional roll, never beyond the configured maximum level. */
+    public static LevelSummary initializeParty(ServerLevel level, BlockPos origin, Faction faction, List<Mob> members, int levelBonus) {
         if (faction.isAllied()) throw new IllegalArgumentException("Civilian/allied roles need their own progression policy");
         for (Mob mob : members) {
             if (mob.level() != level || dev.livingkingdoms.encounter.EncounterMember.read(mob)
@@ -25,7 +30,8 @@ public final class ProgressionService {
         var rules = ProgressionConfig.regionalRules();
         var region = RegionalDifficultyService.at(level, origin);
         var stats = ProgressionConfig.statRules();
-        var levels = PartyLevels.generate(region, rules, members.size(), level.random::nextInt);
+        var levels = PartyLevels.withBonus(PartyLevels.generate(region, rules, members.size(), level.random::nextInt),
+                levelBonus, rules.maximumLevel());
         for (int i = 0; i < members.size(); i++) {
             Mob mob = members.get(i);
             var memberLevel = levels.get(i);

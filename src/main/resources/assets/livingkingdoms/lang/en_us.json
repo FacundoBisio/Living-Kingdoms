@@ -745,5 +745,9 @@
   "commands.livingkingdoms.war.raid_failed": "No hostile kingdom in range could send a warband (no hostile kingdom near, a threat already active, or no loaded safe ground).",
   "commands.livingkingdoms.war.raid_started": "%1$s is sending a warband against %2$s.",
   "commands.livingkingdoms.war.not_npc_kingdom": "Stand inside an NPC kingdom to change its stance.",
-  "commands.livingkingdoms.war.stance_set": "%1$s is now %2$s."
+  "commands.livingkingdoms.war.stance_set": "%1$s is now %2$s.",
+  "hud.livingkingdoms.hostile_kingdom": "Hostile kingdom of %s",
+  "hud.livingkingdoms.war_strength": "War strength: %s/10",
+  "hud.livingkingdoms.renown": "%1$s · %2$s renown",
+  "war.livingkingdoms.capitulated": "%1$s has capitulated! %2$s sues for peace and the kingdom is now independent."
 }

@@ -1,6 +1,6 @@
-# Kingdoms at War 0.20.0
+# Kingdoms at War 0.20.x
 
-Branch `feature/v0.20-war-kingdoms`, built on `feature/v0.19-kingdoms`. Minecraft 1.21.1, NeoForge 21.1.252, Java 21; no new dependencies. This milestone turns part of the 0.19 NPC kingdoms into enemies that send warbands against player kingdoms and defend their own land, adds loot to every defeated hostile party, and gives players a renown rank with one-time rewards.
+Branches `feature/v0.20-war-kingdoms` (0.20.0) and `feature/v0.20.1-war-polish` (0.20.1), built on `feature/v0.19-kingdoms`. Minecraft 1.21.1, NeoForge 21.1.252, Java 21; no new dependencies. This milestone turns part of the 0.19 NPC kingdoms into enemies that send warbands against player kingdoms and defend their own land, adds loot to every defeated hostile party, and gives players a renown rank with one-time rewards.
 
 ## Architecture
 
@@ -8,7 +8,9 @@ Branch `feature/v0.20-war-kingdoms`, built on `feature/v0.19-kingdoms`. Minecraf
 
 Every NPC kingdom gets a seeded stance the first time the war system looks at it: `WarPolicy.stance(seed, kingdomId, hostileChance)`. The result is saved in the new war store, so changing `hostileChance` later never flips an existing kingdom. Hostile kingdoms keep a `WarFront`: strength 1–10, raid clock, raid counters, current garrison party and whether its war standards were placed.
 
-Strength is the feedback loop: a raid that is ignored, times out or withdraws raises it by one; a raid broken by players or guards lowers it by one, and so does a defeated garrison. Strength sets warband size (`warbandSize` plus one soldier every two levels, max 8) and raid frequency (down to half of `raidCooldownTicks` at strength 10).
+Strength is the feedback loop: a raid that is ignored, times out or withdraws raises it by one; a raid broken by players or guards lowers it by one, and so does a defeated garrison. Strength sets warband size (`warbandSize` plus one soldier every two levels, max 8), raid frequency (down to half of `raidCooldownTicks` at strength 10) and soldier quality: from 0.20.1 a kingdom at strength `s` fields veterans `(s-1)/2` levels above the regional level (max +4, never above the progression maximum). A hostile kingdom met for the first time starts at `initialStrength` (default 3) instead of 1.
+
+**Capitulation (0.20.1).** A hostile kingdom already at strength 1 whose garrison is defeated by eligible players capitulates: it becomes independent, its garrison and campaigns are cleared, every eligible participant earns 150 bonus renown and the server announces it. Its Mayor, K and Quest Board then show the normal visitor text. An operator can still turn it hostile again with `/kingdom war stance hostile`.
 
 Talking to the Mayor, the K shortcut and the Quest Board of a hostile kingdom show "X is a hostile kingdom ruled by Y…" instead of the visitor notice. Guards of a hostile kingdom resolve to the new `ENEMY_KINGDOM` faction, so they side with its soldiers rather than with player kingdoms.
 
@@ -57,6 +59,7 @@ Server config `livingkingdoms-server.toml`:
 | `[war]` | `raidRange` | `1536` | Max kingdom-to-kingdom distance for raids (256–8192) |
 | `[war]` | `raidCooldownTicks` | `24000` | Per hostile kingdom at strength 1; half at strength 10 |
 | `[war]` | `firstRaidDelayTicks` | `12000` | Grace period after a hostile kingdom is first seen |
+| `[war]` | `initialStrength` | `3` | Strength of a hostile kingdom the first time it is seen (1–10) |
 | `[war]` | `warbandSize` | `4` | At strength 1 (2–8) |
 | `[war]` | `warbandThreat` | `3` | Threat rating metadata |
 | `[war]` | `warbandReputation` | `6` | Reputation with the defended kingdom |
@@ -80,16 +83,22 @@ Existing TOML files keep their values; new keys are added with these defaults.
 
 - Hostile kingdom guards fight warbands' enemies but do not attack players on sight; the garrison is the kingdom's answer to trespassers.
 - Hostile kingdoms use the same plains templates as independent ones; only the war standards distinguish them. There is no siege, conquest or occupation.
-- Strength does not raise soldier levels; they follow the regional level of where they spawn.
-- Renown is per world and not shown in the HUD yet (`/kingdom renown`).
+- Renown is per world. The HUD shows the rank and points only when the panel is expanded; the full breakdown is `/kingdom renown`.
+- Capitulation is a peace, not a conquest: the kingdom keeps its buildings and can be made hostile again only by an operator.
 - Warbands spawn only when a player is in the target kingdom, so offline kingdoms are never raided.
 - Balance values were not tuned with playtest data.
+
+### HUD (0.20.1)
+
+The kingdom HUD replaces the friendly rows of a hostile NPC kingdom with a warning row ("Hostile kingdom", ruler) and its war strength (1–10). When renown is enabled the expanded panel adds the player's rank and points. The server sends only a rank id and a number; the client validates the id and shows `?` for anything unexpected.
 
 ## Automated validation
 
 Recorded with the `lk-validate` sequence on Linux (`./gradlew test`, `./gradlew -PgameTestDirectory=runs/validate-<timestamp> runGameTestServer`, `./gradlew build`, `git diff --check`), 2026-10-22: **506 unit tests passed** (0 failures/errors/skips; 490 before this milestone), **184/184 required GameTests passed** in a fresh world, Gradle build passed, `git diff --check` passed.
 
 New coverage: seeded stance distribution, warband size and raid cooldown scaling, approach angle ordering, war front strength/garrison transitions, bounty scaling and caps, renown ranks and one-time receipts, warband contract weight and pay, enemy-kingdom faction relations and minimum armor; war store save/reopen, garrison index, malformed and future-schema files left unchanged; GameTests for the warband roster (captain standard, composition, raid exclusion, armor, faction, guard hostility), war-front settlement with bounty and renown on defeat (and no double weakening), no rewards for debug fixtures, and war standards that skip unsuitable ground.
+
+0.20.1 polish, same sequence, 2026-10-22: **509 unit tests passed** (0 failures/errors/skips), **186/186 required GameTests passed** in a fresh world, build and `git diff --check` passed. New coverage: veteran levels by strength, capitulation rules, the hostile HUD rows and rank display, a GameTest for veteran levels on spawned warbands and one for garrison defeat forcing capitulation.
 
 Graphical checks are not covered by these tests.
 
@@ -111,3 +120,6 @@ Use matching 0.20 client and server JARs and a **copy** of a 0.19 world.
 12. Two players: both see the same warbands and both earn renown for the same defeat.
 13. Set `[war] enabled = false`, restart: no raids, garrisons or standards; bounty and renown still work. Set `[rewards] bountyEnabled = false` and `renownEnabled = false`: no loot or ranks.
 14. Watch the server tick time during a raid spawn and a garrison spawn.
+15. (0.20.1) Compare a strength 1 and a strength 8 warband with `/kingdom war status`: the stronger one wears better gear and shows higher levels in the HUD.
+16. (0.20.1) Beat the garrison of a strength 1 hostile kingdom: capitulation message, +150 renown, the kingdom turns friendly and stops raiding.
+17. (0.20.1) Open the HUD inside a hostile kingdom: warning rows and war strength; expand it to see your rank and renown.

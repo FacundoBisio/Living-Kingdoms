@@ -124,6 +124,26 @@ class UiPolishTest {
         data.remove("settlement");assertFalse(KingdomHudPresentation.describe(data,false,true,true).quest().isEmpty());
         assertTrue(KingdomHudPresentation.describe(data,false,true,false).quest().isEmpty());
     }
+    @Test void hostileKingdomsReplaceFriendlyRowsAndRenownShowsWhenExpanded() {
+        var data=new CompoundTag();var local=new CompoundTag();local.putString("name","Greymoor");local.putBoolean("hostile",true);
+        local.putString("ruler","Osric Greymoor");local.putInt("war_strength",42);local.putInt("reputation",9);
+        local.putString("renown_rank","knight");local.putInt("renown",320);data.put("settlement",local);
+        var compact=KingdomHudPresentation.describe(data,false,true,false).kingdom();
+        assertEquals(2,compact.size(),"Title and hostile warning only");
+        assertEquals("hud.livingkingdoms.hostile_kingdom",((TranslatableContents)compact.get(1).text().getContents()).getKey());
+        assertEquals(KingdomHudPresentation.Tone.WARNING,compact.get(1).tone());
+        var expanded=KingdomHudPresentation.describe(data,true,true,false).kingdom();
+        var strength=(TranslatableContents)expanded.get(2).text().getContents();
+        assertEquals("hud.livingkingdoms.war_strength",strength.getKey());assertArrayEquals(new Object[]{10},strength.getArgs(),"Strength is clamped");
+        assertEquals("hud.livingkingdoms.renown",((TranslatableContents)expanded.getLast().text().getContents()).getKey());
+        assertTrue(expanded.stream().noneMatch(row->row.text().getContents() instanceof TranslatableContents t && t.getKey().equals("hud.livingkingdoms.reputation_value")));
+        local.remove("hostile");local.putInt("population",2);local.putString("safety","safe");
+        var friendly=KingdomHudPresentation.describe(data,true,true,false).kingdom();
+        assertEquals("hud.livingkingdoms.renown",((TranslatableContents)friendly.getLast().text().getContents()).getKey());
+        local.putString("renown_rank","../evil");
+        var title=(TranslatableContents)KingdomHudPresentation.describe(data,true,true,false).kingdom().getLast().text().getContents();
+        assertEquals("?",((net.minecraft.network.chat.Component)title.getArgs()[0]).getString(),"Unknown rank ids never become translation keys");
+    }
     @Test void partyAndMultipleResourceProgressAreCompleteAndBounded() {
         var data=new CompoundTag();var q=quest("main_patrol","ACTIVE","MAIN");q.putInt("party_total",5);q.putInt("party_remaining",2);data.put("quest",q);
         var rows=KingdomHudPresentation.describe(data,false,false,true).quest();

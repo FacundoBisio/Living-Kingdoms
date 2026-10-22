@@ -140,6 +140,54 @@ public final class WarGameTests {
         helper.succeed();
     }
 
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void strongKingdomsSendVeteransAboveTheRegionalLevel(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos center = helper.absolutePos(new BlockPos(19456, 0, 19456));
+        preparePlot(level, center);
+        var rules = dev.livingkingdoms.config.ProgressionConfig.regionalRules();
+        var region = dev.livingkingdoms.progression.RegionalDifficultyService.at(level, center);
+        var result = EncounterSpawner.spawnAt(level, center, EncounterDefinition.warband(4, 3), false, false);
+        helper.assertTrue(result.successful(), "Veteran warband fixture must spawn: " + result.failure());
+        var party = result.party();
+        members(level, party).forEach(mob -> mob.setNoAi(true));
+        int floor = Math.min(rules.maximumLevel(), Math.max(1, region.level().value() - rules.memberVariance()) + 3);
+        helper.assertTrue(party.levels().minimum() >= floor, "Every veteran is at least three levels above the regional window");
+        helper.assertTrue(members(level, party).stream().allMatch(mob -> dev.livingkingdoms.progression.EntityProgression.read(mob)
+                .orElseThrow().level().value() >= floor), "Entity levels carry the bonus too");
+        members(level, party).forEach(Mob::discard);
+        EncounterSavedData.get(level.getServer()).remove(party.id());
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void breakingTheGarrisonOfAWeakestKingdomForcesItsCapitulation(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        var server = level.getServer();
+        BlockPos center = helper.absolutePos(new BlockPos(19968, 0, 19968));
+        preparePlot(level, center);
+        HostileParty garrison = spawn(helper, center, 3, false, true);
+        UUID kingdom = UUID.randomUUID(), raid = UUID.randomUUID(), player = UUID.randomUUID();
+        helper.assertTrue(NpcKingdomSavedData.get(server).register(kingdom, "Osric Greymoor", 0), "Fixture NPC kingdom registers");
+        WarSavedData war = WarSavedData.get(server);
+        war.putFront(kingdom, WarFront.initial(KingdomStance.HOSTILE).garrisonSpawned(garrison.id()));
+        war.addCampaign(raid, new WarSavedData.Campaign(kingdom, UUID.randomUUID(), 0));
+
+        WarService.onPartyDefeated(level, garrison, Set.of(player), center);
+
+        var front = war.front(kingdom).orElseThrow();
+        helper.assertTrue(front.stance() == KingdomStance.INDEPENDENT && front.garrisonParty() == null, "The kingdom sues for peace");
+        helper.assertTrue(war.campaign(raid).isEmpty(), "Its raids in the field are recalled");
+        int expected = RenownLedger.pointsForDefeat(PartyType.WARBAND, 3, garrison.levels().average())
+                + dev.livingkingdoms.war.RewardService.CAPITULATION_RENOWN;
+        helper.assertTrue(war.ledger(player).points() == expected, "Liberation earns bonus renown");
+        helper.assertTrue(!WarService.isHostile(server, kingdom), "Combat and HUD stop treating it as an enemy");
+        level.getEntitiesOfClass(ItemEntity.class, new AABB(center).inflate(3)).forEach(ItemEntity::discard);
+        members(level, garrison).forEach(Mob::discard);
+        EncounterSavedData.get(server).remove(garrison.id());
+        helper.succeed();
+    }
+
     private static HostileParty spawn(GameTestHelper helper, BlockPos center, int size, boolean debug, boolean reward) {
         var result = EncounterSpawner.spawnAt(helper.getLevel(), center, EncounterDefinition.warband(size), debug, reward);
         helper.assertTrue(result.successful(), "Warband fixture must spawn: " + result.failure());

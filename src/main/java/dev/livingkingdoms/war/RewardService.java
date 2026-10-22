@@ -65,6 +65,23 @@ public final class RewardService {
         }
     }
 
+    public static final int CAPITULATION_RENOWN = 150;
+
+    /** Fixed renown for deeds that are not a single party, such as forcing a kingdom to capitulate. */
+    public static void awardBonusRenown(MinecraftServer server, Set<UUID> participants, int points) {
+        if (!KingdomConfig.SPEC.isLoaded() || !WarConfig.RENOWN_ENABLED.get() || points <= 0) return;
+        WarSavedData data = WarSavedData.get(server);
+        for (UUID participant : participants) {
+            RenownLedger ledger = data.ledger(participant).add(points);
+            if (!data.putLedger(participant, ledger)) continue;
+            ServerPlayer player = server.getPlayerList().getPlayer(participant);
+            if (player == null) continue;
+            player.displayClientMessage(Component.translatable("renown.livingkingdoms.gained", points, ledger.points(),
+                    Component.translatable(ledger.rank().titleKey())), true);
+            deliverPending(player);
+        }
+    }
+
     /** Hands out every earned, not yet rewarded rank. The receipt is written before the items are given. */
     public static void deliverPending(ServerPlayer player) {
         if (!KingdomConfig.SPEC.isLoaded() || !WarConfig.RENOWN_ENABLED.get()) return;

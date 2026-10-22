@@ -22,11 +22,18 @@ public final class KingdomHudPresentation {
         if (showKingdom && data.contains("settlement", 10)) {
             var local = data.getCompound("settlement");
             kingdom.add(new Row(Icon.KINGDOM, Component.literal(local.getString("name")).withStyle(ChatFormatting.BOLD), Tone.TITLE));
-            kingdom.add(new Row(Icon.REPUTATION, tr("reputation_value", local.getInt("reputation")), Tone.NORMAL));
-            kingdom.add(new Row(Icon.PEOPLE, expanded ? tr("population", local.getInt("population"), local.getInt("housing")) : tr("population_value", local.getInt("population")), Tone.NORMAL));
-            if (local.getString("safety").equals("threatened")) kingdom.add(new Row(Icon.SHIELD, tr("threatened"), Tone.WARNING));
-            else if (expanded) kingdom.add(new Row(Icon.SHIELD, tr("safe"), Tone.MUTED));
-            if (expanded) kingdom.add(new Row(Icon.REPUTATION, tr("reputation", local.getInt("level"), local.getInt("progress"), local.getInt("next")), Tone.MUTED));
+            if (local.getBoolean("hostile")) {
+                kingdom.add(new Row(Icon.SHIELD, tr("hostile_kingdom", local.getString("ruler")), Tone.WARNING));
+                if (expanded) kingdom.add(new Row(Icon.SHIELD, tr("war_strength", Math.clamp(local.getInt("war_strength"), 1, 10)), Tone.MUTED));
+                renown(kingdom, local, expanded);
+            } else {
+                kingdom.add(new Row(Icon.REPUTATION, tr("reputation_value", local.getInt("reputation")), Tone.NORMAL));
+                kingdom.add(new Row(Icon.PEOPLE, expanded ? tr("population", local.getInt("population"), local.getInt("housing")) : tr("population_value", local.getInt("population")), Tone.NORMAL));
+                if (local.getString("safety").equals("threatened")) kingdom.add(new Row(Icon.SHIELD, tr("threatened"), Tone.WARNING));
+                else if (expanded) kingdom.add(new Row(Icon.SHIELD, tr("safe"), Tone.MUTED));
+                if (expanded) kingdom.add(new Row(Icon.REPUTATION, tr("reputation", local.getInt("level"), local.getInt("progress"), local.getInt("next")), Tone.MUTED));
+                renown(kingdom, local, expanded);
+            }
         }
         if (showQuest && data.contains("quest", 10)) {
             var tracked = data.getCompound("quest"); String template = tracked.getString("template");
@@ -69,6 +76,13 @@ public final class KingdomHudPresentation {
             default -> quest.getList("requirements", 10).isEmpty() ? "task" : "delivery";
         };
         return tr("objective." + key);
+    }
+    private static void renown(List<Row> rows, CompoundTag local, boolean expanded) {
+        if (!expanded || !local.contains("renown_rank", 8)) return;
+        String rank = local.getString("renown_rank");
+        // Unknown ids from a newer server fall back to the raw id rather than failing the HUD.
+        Component title = rank.matches("[a-z_]{1,32}") ? Component.translatable("renown.livingkingdoms.rank." + rank) : Component.literal("?");
+        rows.add(new Row(Icon.REPUTATION, tr("renown", title, Math.max(0, local.getInt("renown"))), Tone.MUTED));
     }
     private static Component tr(String key, Object... args) { return Component.translatable("hud.livingkingdoms." + key, args); }
 }

@@ -745,5 +745,9 @@
   "commands.livingkingdoms.war.raid_failed": "Ningún reino hostil en rango pudo enviar una hueste (no hay reino hostil cerca, ya hay una amenaza activa o no hay terreno seguro cargado).",
   "commands.livingkingdoms.war.raid_started": "%1$s envía una hueste contra %2$s.",
   "commands.livingkingdoms.war.not_npc_kingdom": "Parate dentro de un reino NPC para cambiar su postura.",
-  "commands.livingkingdoms.war.stance_set": "%1$s ahora es %2$s."
+  "commands.livingkingdoms.war.stance_set": "%1$s ahora es %2$s.",
+  "hud.livingkingdoms.hostile_kingdom": "Reino hostil de %s",
+  "hud.livingkingdoms.war_strength": "Fuerza de guerra: %s/10",
+  "hud.livingkingdoms.renown": "%1$s · %2$s de renombre",
+  "war.livingkingdoms.capitulated": "¡%1$s capituló! %2$s pide la paz y el reino ahora es independiente."
 }

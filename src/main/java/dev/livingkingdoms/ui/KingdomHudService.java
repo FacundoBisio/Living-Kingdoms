@@ -30,6 +30,16 @@ public final class KingdomHudService {
                     settlement.putInt("level",reputation/10+1); settlement.putInt("progress",reputation%10); settlement.putInt("next",10);
                     var homes=CitizenSavedData.get(player.server).summary(s.id());
                     settlement.putInt("population",CitizenService.population(player.server,s)); settlement.putInt("housing",homes.total());
+                    // War: hostile kingdoms replace the friendly rows; renown is the player's own military rank.
+                    if(dev.livingkingdoms.war.WarService.isHostile(player.server,s.id())) {
+                        var front=dev.livingkingdoms.war.persistence.WarSavedData.get(player.server).front(s.id()).orElseThrow();
+                        settlement.putBoolean("hostile",true); settlement.putInt("war_strength",front.strength());
+                        settlement.putString("ruler",dev.livingkingdoms.npckingdom.NpcKingdoms.ruler(player.server,s.id()));
+                    }
+                    if(dev.livingkingdoms.war.WarService.enabled() && dev.livingkingdoms.config.WarConfig.RENOWN_ENABLED.get()) {
+                        var ledger=dev.livingkingdoms.war.persistence.WarSavedData.get(player.server).ledger(player.getUUID());
+                        settlement.putString("renown_rank",ledger.rank().id()); settlement.putInt("renown",ledger.points());
+                    }
                     tag.put("settlement",settlement);
                 });
         quests.tracked(player.getUUID()).ifPresent(q -> tag.put("quest",VillageUiService.questView(player,q)));

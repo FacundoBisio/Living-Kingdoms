@@ -24,6 +24,12 @@ public final class WarPolicy {
         return Math.min(MAX_WARBAND_SIZE, baseSize + (strength - 1) / 2);
     }
 
+    /** Veterans: one level above the regional roll every two strength levels (+0 at 1, +4 at 9-10). */
+    public static int levelBonus(int strength) {
+        requireStrength(strength);
+        return (strength - 1) / 2;
+    }
+
     /** Stronger kingdoms raid more often, down to half the configured cooldown at maximum strength. */
     public static int raidCooldown(int baseCooldown, int strength) {
         requireStrength(strength);

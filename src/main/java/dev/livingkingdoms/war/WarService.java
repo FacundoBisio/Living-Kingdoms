@@ -69,7 +69,7 @@ public final class WarService {
         WarFront front = WarFront.initial(stance);
         if (stance == KingdomStance.HOSTILE) {
             long now = server.overworld().getGameTime();
-            front = new WarFront(stance, front.strength(), now + WarConfig.FIRST_RAID_DELAY.get(), 0, 0, null, 0, false);
+            front = new WarFront(stance, WarConfig.INITIAL_STRENGTH.get(), now + WarConfig.FIRST_RAID_DELAY.get(), 0, 0, null, 0, false);
         }
         return data.putFront(kingdom, front) ? Optional.of(front) : Optional.empty();
     }
@@ -183,6 +183,7 @@ public final class WarService {
     public static void onPartyDefeated(ServerLevel level, HostileParty party, Set<UUID> participants, BlockPos position) {
         MinecraftServer server = level.getServer();
         int strength = 1;
+        UUID capitulated = null;
         if (party.type() == PartyType.WARBAND && enabled()) {
             WarSavedData data = WarSavedData.get(server);
             long now = server.overworld().getGameTime();
@@ -198,12 +199,28 @@ public final class WarService {
             if (owner.isPresent()) {
                 var front = data.front(owner.get()).orElseThrow();
                 strength = front.strength();
-                data.putFront(owner.get(), front.garrisonCleared(true, now, WarConfig.GARRISON_COOLDOWN.get()));
+                if (front.capitulatesOnGarrisonDefeat() && party.rewardEligible() && !participants.isEmpty()) capitulated = owner.get();
+                data.putFront(owner.get(), capitulated != null ? front.capitulated(now)
+                        : front.garrisonCleared(true, now, WarConfig.GARRISON_COOLDOWN.get()));
             }
         }
         if (!party.rewardEligible() || participants.isEmpty()) return;
         RewardService.payBounty(level, party, strength, position);
         RewardService.awardRenown(server, party, participants);
+        if (capitulated != null) announceCapitulation(level, capitulated, participants);
+    }
+
+    private static void announceCapitulation(ServerLevel level, UUID kingdom, Set<UUID> participants) {
+        MinecraftServer server = level.getServer();
+        // Liberation also ends any raid this kingdom still has in the field; it is not counted against it.
+        WarSavedData data = WarSavedData.get(server);
+        for (var entry : data.campaigns().entrySet()) if (entry.getValue().kingdom().equals(kingdom)) data.removeCampaign(entry.getKey());
+        var settlement = SettlementSavedData.get(server).get(kingdom).orElse(null);
+        Component name = settlement == null ? Component.literal("?") : Component.literal(dev.livingkingdoms.ui.VillageNames.display(settlement));
+        Component message = Component.translatable("war.livingkingdoms.capitulated", name, dev.livingkingdoms.npckingdom.NpcKingdoms.ruler(server, kingdom));
+        RewardService.awardBonusRenown(server, participants, RewardService.CAPITULATION_RENOWN);
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) player.displayClientMessage(message, false);
+        LOGGER.info("Hostile NPC kingdom {} capitulated", kingdom);
     }
 
     private static void notifyInside(ServerLevel level, Settlement settlement, Component message) {

@@ -69,6 +69,20 @@ public record WarFront(KingdomStance stance, int strength, long nextRaidAt, int 
                 raidsLaunched, raidsRepelled, null, saturatedAdd(now, cooldown), standardsPlaced);
     }
 
+    /** Breaking the garrison of a kingdom already at its weakest forces it to sue for peace. */
+    public boolean capitulatesOnGarrisonDefeat() { return hostile() && strength == MIN_STRENGTH; }
+
+    /** Peace: the kingdom becomes independent; standards stay as a trophy, war counters are kept for history. */
+    public WarFront capitulated(long now) {
+        return new WarFront(KingdomStance.INDEPENDENT, MIN_STRENGTH, nextRaidAt, raidsLaunched, raidsRepelled, null,
+                Math.max(nextGarrisonAt, now), standardsPlaced);
+    }
+
+    public WarFront withStrength(int next) {
+        return new WarFront(stance, Math.clamp(next, MIN_STRENGTH, MAX_STRENGTH), nextRaidAt, raidsLaunched, raidsRepelled,
+                garrisonParty, nextGarrisonAt, standardsPlaced);
+    }
+
     public WarFront withStandardsPlaced() {
         if (standardsPlaced) return this;
         return new WarFront(stance, strength, nextRaidAt, raidsLaunched, raidsRepelled, garrisonParty, nextGarrisonAt, true);
