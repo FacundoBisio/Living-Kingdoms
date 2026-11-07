@@ -92,14 +92,44 @@ Long loop (hours): refine a weapon to +5, win the Warlord trial, develop the Tow
 - Every Living Kingdoms screen opens with a 200 ms ease-out slide/scale + fade; switching views inside the shared
   village shell replays it. Buttons get an eased gold underline on hover/focus.
 
+### 4.8 Kingdom rank (0.22)
+- Shared per allied settlement. XP from quest claims (= bonus XP, min 10), contracts (30 daily / 150 weekly / 40
+  bonus), completed constructions (60) and trial wins (100 × tier). Thresholds 0, 100, 300, 600, 1000, … cap 20.
+- Every level-up pays a chest to the player who earned it (rare; epic every 5th and from 10; legendary at 20) and
+  announces new perks: weekly contracts (2), fourth daily (4), +10%/+20% contract emeralds (6/8).
+- Shown in the kingdom HUD and the contract screen as `rank · progress/span`.
+- Stored in `livingkingdoms_rpg.dat` (schema 1, new in 0.22).
+
+### 4.9 Contracts and streak (0.22)
+- Quest Board → *Contracts*. 3 dailies (4 from rank 4) drawn deterministically per player and calendar day from
+  slay / deliver / regional request / construction supply; a weekly (from rank 2) of slay, requests or trials.
+- Tracked kinds count from events; deliveries are checked and consumed at claim time. Claims only inside your
+  kingdom. Receipt first, inventory second.
+- Claiming all dailies unlocks the daily chest and extends the **streak**: +10% daily emeralds per streak day
+  (cap +100%). A missed day lowers the streak by one per day, never straight to zero.
+- Days follow the server's local calendar (`RpgClock`), so dailies reset at midnight.
+
+### 4.10 Loot chests (0.22)
+- Four items: Kingdom Chest common/rare/epic/legendary. Use to open; contents roll at open time and the banner and
+  particles take the rarity color.
+- Rarity roll: base 70/24/5/1, shifted by luck (kingdom rank − 1, streak × 2 for the daily chest), with a minimum
+  per source (weekly ≥ rare, Siege ≥ rare, Warlord ≥ epic).
+- Sources: daily bonus, weekly, rank-ups, trial wins, and a 12% chance on any regional request claim.
+
 ## 5. Roadmap (next steps, in priority order)
+
+Done in 0.22: kingdom rank with HUD bar, daily/weekly contracts with streak, rarity loot chests.
+
 
 | # | Feature | Why | Acceptance |
 |---|---|---|---|
-| 1 | Checklists for every multi-step main quest (Watchtower, Patrol) | Pillar 2 | Each step updates from real state; GameTest per quest |
-| 2 | Kingdom/Player level track shown in HUD (XP bar for kingdom rank) | Long-term goal visibility | Rank-up banner, persisted once |
-| 3 | Daily/weekly contracts with streak bonus | Habit loop | Bounded offers, no duplicate pay after reload |
-| 4 | Citizen stories: 3–5 personal quests per named citizen, unlocking a perk | Emberville "townsfolk" pillar | Persisted per citizen; perk visible in roster |
+| 1 | Citizen stories / affinity: 3–5 personal quests per named citizen, unlocking a perk | Emberville "townsfolk" pillar | Persisted per citizen; perk visible in roster |
+| 2 | Expeditions: send residents away for N minutes, return with loot or a rescued survivor | Reason to come back | Bounded timers in SavedData; result survives restart |
+| 3 | Checklists for every multi-step main quest (Watchtower, Patrol) | Pillar 2 | Each step updates from real state; GameTest per quest |
+| 4 | Timed world events (blood moon horde, merchant caravan, festival) with HUD countdown | Appointment play | One active event per kingdom, cleaned on restart |
+| 9 | Codex / collections (bosses, trophies, enemies, citizens) with set rewards | Completionism | One-time set receipts |
+| 10 | Visible town upgrades per rank (lanterns, banners, paths) | Progress you can see | Placement reuses construction safety rules |
+| 11 | Player talent tree from rank/renown points | Build choice | Respec rules, bounded passives |
 | 5 | Blacksmith service: spend emeralds + whetstone to reroll/upgrade one enchant | Sink for emeralds | Server-validated, no item duplication |
 | 6 | Trial modifiers (night, no armor, double boss) for bonus loot | Replayability | Shown in picker, tested reward multipliers |
 | 7 | Rally destinations (plaza, gate, a clicked block) and "defend here" for guards | Requested control | Guards follow without breaking patrol AI |
@@ -116,6 +146,9 @@ Visual/3D assets for new mobs or items go through Argon 4 (owner's pipeline); Cl
 | Quest bonus tables | `rpg/domain/QuestBonus` | see 4.3 |
 | Trial tiers | `rpg/domain/ChallengeTier` | see 4.5 |
 | Rally duration / reach | `rpg/domain/RallyPolicy` | 1200 ticks / 96 blocks |
+| Kingdom rank curve, perks, level-up chests | `rpg/domain/KingdomRank` | see 4.8 |
+| Contract pools, streak math | `rpg/domain/ContractBoard`, `rpg/ContractService` | see 4.9 |
+| Chest rarity weights / contents | `rpg/domain/LootRarity`, `rpg/LootChests` | see 4.10 |
 
 Balance tables are code on purpose: changes show up as reviewable diffs and the domain tests assert the escalation
 contract (later tiers always pay more, later waves are larger, refinement cost always increases).

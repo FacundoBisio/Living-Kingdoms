@@ -275,10 +275,16 @@ public final class ChallengeService {
         for (int i = 0; i < run.tier.tomes(); i++) items.add(KingdomTomes.roll(player.serverLevel(), player.getRandom()));
         var trophy = trophy(player.serverLevel(), run.tier.reward());
         if (!trophy.isEmpty()) items.add(trophy);
+        var minimum = switch (run.tier) { case SKIRMISH -> dev.livingkingdoms.rpg.domain.LootRarity.COMMON;
+            case SIEGE -> dev.livingkingdoms.rpg.domain.LootRarity.RARE; case WARLORD -> dev.livingkingdoms.rpg.domain.LootRarity.EPIC; };
+        items.add(LootChests.chest(dev.livingkingdoms.rpg.domain.LootRarity.roll(new java.util.Random(player.getRandom().nextLong()),
+                KingdomProgressService.luck(server, run.settlement), minimum)));
         RewardCeremony.celebrate(player, "challenge", Component.translatable("challenge.livingkingdoms.victory",
                 Component.translatable("challenge.livingkingdoms.tier." + run.tier.id())), run.tier.emeralds(), 0,
                 40 * run.tier.rank(), items, true);
         dev.livingkingdoms.chronicle.ChronicleAdvancements.grant(player, "first_challenge");
+        ContractService.progress(player, dev.livingkingdoms.rpg.domain.Contract.Kind.TRIAL, 1);
+        KingdomProgressService.award(player, run.settlement, (long) dev.livingkingdoms.rpg.domain.KingdomRank.TRIAL_XP_PER_RANK * run.tier.rank());
     }
 
     /** Unique trophy weapons. Refinement raises base damage: a +5 diamond sword deals 9 instead of 7. */

@@ -83,6 +83,10 @@ Format: **What happened** → **Rule** → **Check**.
     → Fixtures derive kinds/costs from the project under test (`source.project().building()`, `required()`),
       never from an assumed order.
 
+20. **The contract streak decayed twice** (once when the day refreshed, again when the bonus was claimed), so
+    missing two days cost three. Caught by `ProgressionLoopTest` before release.
+    → Apply time-based decay in exactly one transition; later steps read the stored value.
+
 ## Adding an entry
 
 Append to the right section with the next number. Keep it to three lines. If the rule changes how features are

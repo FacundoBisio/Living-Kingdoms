@@ -40,6 +40,12 @@ public final class KingdomHudService {
                         var ledger=dev.livingkingdoms.war.persistence.WarSavedData.get(player.server).ledger(player.getUUID());
                         settlement.putString("renown_rank",ledger.rank().id()); settlement.putInt("renown",ledger.points());
                     }
+                    if(!settlement.getBoolean("hostile")) {
+                        long xp=dev.livingkingdoms.rpg.persistence.RpgSavedData.get(player.server).kingdomXp(s.id());
+                        settlement.putInt("rank",dev.livingkingdoms.rpg.domain.KingdomRank.level(xp));
+                        settlement.putLong("rank_progress",dev.livingkingdoms.rpg.domain.KingdomRank.progress(xp));
+                        settlement.putLong("rank_span",dev.livingkingdoms.rpg.domain.KingdomRank.span(xp));
+                    }
                     tag.put("settlement",settlement);
                 });
         quests.tracked(player.getUUID()).ifPresent(q -> tag.put("quest",VillageUiService.questView(player,q)));

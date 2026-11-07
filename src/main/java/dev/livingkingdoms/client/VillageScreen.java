@@ -238,9 +238,15 @@ public final class VillageScreen extends KingdomScreen {
             button.selected(section == i);
         }
         if (board()) {
-            int challengeWidth=Math.min(74,(listWidth-16)/2);
-            button("quest_history",tr(history?"history_on":"history_off"),left+8,top+55,listWidth-20-challengeWidth,
+            int challengeWidth=Math.min(64,(listWidth-24)/3);
+            button("quest_history",tr(history?"history_on":"history_off"),left+8,top+55,listWidth-24-challengeWidth*2,
                     ()->{history=!history;offset=0;detailScroll=0;rebuildWidgets();}).selected(history);
+            var contracts=button("contracts",tr("contracts"),left+listWidth-12-challengeWidth*2,top+55,challengeWidth,
+                    ()->minecraft.setScreen(new ContractScreen(this,data.getCompound("contracts"))));
+            var contractData=data.getCompound("contracts");
+            contracts.active=!pending && !data.getBoolean("remote") && contractData.getBoolean("available");
+            if(contractData.getBoolean("bonus_ready") || hasReadyContract(contractData)) contracts.primary();
+            contracts.setTooltip(Tooltip.create(tr(contracts.active?"contracts.help":"contracts.locked")));
             var challenges=button("challenges",tr("challenges"),left+listWidth-8-challengeWidth,top+55,challengeWidth,
                     ()->minecraft.setScreen(new ChallengeScreen(this,data.getCompound("challenges"))));
             challenges.active=!pending && !data.getBoolean("remote") && data.getCompound("challenges").getBoolean("unlocked");
@@ -771,6 +777,12 @@ public final class VillageScreen extends KingdomScreen {
                 Component.translatable("work.livingkingdoms."+p.getString("work_state")),tr(p.getBoolean("active")?"citizens.active":"citizens.inactive")));
         var result=List.copyOf(details);citizenDetailCache.put(id,result);return result;
     }
+    private static boolean hasReadyContract(CompoundTag contracts) {
+        var daily=contracts.getList("daily",10);
+        for(int i=0;i<daily.size();i++) if(daily.getCompound(i).getBoolean("ready")) return true;
+        return contracts.getCompound("weekly").getBoolean("ready");
+    }
+
     /** Counts by profession over the snapshot roster, e.g. "Farmer 2 · Guard 1 · Unassigned 3". */
     private Component rosterSummary() {
         var counts=new java.util.TreeMap<String,Integer>();

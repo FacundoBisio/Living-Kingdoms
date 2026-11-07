@@ -196,7 +196,9 @@ public final class ConstructionService {
         if(!storage.replace(p,next)) return false;
         exchange.apply(player.getInventory()); player.inventoryMenu.broadcastChanges();
         if(player.containerMenu!=player.inventoryMenu) player.containerMenu.broadcastChanges();
-        assignReady(player.server,settlementId); return true;
+        assignReady(player.server,settlementId);
+        dev.livingkingdoms.rpg.ContractService.progress(player,dev.livingkingdoms.rpg.domain.Contract.Kind.SUPPLY,1);
+        return true;
     }
     public static boolean retry(ServerPlayer player,UUID settlementId,UUID projectId) {
         var storage=ConstructionSavedData.get(player.server); var entry=storage.get(projectId).orElse(null);
@@ -251,6 +253,7 @@ public final class ConstructionService {
         }
         SITE_RETRY.remove(projectId);
         if(!debug) dev.livingkingdoms.chronicle.ChronicleService.buildingCompleted(server,settlement.id(),projectId,entry.project().building());
+        if(!debug) dev.livingkingdoms.rpg.KingdomProgressService.awardKingdom(server,settlement.id(),dev.livingkingdoms.rpg.domain.KingdomRank.CONSTRUCTION_XP,actor);
         try { ensureNext(level,settlement.id(),actor); }
         catch(RuntimeException failure) { LogUtils.getLogger().warn("Next construction plot unavailable for {}; inspect construction to retry",settlement.id(),failure); }
         dev.livingkingdoms.citizen.CitizenService.ensureInitialized(level,settlements.get(settlement.id()).orElseThrow());

@@ -21,7 +21,7 @@ import java.util.List;
 public final class RewardBanner {
     private static final int MAX_QUEUE = 4;
     private static final long IN = 260, HOLD = 3200, OUT = 400;
-    private record Entry(Component title, List<Component> lines, boolean epic) {}
+    private record Entry(Component title, List<Component> lines, boolean epic, String kind, int color) {}
     private static final ArrayDeque<Entry> QUEUE = new ArrayDeque<>();
     private static Entry current;
     private static long startedAt;
@@ -42,7 +42,9 @@ public final class RewardBanner {
             if (line != null) lines.add(line);
         }
         if (QUEUE.size() >= MAX_QUEUE) QUEUE.pollFirst();
-        QUEUE.add(new Entry(title == null ? Component.empty() : title, List.copyOf(lines), data.getBoolean("epic")));
+        int color = data.contains("rarity") ? dev.livingkingdoms.rpg.domain.LootRarity.fromId(data.getString("rarity")).color() & 0xFFFFFF
+                : data.getBoolean("epic") ? 0xE2B24A : 0x6DA862;
+        QUEUE.add(new Entry(title == null ? Component.empty() : title, List.copyOf(lines), data.getBoolean("epic"), data.getString("kind"), color));
     }
 
     public static void render(RenderGuiEvent.Post event) {
@@ -69,20 +71,22 @@ public final class RewardBanner {
         int x = (g.guiWidth() - width) / 2;
         int y = (int) Mth.lerp(enter, -height - 4, 24);
         int a = (int) (alpha * 235) << 24;
-        int accent = entry.epic() ? 0xE2B24A : 0x6DA862;
+        int accent = entry.color();
         g.pose().pushPose();
         g.pose().translate(0, 0, 300);
         g.fill(x, y, x + width, y + height, a | 0x151C21);
         g.fill(x, y, x + width, y + 2, a | accent);
         g.fill(x, y + height - 2, x + width, y + height, a | accent);
-        if (entry.epic()) {
+        if (entry.epic() || entry.kind().equals("chest")) {
             // Moving shimmer along the top edge for trial victories.
             int sweep = (int) ((t / 6) % (width + 40)) - 20;
             g.fill(x + Math.max(0, sweep), y, x + Math.min(width, sweep + 20), y + 2, a | 0xFFF3C2);
         }
         int textAlpha = Math.max(4, (int) (alpha * 255)) << 24;
-        g.renderItem(new ItemStack(entry.epic() ? Items.NETHER_STAR : Items.EMERALD), x + 8, y + 7);
-        var header = Component.translatable(entry.epic() ? "reward.livingkingdoms.header_epic" : "reward.livingkingdoms.header");
+        g.renderItem(new ItemStack(switch (entry.kind()) { case "chest" -> Items.CHEST; case "rank" -> Items.BELL;
+            case "contract" -> Items.WRITABLE_BOOK; default -> entry.epic() ? Items.NETHER_STAR : Items.EMERALD; }), x + 8, y + 7);
+        var header = Component.translatable(switch (entry.kind()) { case "chest", "rank", "contract" -> "reward.livingkingdoms.header_" + entry.kind();
+            default -> entry.epic() ? "reward.livingkingdoms.header_epic" : "reward.livingkingdoms.header"; });
         g.drawString(font, header, x + 30, y + 6, textAlpha | accent, false);
         g.drawString(font, font.plainSubstrByWidth(entry.title().getString(), width - 36), x + 30, y + 16, textAlpha | 0xF5F2E9, false);
         int lineY = y + 28;

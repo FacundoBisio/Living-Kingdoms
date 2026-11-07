@@ -45,6 +45,7 @@ public final class VillageClient {
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(VillageClient::onLogin);
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(VillageClient::onLogout);
         dev.livingkingdoms.rpg.RpgPayloads.rewardReceiver=RewardBanner::receive;
+        dev.livingkingdoms.rpg.RpgPayloads.contractReceiver=data -> { if(Minecraft.getInstance().screen instanceof ContractScreen screen) screen.update(data); };
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(RewardBanner::render);
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(RewardBanner::logout);
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(UiMotion::pre);

@@ -55,7 +55,7 @@ public final class RpgGameTests {
         var f = ConstructionGameTests.found(h, 190000);
         var player = f.player(); player.getInventory().clearContent();
         int xp = player.totalExperience;
-        RewardCeremony.questClaimed(player, "quest.livingkingdoms.main_return.title", 8, 10, new QuestBonus(80, 2, 1));
+        RewardCeremony.questClaimed(player, f.settlement().id(), false, "quest.livingkingdoms.main_return.title", 8, 10, new QuestBonus(80, 2, 1));
         int whetstones = player.getInventory().countItem(KingdomItems.ROYAL_WHETSTONE.get());
         h.assertTrue(whetstones == 2, "Two whetstones granted, got " + whetstones);
         h.assertTrue(player.getInventory().countItem(Items.ENCHANTED_BOOK) == 1, "One kingdom tome granted");

@@ -88,7 +88,7 @@ public final class ExpandedQuestService {
             QuestState resulting = data.progress(player.getUUID(), settlement.id()).state();
             if (action.equals("claim") && resulting == QuestState.COMPLETED) {
                 var terms = data.progress(player.getUUID(), settlement.id()).terms();
-                dev.livingkingdoms.rpg.RewardCeremony.questClaimed(player, quest.template().titleKey(),
+                dev.livingkingdoms.rpg.RewardCeremony.questClaimed(player, settlement.id(), false, quest.template().titleKey(),
                         terms == null ? 0 : terms.rewardEmeralds(), terms == null ? 0 : terms.reputationReward(),
                         dev.livingkingdoms.rpg.domain.QuestBonus.of(quest.template(), quest.difficulty()));
             }
@@ -144,7 +144,8 @@ public final class ExpandedQuestService {
         if (player.containerMenu != player.inventoryMenu) player.containerMenu.broadcastChanges();
         message(player, "quest.livingkingdoms.request_claimed", Component.translatable(quest.template().titleKey()),
                 quest.rewards().emeralds(), quest.rewards().reputation());
-        dev.livingkingdoms.rpg.RewardCeremony.questClaimed(player, quest.template().titleKey(), quest.rewards().emeralds(),
+        dev.livingkingdoms.rpg.RewardCeremony.questClaimed(player, quest.source().settlementId(),
+                quest.template().category() == QuestCategory.DYNAMIC, quest.template().titleKey(), quest.rewards().emeralds(),
                 quest.rewards().reputation(), dev.livingkingdoms.rpg.domain.QuestBonus.of(quest.template(), quest.difficulty()));
         return true;
     }
