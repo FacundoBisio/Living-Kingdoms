@@ -229,6 +229,18 @@ public final class VillageUiService {
                     : dev.livingkingdoms.profession.ProfessionService.remove(player,settlement.id(),request.quest());
             sendCitizens(player,session,settlement,result?"ui.livingkingdoms.citizens.changed":"ui.livingkingdoms.citizens.rejected"); return result;
         }
+        if(session.citizens && (request.action()==UiPayloads.Action.RALLY_ALL || request.action()==UiPayloads.Action.RALLY_ONE || request.action()==UiPayloads.Action.RALLY_CANCEL)) {
+            boolean result=switch(request.action()) {
+                case RALLY_ALL -> dev.livingkingdoms.rpg.RallyService.callAll(player,settlement.id());
+                case RALLY_ONE -> dev.livingkingdoms.rpg.RallyService.callOne(player,settlement.id(),request.quest());
+                default -> dev.livingkingdoms.rpg.RallyService.cancel(player,settlement.id());
+            };
+            if(result && request.action()!=UiPayloads.Action.RALLY_CANCEL)
+                player.serverLevel().playSound(null,player.blockPosition(),net.minecraft.sounds.SoundEvents.BELL_BLOCK,net.minecraft.sounds.SoundSource.PLAYERS,0.7F,1.1F);
+            sendCitizens(player,session,settlement,result?(request.action()==UiPayloads.Action.RALLY_CANCEL?"ui.livingkingdoms.rally.released":"ui.livingkingdoms.rally.called")
+                    :"ui.livingkingdoms.rally.rejected");
+            return result;
+        }
         if(session.citizens && request.action()==UiPayloads.Action.REFRESH) { sendCitizens(player,session,settlement,null); return true; }
         if(session.citizens && request.action()!=UiPayloads.Action.INFO && request.action()!=UiPayloads.Action.BOARD
                 && request.action()!=UiPayloads.Action.CONSTRUCTION && request.action()!=UiPayloads.Action.IMMIGRATION) return false;
@@ -481,6 +493,7 @@ public final class VillageUiService {
         var stock=new CompoundTag();
         for(var resource:dev.livingkingdoms.economy.StockResource.values()) stock.putInt(resource.name(),dev.livingkingdoms.economy.KingdomEconomy.count(player.server,settlement.id(),resource));
         tag.put("stock",stock);
+        tag.putBoolean("rally_active",dev.livingkingdoms.rpg.RallyService.active(player.serverLevel(),settlement.id()));
         var revisions=new java.util.HashMap<UUID,Long>(); CITIZEN_VIEWS.put(player,revisions);
         var roster=people.citizens(settlement.id()).stream().sorted(java.util.Comparator.comparing((dev.livingkingdoms.citizen.domain.Citizen c) -> c.state()!=dev.livingkingdoms.citizen.domain.CitizenState.ACTIVE)
                 .thenComparing(dev.livingkingdoms.citizen.domain.Citizen::name).thenComparing(dev.livingkingdoms.citizen.domain.Citizen::id)).toList();
@@ -517,6 +530,7 @@ public final class VillageUiService {
     private static void sendBoard(ServerPlayer player, Session session, Settlement settlement, boolean rejected) {
         ExpandedQuestService.prepare(player, settlement);
         CompoundTag tag = base(player, session, settlement, "board");
+        tag.put("challenges", dev.livingkingdoms.rpg.ChallengeService.status(player, settlement));
         if (rejected) tag.putString("notice", "ui.livingkingdoms.action_rejected");
         ListTag entries = new ListTag();
         QuestSavedData data = QuestSavedData.get(player.server);
@@ -559,6 +573,10 @@ public final class VillageUiService {
         var terms = progress.terms() == null ? QuestService.currentTerms() : progress.terms();
         if (quest.template() == QuestTemplate.MAIN_IRON) { emeralds = terms.rewardEmeralds(); reputation = terms.reputationReward(); }
         tag.putInt("emeralds", emeralds); tag.putInt("reward_reputation", reputation);
+        var bonus = dev.livingkingdoms.rpg.domain.QuestBonus.of(quest.template(), quest.difficulty());
+        tag.putInt("bonus_xp", bonus.experience()); tag.putInt("bonus_whetstones", bonus.whetstones()); tag.putInt("bonus_tomes", bonus.tomes());
+        if (quest.template() == QuestTemplate.MAIN_DEVELOPMENT && quest.state() != QuestState.COMPLETED)
+            tag.put("steps", dev.livingkingdoms.rpg.QuestGuides.development(player.server, quest));
         boolean ready = quest.objectiveSatisfied();
         ListTag requirements = new ListTag();
         switch (quest.objective()) {

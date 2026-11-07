@@ -1,6 +1,6 @@
 # Living Kingdoms
 
-Minecraft Java **1.21.1**, **Java 21**, **NeoForge 21.1.252**. **0.20.x (in progress)** makes part of the NPC kingdoms hostile: they send warbands against player kingdoms and field garrisons at home, defeated parties drop a level-scaled bounty, and players earn renown ranks with one-time rewards; see [0.20 Kingdoms at War](docs/kingdoms-v020-war.md). **0.19.0** adds citizen activity labels, Builders that draw materials from Kingdom Storage, Bandit parties, guard shield blocking and independent NPC kingdoms that appear in newly explored terrain; see [0.19 architecture, configuration and checklists](docs/kingdoms-v019.md). Version **0.18.1** adapts the supplied Argon 4 citizen geometry and work keyframes to the existing native renderer, preserving the 80 original skins and adding compatible variants. Compare locally with `/kingdommodels native` and `/kingdommodels argon4`; no entity or saved-world migration is required. See the [model comparison and manual checklist](docs/v0181-model-comparison.md) and [0.18.1 progress](docs/citizen-models-v0181-progress.md).
+Minecraft Java **1.21.1**, **Java 21**, **NeoForge 21.1.252**. **0.21.0 (in progress)** starts the RPG loop: founding builds the first House before the Town Hall, main quests show step checklists, every claim plays a reward ceremony with bonus XP, **Royal Whetstones** (refine a weapon up to +5, diamond sword 7 → 9 damage) and enchanted tomes, the Quest Board offers **Trials** (choose Skirmish/Siege/Warlord waves with bosses and trophy weapons), and the Mayor's citizen roster can **rally** residents to you. See the [game design spec](docs/GAME_DESIGN_SPEC.md) and [lessons learned](docs/LESSONS_LEARNED.md). **0.20.x (in progress)** makes part of the NPC kingdoms hostile: they send warbands against player kingdoms and field garrisons at home, defeated parties drop a level-scaled bounty, and players earn renown ranks with one-time rewards; see [0.20 Kingdoms at War](docs/kingdoms-v020-war.md). **0.19.0** adds citizen activity labels, Builders that draw materials from Kingdom Storage, Bandit parties, guard shield blocking and independent NPC kingdoms that appear in newly explored terrain; see [0.19 architecture, configuration and checklists](docs/kingdoms-v019.md). Version **0.18.1** adapts the supplied Argon 4 citizen geometry and work keyframes to the existing native renderer, preserving the 80 original skins and adding compatible variants. Compare locally with `/kingdommodels native` and `/kingdommodels argon4`; no entity or saved-world migration is required. See the [model comparison and manual checklist](docs/v0181-model-comparison.md) and [0.18.1 progress](docs/citizen-models-v0181-progress.md).
 
 The stable **0.18.0 — Kingdoms & Commerce** base provides physical kingdom storage, finite emerald trading with Merchant citizens, validated 3D construction previews, building administration, personal alerts and advancements. These systems, citizen identity and routines, quests, reputation, HUD and village conversion remain intact. See [0.18.0 survival flow and validation](docs/kingdoms-commerce-v018.md).
 
@@ -36,7 +36,7 @@ bash ./gradlew runGameTestServer
 bash ./gradlew runClient
 ```
 
-The client opens the Minecraft development environment. Survival establishment requires no cheats; enable them only for optional debug commands. The mod JAR is `build/libs/livingkingdoms-0.18.1.jar`; the `-sources.jar` is for developers, not installation. Use the same mod version on clients and dedicated servers. Python and development mods are not required for the ordinary Java build or runtime.
+The client opens the Minecraft development environment. Survival establishment requires no cheats; enable them only for optional debug commands. The mod JAR is `build/libs/livingkingdoms-0.21.0.jar`; the `-sources.jar` is for developers, not installation. Use the same mod version on clients and dedicated servers. Python and development mods are not required for the ordinary Java build or runtime.
 
 Repeated GameTests retain their world and encounter receipts. For an isolated run, choose an unused directory with `.\gradlew.bat -PgameTestDirectory=runs/my-fresh-validation runGameTestServer`. The default remains `runs/gametest`; prior worlds stay in place. Reusing a populated test world can exhaust the real encounter cap and correctly prevent natural-spawn fixtures from creating more parties.
 
@@ -353,6 +353,15 @@ Open an issue with Minecraft/NeoForge/mod versions, reproduction steps, and a re
 - [ModDevGradle runs and JUnit support](https://github.com/neoforged/ModDevGradle)
 
 Local results and known runtime limits: [Milestone 0](docs/validation.md), [Milestone 1](docs/milestone-1-validation.md), [Milestone 2](docs/milestone-2-validation.md), [hostile factions and encounters](docs/hostile-encounters-validation.md), [dynamic world encounters](docs/dynamic-encounters-validation.md), [progression core](docs/progression-core-validation.md), [quest system expansion](docs/quest-system-expansion-validation.md).
+
+## RPG loop (0.21)
+
+- **Trials:** Quest Board → *Trials*. Skirmish unlocks after *Tools for a growing kingdom*, Siege after *Protect our roads*, Warlord after *A safer kingdom*. Stay within 48 blocks; dying, leaving or running out of time fails. `/kingdom challenge abandon` ends your run; operators can use `/kingdom challenge start <skirmish|siege|warlord>`.
+- **Refinement:** hold a Royal Whetstone and a sword/axe/trident/mace in the other hand, then use the whetstone. Costs 1–5 XP levels per step. Operators: `/kingdom refine <0-5>`, `/kingdom whetstones`.
+- **Rally:** Mayor → Citizens → *Rally here* / *Call* / *Release* (60 s; Guards and the Mayor stay at their posts).
+- **Founding order:** `construction.foundingHouseFirst = true` in `livingkingdoms-server.toml`; set `false` for the previous Town-Hall-first order.
+
+Trials and rallies are transient: nothing is written to the world save, and trial enemies left by a crash are removed when their chunk loads.
 
 ## Next milestone
 

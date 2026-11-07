@@ -45,9 +45,9 @@ public final class ConstructionGameTests {
         h.assertTrue(metadata.buildings().size()==1 && metadata.buildings().getFirst().kind()==BuildingKind.FOUNDING_CAMP
                 && metadata.buildings().getFirst().bounds().maxX()-metadata.buildings().getFirst().bounds().minX()==8,"Only the small camp exists, with no permanent buildings");
         var entry=ConstructionService.current(level.getServer(),settlement.id()).orElseThrow();
-        h.assertTrue(entry.project().building()==BuildingKind.TOWN_HALL && entry.project().state()==ConstructionState.WAITING_FOR_RESOURCES
-                && entry.project().supplied().isEmpty() && level.getBlockState(entry.marker()).is(KingdomBlocks.CONSTRUCTION_MARKER),"Town Hall is a reserved, unfunded visible project");
-        h.assertTrue(level.getBlockState(entry.plan().buildings().getFirst().origin()).isAir(),"Town Hall floor was not placed");
+        h.assertTrue(entry.project().building()==BuildingKind.HOUSE && entry.project().state()==ConstructionState.WAITING_FOR_RESOURCES
+                && entry.project().supplied().isEmpty() && level.getBlockState(entry.marker()).is(KingdomBlocks.CONSTRUCTION_MARKER),"The first House is a reserved, unfunded visible project");
+        h.assertTrue(level.getBlockState(entry.plan().buildings().getFirst().origin()).isAir(),"House floor was not placed");
         var mayor=NpcService.ensureMayor(level,settlement).orElseThrow();
         for(int i=0;i<2;i++) h.assertTrue(level.getEntity(mayor.getPersistentData().getUUID("livingkingdoms:founding_resident_"+i)) instanceof Villager,"Two starting residents preserved");
         f.player().setPos(mayor.getX()+2,mayor.getY(),mayor.getZ());
@@ -80,7 +80,7 @@ public final class ConstructionGameTests {
         var built=ConstructionSavedData.get(server).get(entry.project().id()).orElseThrow().project();
         h.assertTrue(built.state()==ConstructionState.BUILDING && built.supplied().equals(built.required()),"Shared receipt reaches building exactly once");
         h.assertTrue(DeliveryInventory.count(second.getInventory(),ResourceKind.LOGS)==30 && DeliveryInventory.count(second.getInventory(),ResourceKind.STONE)==10
-                && DeliveryInventory.count(second.getInventory(),ResourceKind.IRON_INGOT)==10,"Only missing amounts taken; extra materials retained");
+                && DeliveryInventory.count(second.getInventory(),ResourceKind.IRON_INGOT)==(built.required().containsKey(ResourceKind.IRON_INGOT)?10:0),"Only missing amounts taken; extra materials retained");
         h.assertTrue(!ConstructionService.deposit(second,f.settlement().id(),built.id()) && DeliveryInventory.count(second.getInventory(),ResourceKind.LOGS)==30,"Funded project rejects repeat spending");
         h.assertTrue(!ConstructionService.resolve(server,built.id(),second) && h.getLevel().getBlockState(entry.plan().buildings().getFirst().origin()).isAir(),"No instant same-tick construction");
         h.succeed();
@@ -93,21 +93,21 @@ public final class ConstructionGameTests {
         var server=h.getLevel().getServer(); var entry=ConstructionService.current(server,f.settlement().id()).orElseThrow();
         var foundingMayor=NpcService.ensureMayor(h.getLevel(),f.settlement()).orElseThrow();
         for(int i=0;i<2;i++) ((Villager)h.getLevel().getEntity(foundingMayor.getPersistentData().getUUID("livingkingdoms:founding_resident_"+i))).setNoAi(true);
-        supply(f.player(),entry.project().required(),0); h.assertTrue(ConstructionService.deposit(f.player(),f.settlement().id(),entry.project().id()),"Town Hall funded normally");
+        supply(f.player(),entry.project().required(),0); h.assertTrue(ConstructionService.deposit(f.player(),f.settlement().id(),entry.project().id()),"First House funded normally");
         h.assertTrue(!ConstructionService.resolve(server,entry.project().id(),f.player()),"Completion cannot happen on resource delivery tick");
         h.runAfterDelay(20,()->h.assertTrue(ConstructionSavedData.get(server).get(entry.project().id()).orElseThrow().project().state()==ConstructionState.BUILDING,"Timer persists before deadline"));
         h.runAfterDelay(41,()-> {
             ConstructionService.resolve(server,entry.project().id(),f.player());
             var storage=ConstructionSavedData.get(server); var hall=storage.get(entry.project().id()).orElseThrow();
-            h.assertTrue(hall.project().state()==ConstructionState.COMPLETED,"Town Hall completes after configured time");
+            h.assertTrue(hall.project().state()==ConstructionState.COMPLETED,"First House completes after configured time");
             h.assertTrue(hall.project().plot().equals(entry.project().plot()),"Completion uses saved plot and rotation");
             h.assertTrue(!ConstructionService.resolve(server,hall.project().id(),f.player(),true),"Completion receipt prevents a second placement");
-            var house=ConstructionService.current(server,f.settlement().id()).orElseThrow(); h.assertTrue(house.project().building()==BuildingKind.HOUSE,"First House becomes the next project");
+            var house=ConstructionService.current(server,f.settlement().id()).orElseThrow(); h.assertTrue(house.project().building()==BuildingKind.TOWN_HALL,"Town Hall becomes the next project");
             supply(f.player(),house.project().required(),0); ConstructionService.deposit(f.player(),f.settlement().id(),house.project().id());
-            h.assertTrue(ConstructionService.resolve(server,house.project().id(),f.player(),true),"Operator time skip can finish a funded House through normal placement");
+            h.assertTrue(ConstructionService.resolve(server,house.project().id(),f.player(),true),"Operator time skip can finish a funded Town Hall through normal placement");
             var data=SettlementSavedData.get(server); var settlement=data.get(f.settlement().id()).orElseThrow(); var layout=data.layout(settlement.id()).orElseThrow();
             h.assertTrue(settlement.lifecycle()==SettlementLifecycle.ESTABLISHED && layout.buildings().size()==3,"Town Hall + one House establishes the camp without utility buildings");
-            h.assertTrue(layout.buildings().stream().anyMatch(b -> b.kind()==BuildingKind.HOUSE && b.origin().equals(house.plan().buildings().getFirst().origin())),"Completed House kind/position registered for future housing");
+            h.assertTrue(layout.buildings().stream().anyMatch(b -> b.kind()==BuildingKind.HOUSE && b.origin().equals(hall.plan().buildings().getFirst().origin())),"Completed House kind/position registered for future housing");
             h.assertTrue(settlement.id().equals(f.settlement().id()) && settlement.provenance().equals(f.settlement().provenance()) && settlement.population()==f.settlement().population(),"Progress preserves identity, founder and abstract population");
             ExpandedQuestService.prepare(f.player(),settlement);
             h.assertTrue(QuestSavedData.get(server).quests(f.player().getUUID(),settlement.id()).stream().anyMatch(q -> q.template()==QuestTemplate.MAIN_RESIDENTS),"The inhabitant introduction unlocks when the camp becomes an established settlement"); h.succeed();
@@ -206,7 +206,7 @@ public final class ConstructionGameTests {
         SettlementSavedData.get(server).add(settlement,shiftedMetadata);
         var b=source.plan().buildings().getFirst(); var plan=new SettlementLayout(remote,source.plan().style(),List.of(new SettlementLayout.Building(b.module(),b.origin().offset(dx,0,dz),b.rotation(),shift(b.bounds(),dx,dz),b.entrance().offset(dx,0,dz),b.supports().stream().map(p -> p.offset(dx,0,dz)).toList())),shift(source.plan().pathBlocks(),dx,dz),shift(source.plan().before(),dx,dz));
         long now=ConstructionService.now(server); var plot=source.project().plot();
-        var p=ConstructionProject.planned(id,BuildingKind.TOWN_HALL,new ConstructionProject.Plot(plot.x()+dx,plot.y(),plot.z()+dz,plot.rotation()),source.project().required(),20,now).waitForResources();
+        var p=ConstructionProject.planned(id,source.project().building(),new ConstructionProject.Plot(plot.x()+dx,plot.y(),plot.z()+dz,plot.rotation()),source.project().required(),20,now).waitForResources();
         p=p.supply(p.required()).start(now); final UUID project=p.id(); ConstructionSavedData.get(server).reserve(p,plan);
         h.runAfterDelay(21,()-> {
             ConstructionService.resolve(server,project,null); var data=ConstructionSavedData.get(server); var deferred=data.get(project).orElseThrow();
@@ -225,9 +225,9 @@ public final class ConstructionGameTests {
             h.assertTrue(ConstructionService.resolve(server,project,null) && data.get(project).orElseThrow().project().state()==ConstructionState.COMPLETED,"Loaded project safely places the persisted blueprint exactly once"); h.succeed();
         });
     }
-    private record Founded(Settlement settlement,UiTestPlayer player) {}
+    record Founded(Settlement settlement,UiTestPlayer player) {}
     private static java.nio.file.Path serverPath(ServerLevel level) { return level.getServer().getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT); }
-    private static Founded found(GameTestHelper h,int coordinate) {
+    static Founded found(GameTestHelper h,int coordinate) {
         var center=fixture(h,coordinate); var player=player(h.getLevel(),center);
         player.setItemInHand(InteractionHand.MAIN_HAND,new ItemStack(KingdomItems.KINGDOM_CHARTER.get()));
         var result=SettlementEstablishmentService.useCharter(player,InteractionHand.MAIN_HAND,center.below(),SettlementEstablishmentService.Mode.AUTO);

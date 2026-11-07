@@ -44,6 +44,11 @@ public final class VillageClient {
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(TerritoryOverlay::onLogout);
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(VillageClient::onLogin);
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(VillageClient::onLogout);
+        dev.livingkingdoms.rpg.RpgPayloads.rewardReceiver=RewardBanner::receive;
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(RewardBanner::render);
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(RewardBanner::logout);
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(UiMotion::pre);
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(UiMotion::post);
         UiPayloads.hudReceiver=payload -> KingdomHud.update(payload.data());
         UiPayloads.notificationReceiver=QuestNotifications::receive;
         UiPayloads.territoryReceiver=payload -> TerritoryOverlay.update(payload.data());

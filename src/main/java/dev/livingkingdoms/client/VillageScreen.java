@@ -63,6 +63,9 @@ public final class VillageScreen extends KingdomScreen {
             "iron_ingot",new ItemStack(Items.IRON_INGOT),"wheat",new ItemStack(Items.WHEAT),
             "logs",new ItemStack(Items.OAK_LOG),"stone",new ItemStack(Items.STONE));
     private static final ItemStack EMERALD_ICON = new ItemStack(Items.EMERALD);
+    private static final ItemStack TOME_ICON = new ItemStack(Items.ENCHANTED_BOOK);
+    private static final java.util.function.Supplier<ItemStack> WHETSTONE_ICON = com.google.common.base.Suppliers.memoize(
+            () -> new ItemStack(dev.livingkingdoms.item.KingdomItems.ROYAL_WHETSTONE.get()));
 
     public VillageScreen(CompoundTag data) {
         super(tr("board")); this.data = data.copy(); selectDefense();
@@ -76,7 +79,7 @@ public final class VillageScreen extends KingdomScreen {
         textCache.clear();
         citizenDetailCache.clear();
         constructionTicks = 0;
-        if (changedScreen) { detailScroll = 0; focusKey = null; buildingPicker = false; professionPicker = false; selectDefense(); }
+        if (changedScreen) { detailScroll = 0; focusKey = null; buildingPicker = false; professionPicker = false; selectDefense(); restartTransition(); }
         if(!data.getBoolean("plan")) buildingPicker = false;
         if(!data.getBoolean("can_help")) { buildingPicker=false; professionPicker=false; }
         if (pendingQuest != null) selected = pendingQuest;
@@ -234,8 +237,15 @@ public final class VillageScreen extends KingdomScreen {
             VillageButton button=button(tr(labels[i]),left+8+i*tabWidth,top+32,tabWidth-2,() -> {section=tab;offset=0;selected=null;detailScroll=0;rebuildWidgets();});
             button.selected(section == i);
         }
-        if (board()) button("quest_history",tr(history?"history_on":"history_off"),left+8,top+55,listWidth-16,
-                ()->{history=!history;offset=0;detailScroll=0;rebuildWidgets();}).selected(history);
+        if (board()) {
+            int challengeWidth=Math.min(74,(listWidth-16)/2);
+            button("quest_history",tr(history?"history_on":"history_off"),left+8,top+55,listWidth-20-challengeWidth,
+                    ()->{history=!history;offset=0;detailScroll=0;rebuildWidgets();}).selected(history);
+            var challenges=button("challenges",tr("challenges"),left+listWidth-8-challengeWidth,top+55,challengeWidth,
+                    ()->minecraft.setScreen(new ChallengeScreen(this,data.getCompound("challenges"))));
+            challenges.active=!pending && !data.getBoolean("remote") && data.getCompound("challenges").getBoolean("unlocked");
+            challenges.setTooltip(Tooltip.create(tr(challenges.active?"challenges.help":"challenges.locked")));
+        }
         var quests=visibleQuests();
         if (selected == null || quests.stream().noneMatch(q -> q.getUUID("id").equals(selected))) selected=quests.isEmpty()?null:
                 (construction()?quests.stream().filter(q -> !q.getString("state").equals("COMPLETED")).findFirst().orElse(quests.getLast()):quests.getFirst()).getUUID("id");
@@ -279,6 +289,15 @@ public final class VillageScreen extends KingdomScreen {
         if(citizens()) {
             int stockWidth=Math.min(110,panelWidth/3);
             button("stock_open",Component.translatable("ui.livingkingdoms.stock.title"),left+panelWidth-stockWidth-10,top+32,stockWidth,()->send(UiPayloads.Action.STOCK,null)).active=!pending;
+            int rallyWidth=Math.min(96,(panelWidth-stockWidth-30)/3);
+            boolean rallying=data.getBoolean("rally_active");
+            var rallyAll=button("rally_all",tr(rallying?"rally.release":"rally.all"),left+panelWidth-stockWidth-14-rallyWidth*2-4,top+32,rallyWidth,
+                    ()->send(rallying?UiPayloads.Action.RALLY_CANCEL:UiPayloads.Action.RALLY_ALL,null));
+            rallyAll.active=!pending && !data.getBoolean("remote"); rallyAll.setTooltip(Tooltip.create(tr(rallying?"rally.release_help":"rally.all_help")));
+            var rallyOne=button("rally_one",tr("rally.one"),left+panelWidth-stockWidth-14-rallyWidth,top+32,rallyWidth,
+                    ()->{if(q!=null) send(UiPayloads.Action.RALLY_ONE,q.getUUID("id"));});
+            rallyOne.active=!pending && q!=null && !data.getBoolean("remote") && q.getString("status").equals("active");
+            rallyOne.setTooltip(Tooltip.create(tr("rally.one_help")));
             int actionWidth=(available-4)/2;
             var assign=button("profession_picker",tr(pending?"working":professionPicker?"back":q!=null && q.getBoolean("remove")?"citizens.remove":"citizens.choose_profession"),x,layout.footerTop(),actionWidth,
                     ()->{if(q!=null && q.getBoolean("remove")) send(UiPayloads.Action.REMOVE_PROFESSION,q.getUUID("id"));
@@ -588,6 +607,11 @@ public final class VillageScreen extends KingdomScreen {
             if(q.getList("requirements",10).isEmpty())
                 y=paragraph(g,Component.translatable(q.getString("objective"),Component.translatable(q.getString("target"))),x,y,w,INK);
             if(q.contains("target_x")) y=paragraph(g,Component.translatable("quest.livingkingdoms.party_location",q.getInt("target_x"),q.getInt("target_z")),x,y,w,MUTED);
+            var steps=q.getList("steps",10);boolean nextMarked=false;
+            for(int i=0;i<steps.size();i++) {
+                var step=steps.getCompound(i);boolean done=step.getBoolean("done");boolean next=!done && !nextMarked;nextMarked|=next;
+                y=paragraph(g,Component.literal(done?"\u2714 ":next?"\u25B6 ":"\u25CB ").append(Component.translatable(step.getString("key"))),x+4,y,w-4,done?SUCCESS:next?INK:MUTED);
+            }
             var items=q.getList("requirements",10);
             for(int i=0;i<items.size();i++) {
                 var item=items.getCompound(i); ItemStack stack=icon(item.getString("item"));
@@ -603,6 +627,9 @@ public final class VillageScreen extends KingdomScreen {
             y=sectionHeader(g,tr("rewards"),x,y,w);
             y=itemRow(g,EMERALD_ICON,tr("emerald_reward",q.getInt("emeralds")),x,y,w);
             y=paragraph(g,tr("reputation_reward",q.getInt("reward_reputation")),x+22,y,w-22,SUCCESS);
+            if(q.getInt("bonus_xp")>0) y=paragraph(g,tr("bonus_xp",q.getInt("bonus_xp")),x+22,y,w-22,SUCCESS);
+            if(q.getInt("bonus_whetstones")>0) y=itemRow(g,WHETSTONE_ICON.get(),tr("bonus_whetstones",q.getInt("bonus_whetstones")),x,y,w);
+            if(q.getInt("bonus_tomes")>0) y=itemRow(g,TOME_ICON,tr("bonus_tomes",q.getInt("bonus_tomes")),x,y,w);
             if(q.contains("defense_note")) y=paragraph(g,Component.translatable(q.getString("defense_note")),x,y,w,MUTED);
             if(q.getLong("expires")>=0) y=paragraph(g,tr("expires",(q.getLong("expires")+59)/60),x,y,w,MUTED);
             y=sectionHeader(g,tr("quest_context"),x,y,w);
@@ -744,8 +771,22 @@ public final class VillageScreen extends KingdomScreen {
                 Component.translatable("work.livingkingdoms."+p.getString("work_state")),tr(p.getBoolean("active")?"citizens.active":"citizens.inactive")));
         var result=List.copyOf(details);citizenDetailCache.put(id,result);return result;
     }
+    /** Counts by profession over the snapshot roster, e.g. "Farmer 2 · Guard 1 · Unassigned 3". */
+    private Component rosterSummary() {
+        var counts=new java.util.TreeMap<String,Integer>();
+        var list=data.getList("citizens",10);
+        for(int i=0;i<list.size();i++) counts.merge(list.getCompound(i).getString("profession"),1,Integer::sum);
+        var out=Component.empty();boolean first=true;
+        for(var entry:counts.entrySet()) {
+            if(!first) out.append(" · ");first=false;
+            out.append(Component.translatable("profession.livingkingdoms."+entry.getKey())).append(" "+entry.getValue());
+        }
+        return first?tr("citizens.empty"):out;
+    }
+
     private void renderCitizens(GuiGraphics g) {
-        g.drawString(font,ellipsize(tr("citizens"),panelWidth-Math.min(110,panelWidth/3)-30),left+10,top+38,INK,false);
+        int stockWidth=Math.min(110,panelWidth/3),rallyWidth=Math.min(96,(panelWidth-stockWidth-30)/3);
+        g.drawString(font,ellipsize(tr("citizens.count",data.getInt("roster_total")),panelWidth-stockWidth-rallyWidth*2-36),left+10,top+38,INK,false);
         int divider=left+listWidth;
         g.fill(divider,top+56,divider+1,layout.contentBottom(),WOOD);
         g.fill(divider+4,top+56,left+panelWidth-5,layout.contentBottom(),PAPER);
@@ -764,6 +805,9 @@ public final class VillageScreen extends KingdomScreen {
         g.enableScissor(x,layout.contentTop(),x+w,layout.contentBottom());
         if(data.contains("notice")) y=paragraph(g,Component.translatable(data.getString("notice")),x,y,w,
                 data.getString("notice").endsWith("rejected")?ERROR:SUCCESS);
+        y=sectionHeader(g,tr("citizens.roster"),x,y,w);
+        y=paragraph(g,rosterSummary(),x,y,w,INK);
+        if(data.getBoolean("rally_active")) y=paragraph(g,tr("rally.active"),x,y,w,SUCCESS);
         y=paragraph(g,tr("food",data.getInt("food_stock"),data.getInt("food_capacity")),x,y,w,INK);
         y=paragraph(g,tr("food_produced",data.getLong("food_produced")),x,y,w,MUTED);
         y=paragraph(g,tr("food_reserved",data.getInt("food_reserved")),x,y,w,MUTED);
@@ -818,6 +862,9 @@ public final class VillageScreen extends KingdomScreen {
         y=paragraph(g,tr("housing",data.getInt("housing_occupied"),data.getInt("housing_total")),x,y,w,INK);
         y=paragraph(g,tr("housing_free",data.getInt("housing_free")),x,y,w,MUTED);
         y=paragraph(g,tr("immigration_pending",data.getInt("immigration_pending")),x,y,w,MUTED);
+        y=sectionHeader(g,tr("citizens.roster"),x,y,w);
+        y=paragraph(g,rosterSummary(),x,y,w,INK);
+        if(data.getBoolean("rally_active")) y=paragraph(g,tr("rally.active"),x,y,w,SUCCESS);
         y=paragraph(g,tr("food",data.getInt("food_stock"),data.getInt("food_capacity")),x,y,w,INK);
         y=paragraph(g,tr("security",data.getInt("security")),x,y,w,INK);
         return paragraph(g,safety(),x,y,w,data.getString("safety").equals("threatened")?ERROR:SUCCESS);

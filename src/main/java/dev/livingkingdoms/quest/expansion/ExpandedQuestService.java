@@ -86,6 +86,12 @@ public final class ExpandedQuestService {
             QuestService.interact(player, board, true, chat);
             ensureMain(player, settlement);
             QuestState resulting = data.progress(player.getUUID(), settlement.id()).state();
+            if (action.equals("claim") && resulting == QuestState.COMPLETED) {
+                var terms = data.progress(player.getUUID(), settlement.id()).terms();
+                dev.livingkingdoms.rpg.RewardCeremony.questClaimed(player, quest.template().titleKey(),
+                        terms == null ? 0 : terms.rewardEmeralds(), terms == null ? 0 : terms.reputationReward(),
+                        dev.livingkingdoms.rpg.domain.QuestBonus.of(quest.template(), quest.difficulty()));
+            }
             return action.equals("accept") ? resulting == QuestState.ACTIVE : resulting == QuestState.COMPLETED;
         }
         boolean success;
@@ -138,6 +144,8 @@ public final class ExpandedQuestService {
         if (player.containerMenu != player.inventoryMenu) player.containerMenu.broadcastChanges();
         message(player, "quest.livingkingdoms.request_claimed", Component.translatable(quest.template().titleKey()),
                 quest.rewards().emeralds(), quest.rewards().reputation());
+        dev.livingkingdoms.rpg.RewardCeremony.questClaimed(player, quest.template().titleKey(), quest.rewards().emeralds(),
+                quest.rewards().reputation(), dev.livingkingdoms.rpg.domain.QuestBonus.of(quest.template(), quest.difficulty()));
         return true;
     }
 

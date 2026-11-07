@@ -15,6 +15,7 @@ final class VillageButton extends Button {
     private String glyph;
     private String stateMark;
     private int stateColor;
+    private float hover;
 
     VillageButton(String key, Component label, int x, int y, int width, Runnable action) {
         super(x, y, width, 20, label, ignored -> action.run(), DEFAULT_NARRATION);
@@ -37,6 +38,10 @@ final class VillageButton extends Button {
         graphics.fill(x+1, y+1, x+w-1, y+2, accent ? VillageTheme.GOLD : VillageTheme.HOVER);
         graphics.fill(x+1, y+h-2, x+w-1, y+h-1, VillageTheme.WOOD_LIGHT);
         if (selected) graphics.fill(x+3, y+4, x+5, y+h-4, VillageTheme.GOLD);
+        // Eased hover accent: a gold underline grows from the center instead of a hard color swap.
+        hover += ((isHoveredOrFocused() && active ? 1F : 0F) - hover) * Math.min(1F, delta * 0.6F + 0.15F);
+        int underline = (int) ((w - 6) * hover / 2F);
+        if (underline > 0) graphics.fill(x + w/2 - underline, y+h-3, x + w/2 + underline, y+h-2, VillageTheme.GOLD);
         // Focus is distinct from selection, and does not change the control's bounds.
         if (isHoveredOrFocused() && active) graphics.renderOutline(x-1, y-1, w+2, h+2, VillageTheme.WOOD);
         int textColor = accent ? VillageTheme.ON_BLUE : VillageTheme.INK;

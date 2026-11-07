@@ -10,7 +10,13 @@ import java.util.List;
 /** In 1.21.1 Screen.render calls renderBackground again before widgets. Keep that pass inert. */
 abstract class KingdomScreen extends Screen {
     private List<FormattedCharSequence> sizeHint = List.of();
+    private long transitionStartedAt = net.minecraft.Util.getMillis();
     protected KingdomScreen(Component title) { super(title); }
+
+    @Override public void added() { super.added(); restartTransition(); }
+    /** Replays the open motion, e.g. when a shared shell switches between board/citizens/construction. */
+    protected final void restartTransition() { transitionStartedAt = net.minecraft.Util.getMillis(); }
+    final long transitionStartedAt() { return transitionStartedAt; }
 
     @Override public final void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float delta) {}
 

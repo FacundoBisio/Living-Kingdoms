@@ -7,7 +7,7 @@ import java.util.EnumMap;
 import java.util.Map;
 
 public final class ConstructionConfig {
-    public static ModConfigSpec.BooleanValue ENABLED;
+    public static ModConfigSpec.BooleanValue ENABLED, HOUSE_FIRST;
     public static ModConfigSpec.IntValue TEST_DURATION;
     public static ModConfigSpec.IntValue ACTIVE_PROJECTS,QUEUE_LIMIT;
     private static final Map<BuildingKind, ModConfigSpec.IntValue> DURATIONS = new EnumMap<>(BuildingKind.class);
@@ -19,6 +19,8 @@ public final class ConstructionConfig {
         QUEUE_LIMIT=builder.comment("Maximum unfinished planned projects per settlement.").defineInRange("queueLimit",8,1,64);
         ENABLED = builder.comment("New wilderness Charter foundations start with a camp. Existing settlements and conversions are unaffected.")
                 .define("progressiveFounding", true);
+        HOUSE_FIRST = builder.comment("Founding camps reserve the first House before the Town Hall, so the founders get a home first. Projects already reserved keep their order.")
+                .define("foundingHouseFirst", true);
         TEST_DURATION = builder.comment("Development duration override in ticks; 0 uses gameplay durations. Existing projects retain their saved duration.")
                 .defineInRange("testingDurationTicks", 0, 0, 1728000);
         defineBuilding(builder, BuildingKind.TOWN_HALL, 3600, 64, 32, 4);

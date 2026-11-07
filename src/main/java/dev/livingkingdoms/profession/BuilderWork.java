@@ -109,6 +109,7 @@ public final class BuilderWork {
         if(Math.floorMod(level.getDayTime(),24000)>=12000 || CitizenRoutine.threatened(v,citizen)) {
             release(v);CitizenRoutine.shelter(v,citizen,p,now);return false;
         }
+        if(dev.livingkingdoms.rpg.RallyService.answers(v,citizen)) {release(v);dev.livingkingdoms.rpg.RallyService.steer(v,citizen);return false;}
         var entry=ConstructionService.projectForBuilder(level.getServer(),p.citizenId());
         if(entry.isEmpty()) { autoSupply(level.getServer(),p.settlementId()); ConstructionService.assignReady(level.getServer(),p.settlementId()); entry=ConstructionService.projectForBuilder(level.getServer(),p.citizenId()); }
         if(v.isSleeping()) v.stopSleeping();

@@ -39,6 +39,14 @@ public final class LivingKingdoms {
         dev.livingkingdoms.citizenvisual.CitizenVisualService.register(NeoForge.EVENT_BUS);
         dev.livingkingdoms.item.KingdomItems.register(modBus);
         modBus.addListener(dev.livingkingdoms.ui.UiPayloads::register);
+        modBus.addListener(dev.livingkingdoms.rpg.RpgPayloads::register);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.command.RpgCommands::register);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.rpg.ChallengeService::onServerTick);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.rpg.ChallengeService::onJoin);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.rpg.ChallengeService::onLogout);
+        NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, false, dev.livingkingdoms.rpg.ChallengeService::onPlayerDeath);
+        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.server.ServerStoppingEvent event) -> {
+            dev.livingkingdoms.rpg.ChallengeService.shutdown(event.getServer()); dev.livingkingdoms.rpg.RallyService.clear(); });
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.npc.MayorPresentation::onJoin);
         container.registerConfig(ModConfig.Type.SERVER, KingdomConfig.SPEC);
         NeoForge.EVENT_BUS.addListener(SettlementCommands::register);

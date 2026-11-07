@@ -12,9 +12,11 @@ public final class KingdomItems {
     private static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(LivingKingdoms.MOD_ID);
     public static final DeferredItem<KingdomCharterItem> KINGDOM_CHARTER = ITEMS.registerItem("kingdom_charter",
             KingdomCharterItem::new,new Item.Properties().stacksTo(16));
+    public static final DeferredItem<RoyalWhetstoneItem> ROYAL_WHETSTONE = ITEMS.registerItem("royal_whetstone",
+            RoyalWhetstoneItem::new,new Item.Properties().stacksTo(16).rarity(net.minecraft.world.item.Rarity.UNCOMMON));
     public static void register(IEventBus bus) { ITEMS.register(bus); bus.addListener(KingdomItems::creativeTab); }
     private static void creativeTab(BuildCreativeModeTabContentsEvent event) {
-        if (event.getTabKey() == CreativeModeTabs.TOOLS_AND_UTILITIES) event.accept(KINGDOM_CHARTER);
+        if (event.getTabKey() == CreativeModeTabs.TOOLS_AND_UTILITIES) { event.accept(KINGDOM_CHARTER); event.accept(ROYAL_WHETSTONE); }
     }
     private KingdomItems() {}
 }

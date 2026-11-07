@@ -51,10 +51,15 @@ public final class ConstructionService {
         boolean hall=layout.buildings().stream().anyMatch(b -> b.kind()==BuildingKind.TOWN_HALL);
         boolean house=layout.buildings().stream().anyMatch(b -> b.kind()==BuildingKind.HOUSE || b.kind()==BuildingKind.HOUSE_VARIANT || b.kind()==BuildingKind.HOUSE_THIRD);
         if(hall && house) { data.replace(settlement,settlement.withLifecycle(SettlementLifecycle.ESTABLISHED)); return true; }
-        var kind=hall ? BuildingKind.HOUSE : BuildingKind.TOWN_HALL;
+        var kind=foundingNext(hall,house,ConstructionConfig.HOUSE_FIRST.get());
         var plan=new SettlementGenerator().planBuildingAddition(level,settlementId,kind,new GenerationDiagnostics());
         if(plan.isEmpty()) return false;
         reserve(level,settlementId,plan.orElseThrow(),actor); return true;
+    }
+    /** Founding order. House-first gives the founders a home before the larger civic project. */
+    public static BuildingKind foundingNext(boolean hall,boolean house,boolean houseFirst) {
+        if(houseFirst) return house ? BuildingKind.TOWN_HALL : BuildingKind.HOUSE;
+        return hall ? BuildingKind.HOUSE : BuildingKind.TOWN_HALL;
     }
     /** Small survival expansion using the existing materials, timer and protected-placement system. */
     public static boolean planHouse(ServerLevel level,UUID settlementId,ServerPlayer actor) {

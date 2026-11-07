@@ -1,0 +1,28 @@
+{
+  "requirements": [
+    [
+      "achieved"
+    ]
+  ],
+  "criteria": {
+    "achieved": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "parent": "livingkingdoms:first_kingdom",
+  "display": {
+    "icon": {
+      "id": "minecraft:diamond_sword"
+    },
+    "show_toast": true,
+    "description": {
+      "translate": "advancement.livingkingdoms.first_challenge.description"
+    },
+    "hidden": false,
+    "announce_to_chat": false,
+    "frame": "challenge",
+    "title": {
+      "translate": "advancement.livingkingdoms.first_challenge.title"
+    }
+  }
+}

@@ -7,6 +7,14 @@
 - Preserve existing work and saved-world compatibility. Reuse settlement, faction, encounter, quest, citizen, building, and networking systems before adding abstractions.
 - Keep domain logic modular; keep client rendering separate from server logic. Make gameplay decisions and persistent state changes server authoritative.
 
+## Design rules
+
+- Read `docs/GAME_DESIGN_SPEC.md` (vision, pillars, systems, roadmap) and `docs/LESSONS_LEARNED.md` before a gameplay feature. Pillars win ties: the village must pay better than mining, the next step is always visible, every claim is celebrated, the roster is readable.
+- New rewards are derived from existing receipts where possible; non-craftable rewards (Royal Whetstones, tomes, trophies) come only from quests and trials.
+- Multi-step objectives expose a derived checklist. Player-facing text exists in `en_us` and `es_ar`.
+- Transient features (rallies, trials) stay out of SavedData and clean up after a restart. Bump the payload registrar version when a payload enum changes.
+- When something goes wrong (failed run, review finding, playtest surprise), add an entry to `docs/LESSONS_LEARNED.md` in the same change.
+
 ## Performance and interfaces
 
 - Prefer events and bounded, localized lookups. Avoid world-wide entity/settlement scans per tick, forced chunk loading, and unbounded global AI loops.
