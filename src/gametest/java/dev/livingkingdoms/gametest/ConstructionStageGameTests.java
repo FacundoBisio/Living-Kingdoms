@@ -134,10 +134,16 @@ public final class ConstructionStageGameTests {
             h.assertTrue(transaction.result()==ConstructionStages.Result.APPLIED,"Exact target stage is adopted after world save outruns receipt save"); transaction.commit();
         }
         var corner=entry.plan().buildings().getFirst().origin(); level.setBlock(corner,Blocks.AIR.defaultBlockState(),18);
+        // 0.23 gradual construction: a partially placed target is completed in place (missing blocks are refilled).
         try(var transaction=ConstructionStages.apply(level,entry,-1,0,null)) {
-            h.assertTrue(transaction.result()==ConstructionStages.Result.BLOCKED,"Partial target cannot be silently adopted or repaired");
+            h.assertTrue(transaction.result()==ConstructionStages.Result.APPLIED,"Partial target is completed in place"); transaction.commit();
         }
-        level.setBlock(corner,ConstructionStages.expected(entry,0).get(corner),18);
+        h.assertTrue(level.getBlockState(corner).equals(ConstructionStages.expected(entry,0).get(corner)),"Missing block refilled");
+        var intruder=entry.plan().buildings().getFirst().origin().offset(2,3,2); level.setBlock(intruder,Blocks.GOLD_BLOCK.defaultBlockState(),18);
+        try(var transaction=ConstructionStages.apply(level,entry,0,1,null)) {
+            h.assertTrue(transaction.result()==ConstructionStages.Result.BLOCKED && transaction.obstacles().contains(intruder),"Foreign blocks are still reported, never overwritten");
+        }
+        level.setBlock(intruder,Blocks.AIR.defaultBlockState(),18);
         try(var transaction=ConstructionStages.apply(level,entry,0,4,null)) { transaction.commit(); }
         try(var transaction=ConstructionStages.apply(level,entry,0,4,null)) {
             h.assertTrue(transaction.result()==ConstructionStages.Result.APPLIED,"Complete exact native final can be adopted without placing a second copy"); transaction.commit();
@@ -165,8 +171,9 @@ public final class ConstructionStageGameTests {
             h.assertTrue(transaction.result()==ConstructionStages.Result.APPLIED,"Intermediate stages ignore shared path changes"); transaction.commit();
         }
         h.assertTrue(level.getBlockState(path).is(Blocks.DIRT_PATH),"No intermediate path writes");
+        // 0.23: a route block that already matches the planned paving is adopted rather than blocking completion.
         try(var transaction=ConstructionStages.apply(level,entry,3,4,null)) {
-            h.assertTrue(transaction.result()==ConstructionStages.Result.BLOCKED,"Unregistered changed route blocks final placement");
+            h.assertTrue(transaction.result()==ConstructionStages.Result.APPLIED,"Matching route paving is adopted");
         }
         try(var transaction=ConstructionStages.apply(level,entry,3,4,null,Set.of(path))) {
             h.assertTrue(transaction.result()==ConstructionStages.Result.APPLIED,"Exact registered shared paving is accepted"); transaction.commit();

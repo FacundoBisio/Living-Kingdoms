@@ -27,6 +27,12 @@ public final class NpcInteractions {
         if (event.getHand() == InteractionHand.MAIN_HAND && event.getEntity() instanceof net.minecraft.server.level.ServerPlayer player) {
             dev.livingkingdoms.quest.expansion.ExpandedQuestService.meetCitizen(player, event.getTarget());
         }
+        if (event.getHand() == InteractionHand.MAIN_HAND && event.getEntity() instanceof net.minecraft.server.level.ServerPlayer player
+                && player.isShiftKeyDown() && event.getTarget() instanceof Villager citizen && CitizenEquipment.equip(player, citizen)) {
+            event.setCanceled(true);
+            event.setCancellationResult(InteractionResult.SUCCESS);
+            return;
+        }
         if (!isLivingKingdomsNpc(event.getTarget())) return;
         event.setCanceled(true);
         event.setCancellationResult(InteractionResult.sidedSuccess(event.getLevel().isClientSide));

@@ -1,0 +1,28 @@
+{
+  "requirements": [
+    [
+      "achieved"
+    ]
+  ],
+  "criteria": {
+    "achieved": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "parent": "livingkingdoms:first_kingdom",
+  "display": {
+    "icon": {
+      "id": "minecraft:iron_sword"
+    },
+    "show_toast": true,
+    "description": {
+      "translate": "advancement.livingkingdoms.armed_guard.description"
+    },
+    "hidden": false,
+    "announce_to_chat": false,
+    "frame": "task",
+    "title": {
+      "translate": "advancement.livingkingdoms.armed_guard.title"
+    }
+  }
+}

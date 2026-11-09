@@ -48,6 +48,7 @@ final class CitizenHumanoidRenderer extends MobRenderer<Villager, CitizenHumanoi
                     .warn("Invalid Argon citizen resources; using the stable native model until resource reload", exception);
         }
         addLayer(new Tools(this, context));
+        addLayer(new Crown(this));
         addLayer(new HumanoidArmorLayer<>(this,
                 new HumanoidModel<>(context.bakeLayer(ModelLayers.PLAYER_INNER_ARMOR)),
                 new HumanoidModel<>(context.bakeLayer(ModelLayers.PLAYER_OUTER_ARMOR)), context.getModelManager()));
@@ -82,15 +83,60 @@ final class CitizenHumanoidRenderer extends MobRenderer<Villager, CitizenHumanoi
         pose.translate(0, npc.getBbHeight() + (showActivity ? .6 : .35), 0);
         pose.mulPose(entityRenderDispatcher.cameraOrientation()); pose.scale(.025F, -.025F, .025F);
         int background = (int) (Minecraft.getInstance().options.getBackgroundOpacity(.25F) * 255) << 24;
-        line(presentation.name(), 0, -1, pose, buffers, background, light);
+        // Like vanilla name tags: a faint see-through pass keeps names readable behind blocks and other
+        // entities, then the normal pass draws them crisp when in view.
+        boolean discrete = !npc.isDiscrete();
+        line(presentation.name(), 0, -1, pose, buffers, background, light, discrete);
         if (secondary > 0 && distanceSqr <= (double) secondary * secondary)
-            line(presentation.secondary(), 10, 0xFFE2C07A, pose, buffers, background, light);
-        if (showActivity) line(presentation.activity(), 20, 0xFFB8B8B8, pose, buffers, background, light);
+            line(presentation.secondary(), 10, 0xFFE2C07A, pose, buffers, background, light, discrete);
+        if (showActivity) line(presentation.activity(), 20, 0xFFB8B8B8, pose, buffers, background, light, discrete);
         pose.popPose();
     }
-    private void line(Component text, int y, int color, PoseStack pose, MultiBufferSource buffers, int background, int light) {
-        getFont().drawInBatch(text, -getFont().width(text) / 2F, y, color, false, pose.last().pose(),
-                buffers, Font.DisplayMode.NORMAL, background, light);
+    private void line(Component text, int y, int color, PoseStack pose, MultiBufferSource buffers, int background, int light, boolean seeThrough) {
+        float x = -getFont().width(text) / 2F;
+        if (seeThrough) getFont().drawInBatch(text, x, y, 0x40FFFFFF & color | 0x40000000, false, pose.last().pose(),
+                buffers, Font.DisplayMode.SEE_THROUGH, background, light);
+        getFont().drawInBatch(text, x, y, color, false, pose.last().pose(),
+                buffers, Font.DisplayMode.NORMAL, seeThrough ? 0 : background, light);
+    }
+
+    /** Gold crown with gems on the Mayor's head so the leader reads at a glance from across the plaza. */
+    private static final class Crown extends net.minecraft.client.renderer.entity.layers.RenderLayer<Villager, CitizenHumanoidModel> {
+        private static final ResourceLocation GOLD = ResourceLocation.withDefaultNamespace("textures/block/gold_block.png");
+        private static final ResourceLocation GEM = ResourceLocation.withDefaultNamespace("textures/block/redstone_block.png");
+        private static final ResourceLocation JEWEL = ResourceLocation.withDefaultNamespace("textures/block/diamond_block.png");
+        private final net.minecraft.client.model.geom.ModelPart band, gems, jewel;
+        Crown(CitizenHumanoidRenderer parent) {
+            super(parent);
+            band = part(net.minecraft.client.model.geom.builders.CubeListBuilder.create()
+                    .addBox(-4.6F, -9.2F, -4.6F, 9.2F, 1.6F, 1F).addBox(-4.6F, -9.2F, 3.6F, 9.2F, 1.6F, 1F)
+                    .addBox(-4.6F, -9.2F, -3.6F, 1F, 1.6F, 7.2F).addBox(3.6F, -9.2F, -3.6F, 1F, 1.6F, 7.2F)
+                    // Five spikes: tall center, shorter sides, plus back points.
+                    .addBox(-0.7F, -12.2F, -4.6F, 1.4F, 3F, 1F).addBox(-3.6F, -11.2F, -4.6F, 1.2F, 2F, 1F)
+                    .addBox(2.4F, -11.2F, -4.6F, 1.2F, 2F, 1F).addBox(-4.6F, -11.2F, -0.6F, 1F, 2F, 1.2F)
+                    .addBox(3.6F, -11.2F, -0.6F, 1F, 2F, 1.2F).addBox(-0.7F, -11.2F, 3.6F, 1.4F, 2F, 1F));
+            gems = part(net.minecraft.client.model.geom.builders.CubeListBuilder.create()
+                    .addBox(-2.8F, -8.9F, -4.9F, 1F, 1F, 0.5F).addBox(1.8F, -8.9F, -4.9F, 1F, 1F, 0.5F)
+                    .addBox(-4.9F, -8.9F, -0.5F, 0.5F, 1F, 1F).addBox(4.4F, -8.9F, -0.5F, 0.5F, 1F, 1F));
+            jewel = part(net.minecraft.client.model.geom.builders.CubeListBuilder.create().addBox(-0.6F, -11.4F, -4.95F, 1.2F, 1.2F, 0.5F));
+        }
+        private static net.minecraft.client.model.geom.ModelPart part(net.minecraft.client.model.geom.builders.CubeListBuilder cubes) {
+            var mesh = new net.minecraft.client.model.geom.builders.MeshDefinition();
+            mesh.getRoot().addOrReplaceChild("p", cubes, net.minecraft.client.model.geom.PartPose.ZERO);
+            return net.minecraft.client.model.geom.builders.LayerDefinition.create(mesh, 16, 16).bakeRoot();
+        }
+        @Override public void render(PoseStack pose, MultiBufferSource buffers, int light, Villager npc,
+                float walk, float speed, float partial, float age, float yaw, float pitch) {
+            var data = getParentModel().presentation;
+            if (data == null || data.profession() != ProfessionType.MAYOR || npc.isInvisible()) return;
+            pose.pushPose();
+            getParentModel().getHead().translateAndRotate(pose);
+            int overlay = net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY;
+            band.render(pose, buffers.getBuffer(net.minecraft.client.renderer.RenderType.entityCutoutNoCull(GOLD)), light, overlay);
+            gems.render(pose, buffers.getBuffer(net.minecraft.client.renderer.RenderType.entityCutoutNoCull(GEM)), light, overlay);
+            jewel.render(pose, buffers.getBuffer(net.minecraft.client.renderer.RenderType.entityCutoutNoCull(JEWEL)), 0xF000F0, overlay);
+            pose.popPose();
+        }
     }
 
     private static final class Tools extends ItemInHandLayer<Villager, CitizenHumanoidModel> {

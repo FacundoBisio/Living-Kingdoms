@@ -43,7 +43,8 @@ public final class BuilderWork {
     public static void control(Villager v) {
         if(!(v.level() instanceof ServerLevel level) || !level.getServer().isSameThread()) throw new IllegalStateException("Builder control requires server thread");
         var p=profile(v).orElse(null);
-        if(p==null || inDanger(v) || !homeReady(v) || ConstructionService.projectForBuilder(level.getServer(),p.citizenId()).isEmpty() && !RepairWork.hasOrders(level,p.settlementId())) { release(v); return; }
+        if(p==null || inDanger(v) || !homeReady(v) || ConstructionService.projectForBuilder(level.getServer(),p.citizenId()).isEmpty()
+                && ConstructionService.assistProject(level.getServer(),p.citizenId()).isEmpty() && !RepairWork.hasOrders(level,p.settlementId())) { release(v); return; }
         if(!CONTROLLED.containsKey(v)) {
             v.getBrain().stopAll(level,v); v.getBrain().removeAllBehaviors(); v.getNavigation().stop();
             var goal=new ConstructionGoal(v); CONTROLLED.put(v,goal); v.goalSelector.addGoal(1,goal);
@@ -113,6 +114,9 @@ public final class BuilderWork {
         var entry=ConstructionService.projectForBuilder(level.getServer(),p.citizenId());
         if(entry.isEmpty()) { autoSupply(level.getServer(),p.settlementId()); ConstructionService.assignReady(level.getServer(),p.settlementId()); entry=ConstructionService.projectForBuilder(level.getServer(),p.citizenId()); }
         if(v.isSleeping()) v.stopSleeping();
+        if(entry.isEmpty() && ConstructionService.assistProject(level.getServer(),p.citizenId()).isPresent()) {
+            control(v); var goal=CONTROLLED.get(v); return goal!=null && goal.work();
+        }
         if(entry.isEmpty()) {
             if(RepairWork.hasOrders(level,p.settlementId())) {control(v);return RepairWork.tick(v,p);}
             release(v);
@@ -168,6 +172,7 @@ public final class BuilderWork {
             return Math.floorMod(v.level().getDayTime(),24000)<12000 && !inDanger(v) && homeReady(v)
                     && profile(v).filter(p -> dev.livingkingdoms.defense.DefenseService.status(((ServerLevel)v.level()).getServer(),p.settlementId())!=dev.livingkingdoms.defense.domain.SettlementSafety.THREATENED
                     && (ConstructionService.projectForBuilder(((ServerLevel)v.level()).getServer(),p.citizenId()).isPresent()
+                    || ConstructionService.assistProject(((ServerLevel)v.level()).getServer(),p.citizenId()).isPresent()
                     || RepairWork.hasOrders((ServerLevel)v.level(),p.settlementId()))).isPresent();
         }
         @Override public boolean canContinueToUse() { return canUse(); }
@@ -180,7 +185,10 @@ public final class BuilderWork {
             var data=ProfessionSavedData.get(level.getServer()); long now=ImmigrationService.now(level.getServer());
             if(now<p.nextWorkAt()) return false;
             long next=now+BuilderConfig.WORK_INTERVAL.get();
-            var entry=ConstructionService.projectForBuilder(level.getServer(),p.citizenId()).orElse(null); if(entry==null) return RepairWork.tick(v,p);
+            var entry=ConstructionService.projectForBuilder(level.getServer(),p.citizenId()).orElse(null);
+            boolean helper=false;
+            if(entry==null) { entry=ConstructionService.assistProject(level.getServer(),p.citizenId()).orElse(null); helper=entry!=null; }
+            if(entry==null) return RepairWork.tick(v,p);
             var s=SettlementSavedData.get(level.getServer()).get(p.settlementId()).orElse(null);
             var workplace=data.building(p.workplaceId()).orElse(null);
             if(s==null || !s.faction().isAllied() || workplace==null || !workplace.active() || !workplace.supports(ProfessionType.BUILDER)) {
@@ -197,7 +205,8 @@ public final class BuilderWork {
             }
             // Finishing places the authoritative blueprint and its paths. Leave the entire
             // placement area before retrying, even if work was credited from a nearby point.
-            double range=entry.project().workTicks()>=entry.project().durationTicks()?.75:BuilderConfig.WORK_RANGE.get();
+            // The site is evacuated before placement, so finishing no longer needs an exact standing spot.
+            double range=BuilderConfig.WORK_RANGE.get();
             if(v.distanceToSqr(at.getX()+.5,at.getY(),at.getZ()+.5)>range*range) {
                 boolean stalled=at.equals(previousTarget) && previousPosition!=null && previousPosition.distanceToSqr(v.position())<.25;
                 previousTarget=at; previousPosition=v.position(); v.getNavigation().setCanFloat(true);
@@ -209,7 +218,7 @@ public final class BuilderWork {
             previousPosition=null; previousTarget=null; v.getNavigation().stop();
             v.getLookControl().setLookAt(at.getX()+.5,at.getY()+1,at.getZ()+.5);
             if(!data.replace(p,p.work(WorkState.WORKING,next,0,0))) return false;
-            boolean worked=ConstructionService.contribute(v);
+            boolean worked=helper?ConstructionService.assist(v,entry):ConstructionService.contribute(v);
             if(worked) v.swing(InteractionHand.MAIN_HAND);
             return worked;
         }

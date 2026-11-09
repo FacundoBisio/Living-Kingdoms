@@ -177,6 +177,15 @@ public final class ConstructionSavedData extends SavedData {
         scheduleCheck(id,Math.max(e.project.deadline(),now+100)); blockedSites.add(id);
     }
     public boolean waitingForClearSite(UUID id) { return blockedSites.contains(id); }
+    /** Timed (Builder-less) projects currently building, for gradual visual placement. Bounded. */
+    public List<UUID> timedBuilding(int limit) {
+        var result=new java.util.ArrayList<UUID>();
+        for(var e:entries.values()) {
+            if(result.size()>=limit) break;
+            if(e.project.state()==ConstructionState.BUILDING && !e.project.builderRequired() && !e.project.awaitingChunks()) result.add(e.project.id());
+        }
+        return result;
+    }
     public List<UUID> ready(long now,int limit) {
         List<UUID> result=new ArrayList<>();
         while(!awakened.isEmpty() && result.size()<limit) { var it=awakened.iterator(); UUID id=it.next(); it.remove(); result.add(id); }

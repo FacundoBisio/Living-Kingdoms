@@ -6,7 +6,7 @@ import java.util.Set;
 
 /** Vanilla advancement progress is the persistent one-time receipt, with no custom reward replay. */
 public final class ChronicleAdvancements {
-    private static final Set<String> KEYS = Set.of("converted_village", "first_warehouse", "all_professions", "first_upgrade", "first_trade", "development3", "first_challenge", "first_refinement");
+    private static final Set<String> KEYS = Set.of("converted_village", "first_warehouse", "all_professions", "first_upgrade", "first_trade", "development3", "first_challenge", "first_refinement", "armed_guard");
     private ChronicleAdvancements() {}
     public static boolean grant(ServerPlayer player, String key) {
         if (!player.server.isSameThread()) throw new IllegalStateException("Advancements require server authority");

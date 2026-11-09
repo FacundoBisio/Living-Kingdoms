@@ -701,6 +701,11 @@ public final class VillageScreen extends KingdomScreen {
             else if(p.getBoolean("waiting_site")) y=paragraph(g,Component.translatable("construction.livingkingdoms.waiting_site"),x,y,w,MUTED);
             else if(p.getString("state").equals("BUILDING") && !p.getBoolean("builder_required")) y=paragraph(g,tr("construction_remaining",Math.max(0,p.getLong("remaining")-constructionTicks/20)),x,y,w,MUTED);
             else if(p.getString("state").equals("FAILED")) y=paragraph(g,Component.translatable("construction.livingkingdoms.blocked"),x,y,w,ERROR);
+            if(p.contains("reason")) {
+                var args=p.getList("reason_args",8);
+                y=paragraph(g,Component.translatable(p.getString("reason"),args.size()>0?args.getString(0):"",args.size()>1?args.getString(1):""),x,y,w,ERROR);
+            }
+            if(p.getInt("helpers")>0) y=paragraph(g,Component.translatable("construction.livingkingdoms.helpers",p.getInt("helpers")),x,y,w,SUCCESS);
             y=paragraph(g,Component.translatable("construction.livingkingdoms.plot",p.getInt("x"),p.getInt("y"),p.getInt("z")),x,y,w,MUTED);
             var costs=p.getList("requirements",10);
             y=sectionHeader(g,tr("construction_materials"),x,y,w);

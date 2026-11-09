@@ -116,6 +116,27 @@ Long loop (hours): refine a weapon to +5, win the Warlord trial, develop the Tow
   per source (weekly ≥ rare, Siege ≥ rare, Warlord ≥ epic).
 - Sources: daily bonus, weekly, rank-ups, trial wins, and a 12% chance on any regional request claim.
 
+### 4.11 Living construction (0.23, from the first playtest)
+- Every project — Builder or timed (first House, Town Hall) — rises visibly: the four stages plus gradual
+  block-by-block placement in between (bottom-up, up to 6 blocks per second, with place sounds and particles).
+- Natural noise on a site (air, grass, snow, small plants) is overwritten. Real obstacles are reported with block
+  and position, highlighted with red particles and removed by Builders (1 per second, 3 with a pickaxe) or by the
+  timed crew; containers and unbreakable blocks are never removed and ask the player instead.
+- Items, animals and residents are moved out of the footprint before each stage; players and monsters are named
+  in the construction screen; a Builder holding a sword strikes a monster in the way. Finishing works from the
+  normal work range (no exact standing spot).
+- Up to two extra Builders help the active project, each adding its own work; Town Hall slots default to 4.
+- Sneak-use a sword/axe/pickaxe on a Guard or Builder to hand it over. Arming your first Guard with a sword is a
+  one-time kingdom task (advancement + whetstone + XP).
+- Establishing a founding camp assigns one resident to the Town Hall's single guard post.
+
+### 4.12 Presentation and loot (0.23)
+- Mayor: gold crown with gems on the humanoid model; face/outfit texture pending Argon 4 (prompt in
+  `argon4-prompts-v021.md`). Citizen names render like vanilla (faint see-through + normal pass).
+- Trials: wave members march in from one side a few at a time (raid style); the boss bar counts pending + alive.
+- Royal Whetstones also refine armor: +0.5 armor and +0.25 toughness per level.
+- Chests add 1–4 surprise rolls from a wide weighted pool; epic/legendary chests can hold refined armor.
+
 ## 5. Roadmap (next steps, in priority order)
 
 Done in 0.22: kingdom rank with HUD bar, daily/weekly contracts with streak, rarity loot chests.

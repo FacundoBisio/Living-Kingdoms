@@ -156,7 +156,10 @@ public final class ProfessionSavedData extends SavedData {
         if(now<0 || citizen.state()!=CitizenState.ACTIVE || citizen.homeId()==null || citizen.role()==CitizenRole.MAYOR
                 || (type==ProfessionType.GUARD || type==ProfessionType.BUILDER || type.economic()) && old.type()!=ProfessionType.UNASSIGNED || old.type()==ProfessionType.MAYOR || old.active() && old.type()!=ProfessionType.UNASSIGNED
                 || b==null || !b.active() || !b.supports(type) || !b.settlementId().equals(citizen.settlementId())
-                || workers(workplace)>=b.workplaceSlots()) return false;
+                || workers(workplace)>=b.workplaceSlots()
+                // The Town Hall guard post holds a single Guard; Barracks provide real guard capacity.
+                || type==ProfessionType.GUARD && (b.kind()==dev.livingkingdoms.structure.BuildingKind.CORE || b.kind()==dev.livingkingdoms.structure.BuildingKind.TOWN_HALL)
+                    && professions(citizen.settlementId()).stream().anyMatch(p -> p.active() && p.type()==ProfessionType.GUARD && workplace.equals(p.workplaceId()))) return false;
         var progress=careers.getOrDefault(citizen.id(),Map.of()).getOrDefault(type,
                 new Career(1,0));
         put(new Profession(citizen.id(),citizen.settlementId(),type,new LevelValue(progress.level()),progress.xp(),workplace,true,

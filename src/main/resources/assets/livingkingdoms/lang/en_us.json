@@ -751,8 +751,8 @@
   "hud.livingkingdoms.renown": "%1$s · %2$s renown",
   "war.livingkingdoms.capitulated": "%1$s has capitulated! %2$s sues for peace and the kingdom is now independent.",
   "item.livingkingdoms.royal_whetstone": "Royal Whetstone",
-  "item.livingkingdoms.royal_whetstone.tooltip": "Hold a weapon in your other hand and use to refine it (+0.4 damage per level, max +5). Costs experience levels.",
-  "item.livingkingdoms.royal_whetstone.no_weapon": "Hold a sword, axe, trident or mace in your other hand.",
+  "item.livingkingdoms.royal_whetstone.tooltip": "Hold a weapon or armor piece in your other hand and use to refine it, max +5. Weapons: +0.4 damage per level. Armor: +0.5 armor and +0.25 toughness per level. Costs experience levels.",
+  "item.livingkingdoms.royal_whetstone.no_weapon": "Hold a sword, axe, trident, mace or armor piece in your other hand.",
   "item.livingkingdoms.royal_whetstone.maxed": "This weapon is already fully refined.",
   "item.livingkingdoms.royal_whetstone.levels": "You need %s experience levels to refine.",
   "item.livingkingdoms.royal_whetstone.refined": "%1$s refined to +%2$s/%3$s!",
@@ -867,5 +867,16 @@
   "contract.livingkingdoms.refused.outside": "Claim contracts inside your own kingdom.",
   "contract.livingkingdoms.refused.bonus": "Claim every daily contract first.",
   "contract.livingkingdoms.refused.missing": "That contract is no longer available.",
-  "contract.livingkingdoms.refused.pending": "That contract is not finished yet."
+  "contract.livingkingdoms.refused.pending": "That contract is not finished yet.",
+  "construction.livingkingdoms.reason.obstacle": "Blocked by %1$s at %2$s (marked in red). Builders are clearing it — or break it yourself.",
+  "construction.livingkingdoms.reason.protected": "%1$s at %2$s cannot be removed automatically (container or protected block). Move it to continue.",
+  "construction.livingkingdoms.reason.player": "%1$s is standing inside the building at %2$s. Step out so it can continue.",
+  "construction.livingkingdoms.reason.monster": "A %1$s is in the way at %2$s. Defeat it (a Builder with a sword will fight it).",
+  "construction.livingkingdoms.reason.occupied": "Something is inside the building area near %2$s; waiting for it to move.",
+  "construction.livingkingdoms.reason.failed": "Placement failed near %2$s: %1$s. Use Retry.",
+  "construction.livingkingdoms.helpers": "%s helper Builder(s) speeding up this project",
+  "citizen.livingkingdoms.equip.done": "%1$s now carries %2$s.",
+  "citizen.livingkingdoms.equip.only_workers": "Only Guards and Builders take tools or weapons.",
+  "advancement.livingkingdoms.armed_guard.title": "Armed and Ready",
+  "advancement.livingkingdoms.armed_guard.description": "Sneak and use a sword on one of your Guards to arm them."
 }

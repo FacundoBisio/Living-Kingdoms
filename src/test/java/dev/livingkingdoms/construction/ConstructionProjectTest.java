@@ -60,4 +60,19 @@ class ConstructionProjectTest {
         assertThrows(IllegalArgumentException.class,()->ConstructionProject.planned(p.settlementId(),BuildingKind.CORE,p.plot(),p.required(),100,1000));
         assertThrows(UnsupportedOperationException.class,()->p.required().put(ResourceKind.LOGS,1));
     }
+    @Test void helpersAddWorkWithoutStealingTheLeadsReceipt() {
+        var lead=planned().requiringBuilder().waitForResources();
+        lead=lead.supply(lead.required()).start(1000,UUID.randomUUID());
+        var worked=lead.addWork(1020,20);
+        var helped=worked.assistWork(20);
+        assertEquals(40,helped.workTicks()); assertEquals(worked.lastWorkAt(),helped.lastWorkAt(),"Helper keeps the lead's interval receipt");
+        assertEquals(60,helped.addWork(1040,20).workTicks(),"Lead still works the next interval");
+        assertEquals(helped.durationTicks(),helped.assistWork(10_000).workTicks(),"Assistance caps at the duration");
+        assertThrows(IllegalStateException.class,()->building().assistWork(5),"Timed projects have no helpers");
+    }
+    @Test void timedProjectsMayRevealVisualStages() {
+        var p=building();
+        assertEquals(2,p.stagePlaced(2).visualStage());
+        assertThrows(IllegalStateException.class,()->p.stagePlaced(2).stagePlaced(1));
+    }
 }

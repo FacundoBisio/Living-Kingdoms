@@ -107,12 +107,24 @@ public record ConstructionProject(UUID id, UUID settlementId, BuildingKind build
         long updated = workTicks + Math.min(units, durationTicks - workTicks);
         return receipt(state, supplied, startedAt, -1, false, true, builderId, updated, now, visualStage, awardedStages);
     }
+    /**
+     * Extra Builders help the lead without touching its per-interval receipt ({@code lastWorkAt}), so the
+     * lead keeps working normally and every helper adds speed. Callers rate-limit each helper.
+     */
+    public ConstructionProject assistWork(long units) {
+        if (!builderRequired || state != ConstructionState.BUILDING || builderId == null || units < 1)
+            throw new IllegalStateException("Project cannot receive assistance");
+        long updated = workTicks + Math.min(units, durationTicks - workTicks);
+        if (updated == workTicks) return this;
+        return receipt(state, supplied, startedAt, -1, false, true, builderId, updated, lastWorkAt, visualStage, awardedStages);
+    }
     public long remainingWork() { return state == ConstructionState.COMPLETED ? 0 : durationTicks - workTicks; }
     /** Visual stage records successful placement, not merely the target implied by work. */
     public ConstructionProject stagePlaced(int stage) {
-        if (!builderRequired || state != ConstructionState.BUILDING || stage < visualStage || stage < 0 || stage > targetStage())
+        // Timed (Builder-less) projects also reveal stages; their caller derives the stage from elapsed time.
+        if (state != ConstructionState.BUILDING || stage < visualStage || stage < 0 || stage > 4 || builderRequired && stage > targetStage())
             throw new IllegalStateException("Construction stage cannot be placed");
-        return receipt(state, supplied, startedAt, -1, awaitingChunks, true, builderId, workTicks, lastWorkAt, stage, awardedStages);
+        return receipt(state, supplied, startedAt, -1, awaitingChunks, builderRequired, builderId, workTicks, lastWorkAt, stage, awardedStages);
     }
     public int targetStage() {
         if (state == ConstructionState.COMPLETED) return 4;

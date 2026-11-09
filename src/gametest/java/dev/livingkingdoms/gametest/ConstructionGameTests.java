@@ -148,8 +148,10 @@ public final class ConstructionGameTests {
         supply(f.player(),entry.project().required(),0); ConstructionService.deposit(f.player(),f.settlement().id(),entry.project().id());
         var obstacle=entry.plan().buildings().getFirst().origin().offset(2,1,2); h.getLevel().setBlock(obstacle,Blocks.CHEST.defaultBlockState(),18);
         h.assertTrue(!ConstructionService.resolve(server,entry.project().id(),f.player(),true) && h.getLevel().getBlockState(obstacle).is(Blocks.CHEST),"Changed/player-owned blocks cannot be overwritten");
-        var failed=storage.get(entry.project().id()).orElseThrow().project(); h.assertTrue(failed.state()==ConstructionState.FAILED && failed.funded() && storage.reservations(f.settlement().id()).size()==1,"Failure retains supplied materials and reserved plot");
-        h.getLevel().setBlock(obstacle,entry.plan().before().get(obstacle),18); h.assertTrue(ConstructionService.retry(f.player(),f.settlement().id(),failed.id()),"Survival retry uses existing receipt");
+        // 0.23: an obstacle is reported (position + reason) instead of failing the project.
+        var failed=storage.get(entry.project().id()).orElseThrow().project(); h.assertTrue(failed.state()!=ConstructionState.FAILED && failed.funded() && storage.reservations(f.settlement().id()).size()==1,"Obstruction retains supplied materials and reserved plot without failing");
+        h.assertTrue(ConstructionService.reason(failed.id()).isPresent() && ConstructionService.obstacles(failed.id()).contains(obstacle),"The obstacle is reported with its position");
+        h.getLevel().setBlock(obstacle,entry.plan().before().get(obstacle),18);
         h.assertTrue(ConstructionService.resolve(server,failed.id(),f.player(),true) && storage.get(failed.id()).orElseThrow().project().plot().equals(entry.project().plot()),"Retry completes the original blueprint without another delivery or new location"); h.succeed();
     }
     @GameTest(template="empty",timeoutTicks=600)
@@ -184,12 +186,18 @@ public final class ConstructionGameTests {
         var f=found(h,148192); var level=h.getLevel(); var server=level.getServer(); var storage=ConstructionSavedData.get(server);
         var entry=ConstructionService.current(server,f.settlement().id()).orElseThrow();
         supply(f.player(),entry.project().required(),0); ConstructionService.deposit(f.player(),f.settlement().id(),entry.project().id());
+        // 0.23: passive entities are moved out of the site; a monster still delays placement until defeated.
+        var at=entry.plan().buildings().getFirst().origin().offset(3,1,3);
         var visitor=net.minecraft.world.entity.EntityType.VILLAGER.create(level); visitor.setNoAi(true);
-        var at=entry.plan().buildings().getFirst().origin().offset(3,1,3); visitor.moveTo(at.getX()+0.5,at.getY(),at.getZ()+0.5,0,0); level.addFreshEntity(visitor);
+        visitor.moveTo(at.getX()+0.5,at.getY(),at.getZ()+0.5,0,0); level.addFreshEntity(visitor);
+        var monster=net.minecraft.world.entity.EntityType.ZOMBIE.create(level); monster.setNoAi(true);
+        monster.moveTo(at.getX()+1.5,at.getY(),at.getZ()+0.5,0,0); level.addFreshEntity(monster);
         h.assertTrue(!ConstructionService.resolve(server,entry.project().id(),f.player(),true)
                 && storage.get(entry.project().id()).orElseThrow().project().state()==ConstructionState.BUILDING
-                && storage.waitingForClearSite(entry.project().id()),"An entity delays placement and schedules a bounded retry without a failed project");
-        visitor.discard();
+                && storage.waitingForClearSite(entry.project().id()),"A monster delays placement and schedules a bounded retry without a failed project");
+        h.assertTrue(!entry.plan().buildings().getFirst().volume().isInside(visitor.blockPosition()),"Passive entities are moved out of the footprint");
+        h.assertTrue(ConstructionService.reason(entry.project().id()).isPresent(),"The blocking monster is reported");
+        monster.discard();
         h.assertTrue(ConstructionService.resolve(server,entry.project().id(),f.player(),true)
                 && storage.get(entry.project().id()).orElseThrow().project().plot().equals(entry.project().plot()),"Cleared site completes the same funded blueprint"); h.succeed();
     }

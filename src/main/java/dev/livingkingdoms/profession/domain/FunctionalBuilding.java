@@ -24,7 +24,8 @@ public record FunctionalBuilding(UUID id,UUID settlementId,String dimension,Buil
     public Set<BuildingCapability> capabilities() {
         return switch(kind) {
             case HOUSE,HOUSE_VARIANT,HOUSE_THIRD -> Set.of(BuildingCapability.HOUSING);
-            case CORE,TOWN_HALL -> Set.of(BuildingCapability.ADMINISTRATION,BuildingCapability.BUILDER_WORKPLACE);
+            // The Town Hall also hosts a small guard post so every kingdom can field its first Guard.
+            case CORE,TOWN_HALL -> Set.of(BuildingCapability.ADMINISTRATION,BuildingCapability.BUILDER_WORKPLACE,BuildingCapability.GUARD_WORKPLACE);
             case FARM -> Set.of(BuildingCapability.FARMER_WORKPLACE,BuildingCapability.FOOD_PRODUCTION);
             case BARRACKS -> Set.of(BuildingCapability.GUARD_WORKPLACE,BuildingCapability.DEFENSE_SUPPORT);
             case WATCHTOWER -> Set.of(BuildingCapability.DEFENSE_SUPPORT);

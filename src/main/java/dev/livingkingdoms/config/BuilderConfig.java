@@ -9,8 +9,8 @@ public final class BuilderConfig {
     private BuilderConfig() {}
     static void define(ModConfigSpec.Builder b) {
         b.push("builders");
-        SLOTS=b.comment("Slots per Town Hall/Core; a converted village's existing plaza provides the same administrative slots.")
-                .defineInRange("townHallSlots",2,1,128);
+        SLOTS=b.comment("Slots per Town Hall/Core, shared by Builders and its guard post; a converted village's existing plaza provides the same administrative slots.")
+                .defineInRange("townHallSlots",4,1,128);
         LEVEL_CAP=b.defineInRange("levelCap",5,1,20);
         XP_STEP=b.defineInRange("xpStep",40,1,100000);
         XP_PER_STAGE=b.defineInRange("xpPerConstructionStage",5,1,1000);

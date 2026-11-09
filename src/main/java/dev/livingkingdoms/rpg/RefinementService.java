@@ -26,13 +26,16 @@ import java.util.ArrayList;
 public final class RefinementService {
     public static final String LEVEL_KEY = "livingkingdoms:refinement";
     public static final ResourceLocation MODIFIER_ID = ResourceLocation.fromNamespaceAndPath(LivingKingdoms.MOD_ID, "refinement");
+    public static final ResourceLocation TOUGHNESS_ID = ResourceLocation.fromNamespaceAndPath(LivingKingdoms.MOD_ID, "refinement_toughness");
     private static final String LORE_KEY = "item.livingkingdoms.refinement.lore";
     private RefinementService() {}
 
     public static boolean refinable(ItemStack stack) {
         return !stack.isEmpty() && stack.getCount() == 1 && (stack.is(ItemTags.SWORDS) || stack.is(ItemTags.AXES)
-                || stack.is(Items.TRIDENT) || stack.is(Items.MACE));
+                || stack.is(Items.TRIDENT) || stack.is(Items.MACE) || armor(stack));
     }
+
+    public static boolean armor(ItemStack stack) { return stack.getItem() instanceof net.minecraft.world.item.ArmorItem; }
 
     public static int level(ItemStack stack) {
         var data = stack.get(DataComponents.CUSTOM_DATA);
@@ -44,10 +47,17 @@ public final class RefinementService {
         if (!refinable(stack)) throw new IllegalArgumentException("Item cannot be refined");
         int value = RefinementRules.clamp(level);
         CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> tag.putInt(LEVEL_KEY, value));
+        // Armor keeps its stats in the item's defaults, not in the component: start from the effective modifiers.
         var base = stack.getOrDefault(DataComponents.ATTRIBUTE_MODIFIERS, ItemAttributeModifiers.EMPTY);
+        if (base.modifiers().isEmpty()) base = stack.getItem().getDefaultAttributeModifiers(stack);
         var builder = ItemAttributeModifiers.builder();
-        for (var entry : base.modifiers()) if (!entry.modifier().id().equals(MODIFIER_ID)) builder.add(entry.attribute(), entry.modifier(), entry.slot());
-        if (value > 0) builder.add(Attributes.ATTACK_DAMAGE, new AttributeModifier(MODIFIER_ID, RefinementRules.damageBonus(value),
+        for (var entry : base.modifiers()) if (!entry.modifier().id().equals(MODIFIER_ID) && !entry.modifier().id().equals(TOUGHNESS_ID))
+            builder.add(entry.attribute(), entry.modifier(), entry.slot());
+        if (value > 0 && stack.getItem() instanceof net.minecraft.world.item.ArmorItem armor) {
+            var slot = EquipmentSlotGroup.bySlot(armor.getEquipmentSlot());
+            builder.add(Attributes.ARMOR, new AttributeModifier(MODIFIER_ID, RefinementRules.armorBonus(value), AttributeModifier.Operation.ADD_VALUE), slot);
+            builder.add(Attributes.ARMOR_TOUGHNESS, new AttributeModifier(TOUGHNESS_ID, RefinementRules.toughnessBonus(value), AttributeModifier.Operation.ADD_VALUE), slot);
+        } else if (value > 0) builder.add(Attributes.ATTACK_DAMAGE, new AttributeModifier(MODIFIER_ID, RefinementRules.damageBonus(value),
                 AttributeModifier.Operation.ADD_VALUE), EquipmentSlotGroup.MAINHAND);
         stack.set(DataComponents.ATTRIBUTE_MODIFIERS, builder.build().withTooltip(base.showInTooltip()));
         var lines = new ArrayList<Component>();

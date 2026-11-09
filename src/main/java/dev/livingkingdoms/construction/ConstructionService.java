@@ -30,6 +30,13 @@ public final class ConstructionService {
     private static final Map<UUID,Long> SITE_RETRY=new LinkedHashMap<>();
     private static final Map<UUID,LoadedPlan> CHUNKS=new LinkedHashMap<>();
     private static final Map<UUID,WorkPoint> WORK_POINTS=new LinkedHashMap<>();
+    /** Transient, bounded diagnostics: foreign blocks to clear and the last visible blocking reason per project. */
+    private static final Map<UUID,List<BlockPos>> OBSTACLES=new LinkedHashMap<>();
+    private static final Map<UUID,Reason> REASONS=new LinkedHashMap<>();
+    /** Helper Builders per project: citizen -> last game time they helped. */
+    private static final Map<UUID,Map<UUID,Long>> ASSISTANTS=new LinkedHashMap<>();
+    public static final int MAX_ASSISTANTS=2;
+    public record Reason(String key,List<String> args) {}
     private record LoadedPlan(SettlementLayout plan,Set<Long> chunks) {}
     private record WorkPoint(SettlementLayout plan,BlockPos feet) {}
     private ConstructionService() {}
@@ -226,6 +233,7 @@ public final class ConstructionService {
         if(level==null || !chunksLoaded(level,entry)) {
             if(!entry.project().builderRequired() && entry.project().due(now) && !entry.project().awaitingChunks()) storage.replace(entry.project(),entry.project().defer(now)); return false;
         }
+        evacuate(level,entry,null);
         var oldLayout=settlements.layout(settlement.id()).orElseThrow(); var b=entry.plan().buildings().getFirst();
         var description=new SettlementLayoutMetadata.Building(b.module().kind(),b.module().id(),b.origin(),b.rotation(),b.bounds(),b.entrance());
         // A clean exact metadata receipt can be ahead of project data after an interrupted Minecraft save.
@@ -251,13 +259,16 @@ public final class ConstructionService {
             if(entry.project().state()==ConstructionState.BUILDING) storage.replace(entry.project(),entry.project().fail());
             LogUtils.getLogger().warn("Construction {} blocked; blueprint and supplied resources retained: {}",projectId,failure.toString()); return false;
         }
-        SITE_RETRY.remove(projectId);
+        SITE_RETRY.remove(projectId); REASONS.remove(projectId); OBSTACLES.remove(projectId); ASSISTANTS.remove(projectId);
         if(!debug) dev.livingkingdoms.chronicle.ChronicleService.buildingCompleted(server,settlement.id(),projectId,entry.project().building());
         if(!debug) dev.livingkingdoms.rpg.KingdomProgressService.awardKingdom(server,settlement.id(),dev.livingkingdoms.rpg.domain.KingdomRank.CONSTRUCTION_XP,actor);
         try { ensureNext(level,settlement.id(),actor); }
         catch(RuntimeException failure) { LogUtils.getLogger().warn("Next construction plot unavailable for {}; inspect construction to retry",settlement.id(),failure); }
         dev.livingkingdoms.citizen.CitizenService.ensureInitialized(level,settlements.get(settlement.id()).orElseThrow());
         dev.livingkingdoms.profession.ProfessionService.ensure(level,settlements.get(settlement.id()).orElseThrow());
+        // The moment a founding camp becomes a real settlement, one resident takes up the Town Hall guard post.
+        if(settlement.lifecycle()==SettlementLifecycle.FOUNDING && settlements.get(settlement.id()).orElseThrow().lifecycle()==SettlementLifecycle.ESTABLISHED)
+            dev.livingkingdoms.profession.ProfessionService.ensureStartingGuard(level,settlements.get(settlement.id()).orElseThrow());
         dev.livingkingdoms.quest.persistence.QuestSavedData.get(server).resolveDevelopment(settlement.id(),now);
         for(ServerPlayer player:level.players()) if(canContribute(player,settlement)) {
             if(!debug && entry.project().building()==BuildingKind.WAREHOUSE) dev.livingkingdoms.chronicle.ChronicleAdvancements.grant(player,"first_warehouse");
@@ -319,7 +330,9 @@ public final class ConstructionService {
         if(!(builder.level() instanceof ServerLevel level) || !level.getServer().isSameThread()) return false;
         var job=BuilderWork.profile(builder).orElse(null); if(job==null) return false;
         var server=level.getServer(); var entry=projectForBuilder(server,job.citizenId()).orElse(null);
-        if(entry==null || !workerEligible(server,entry) || SITE_RETRY.getOrDefault(entry.project().id(),0L)>now(server)) return false;
+        if(entry==null || !workerEligible(server,entry)) return false;
+        if(clearObstacles(level,entry,builder)) { builder.swing(net.minecraft.world.InteractionHand.MAIN_HAND); return true; }
+        if(SITE_RETRY.getOrDefault(entry.project().id(),0L)>now(server)) { evacuate(level,entry,builder); return false; }
         var p=entry.project(); long now=now(server); int interval=BuilderConfig.WORK_INTERVAL.get();
         if(now-p.lastWorkAt()<interval) return false;
         // One interval maximum: traveling, unloading, sleeping and server downtime never bank work.
@@ -328,11 +341,183 @@ public final class ConstructionService {
         int target=next.targetStage();
         if(target>=4) {
             if(!ConstructionSavedData.get(server).replace(p,next)) return false;
+            evacuate(level,entry,builder);
             return resolve(server,p.id(),null);
         }
-        if(target>p.visualStage()) return placeStage(server,entry,next,target,null,true);
-        return ConstructionSavedData.get(server).replace(p,next);
+        if(target>p.visualStage()) { evacuate(level,entry,builder); return placeStage(server,entry,next,target,null,true); }
+        if(!ConstructionSavedData.get(server).replace(p,next)) return false;
+        gradual(level,storageEntry(server,p.id()),(double)next.workTicks()/next.durationTicks(),Set.of(builder.getUUID()));
+        return true;
     }
+    private static ConstructionSavedData.Entry storageEntry(MinecraftServer server,UUID id) { return ConstructionSavedData.get(server).get(id).orElseThrow(); }
+
+    /**
+     * Extra Builders (up to {@link #MAX_ASSISTANTS}) help the settlement's active project: each adds its own
+     * work units, so two or three Builders finish proportionally faster. The lead keeps the receipt.
+     */
+    public static Optional<ConstructionSavedData.Entry> assistProject(MinecraftServer server,UUID citizen) {
+        var job=ProfessionSavedData.get(server).profession(citizen).orElse(null);
+        if(job==null || !job.active() || job.type()!=ProfessionType.BUILDER || projectForBuilder(server,citizen).isPresent()) return Optional.empty();
+        long now=now(server);
+        for(var entry:ConstructionSavedData.get(server).projects(job.settlementId())) {
+            var p=entry.project();
+            if(p.state()!=ConstructionState.BUILDING || !p.builderRequired() || p.builderId()==null || p.builderId().equals(citizen)) continue;
+            var helpers=ASSISTANTS.computeIfAbsent(p.id(),ignored -> new LinkedHashMap<>());
+            helpers.values().removeIf(at -> now-at>200);
+            if(helpers.containsKey(citizen) || helpers.size()<MAX_ASSISTANTS) {
+                helpers.put(citizen,now);
+                if(ASSISTANTS.size()>256) ASSISTANTS.remove(ASSISTANTS.keySet().iterator().next());
+                return Optional.of(entry);
+            }
+        }
+        return Optional.empty();
+    }
+    public static int assistants(UUID project) { return ASSISTANTS.getOrDefault(project,Map.of()).size(); }
+    public static boolean assist(Villager helper,ConstructionSavedData.Entry entry) {
+        if(!(helper.level() instanceof ServerLevel level) || !level.getServer().isSameThread()) return false;
+        var job=BuilderWork.profile(helper).orElse(null); if(job==null) return false;
+        var server=level.getServer(); var current=ConstructionSavedData.get(server).get(entry.project().id()).orElse(null);
+        if(current==null || current.project().state()!=ConstructionState.BUILDING || !current.project().builderRequired()) return false;
+        var at=workPoint(current); int range=BuilderConfig.WORK_RANGE.get()+2;
+        if(helper.distanceToSqr(at.getX()+.5,at.getY(),at.getZ()+.5)>range*range || !chunksLoaded(level,current)) return false;
+        if(clearObstacles(level,current,helper)) return true;
+        var p=current.project();
+        long units=Math.max(1,Math.round(BuilderConfig.WORK_INTERVAL.get()*BuilderPolicy.speedMultiplier(job.level().value(),BuilderConfig.LEVEL_CAP.get(),BuilderConfig.MAX_SPEED_BONUS.get())));
+        // Helpers stop just short of completion; the lead's next interval finishes and places the building.
+        long capped=Math.min(units,Math.max(0,p.durationTicks()-1-p.workTicks()));
+        if(capped<1) return false;
+        var next=p.assistWork(capped);
+        if(next.equals(p) || !ConstructionSavedData.get(server).replace(p,next)) return false;
+        if(next.targetStage()<=p.visualStage())
+            gradual(level,storageEntry(server,p.id()),(double)next.workTicks()/next.durationTicks(),Set.of(helper.getUUID()));
+        return true;
+    }
+
+    /** Gradual block placement toward the next stage for both Builder and timed projects. */
+    static void gradual(ServerLevel level,ConstructionSavedData.Entry entry,double fraction,Set<UUID> workers) {
+        int visual=entry.project().visualStage();
+        if(visual<0 || visual>=4) return;
+        double sub=Math.max(0,Math.min(1,fraction*4-visual));
+        var placed=ConstructionStages.partial(level,entry,visual,sub,6,workers);
+        if(placed.isEmpty()) return;
+        var first=placed.getFirst(); var state=level.getBlockState(first);
+        level.playSound(null,first,state.getSoundType().getPlaceSound(),net.minecraft.sounds.SoundSource.BLOCKS,.8F,.9F+level.random.nextFloat()*.2F);
+        for(var pos:placed) level.sendParticles(new net.minecraft.core.particles.BlockParticleOption(net.minecraft.core.particles.ParticleTypes.BLOCK,level.getBlockState(pos)),
+                pos.getX()+.5,pos.getY()+.5,pos.getZ()+.5,4,.3,.3,.3,.05);
+    }
+
+    /** Timed (Builder-less) projects: reveal stages and gradual blocks from elapsed time. Called from the 20-tick construction tick. */
+    public static void advanceTimed(MinecraftServer server,UUID projectId) {
+        var entry=ConstructionSavedData.get(server).get(projectId).orElse(null);
+        if(entry==null || entry.project().builderRequired() || entry.project().state()!=ConstructionState.BUILDING) return;
+        var level=level(server,entry); if(level==null || !chunksLoaded(level,entry)) return;
+        if(clearObstacles(level,entry,null)) return;
+        long now=now(server); double fraction=entry.project().progress(now);
+        int target=(int)Math.min(3,Math.floor(fraction*4));
+        if(target>entry.project().visualStage()) { evacuate(level,entry,null); placeStage(server,entry,entry.project(),target,null,false); return; }
+        gradual(level,entry,fraction,Set.of());
+    }
+
+    /**
+     * Removes up to one foreign block per call (three with a pickaxe in the Builder's hand), never containers or
+     * other block entities. Remaining obstacles glow red with particles. Returns true when this call did work.
+     */
+    static boolean clearObstacles(ServerLevel level,ConstructionSavedData.Entry entry,Villager builder) {
+        var list=OBSTACLES.get(entry.project().id()); if(list==null || list.isEmpty()) return false;
+        int budget=builder!=null && builder.getMainHandItem().is(net.minecraft.tags.ItemTags.PICKAXES)?3:1; boolean worked=false;
+        var iterator=list.iterator();
+        while(iterator.hasNext() && budget>0) {
+            var pos=iterator.next();
+            if(!level.hasChunkAt(pos)) continue;
+            var state=level.getBlockState(pos);
+            if(ConstructionStages.tolerable(state)) { iterator.remove(); continue; }
+            if(level.getBlockEntity(pos)!=null || state.getDestroySpeed(level,pos)<0) {
+                reason(entry.project().id(),"protected",pos,state.getBlock().getName().getString()); continue;
+            }
+            // Drops land at the work point, outside the footprint, so they never block the next stage.
+            var at=safePoint(level,entry);
+            net.minecraft.world.level.block.Block.dropResources(state,level,at,null,builder,net.minecraft.world.item.ItemStack.EMPTY);
+            level.destroyBlock(pos,false,builder); iterator.remove(); budget--; worked=true;
+        }
+        if(list.isEmpty()) { OBSTACLES.remove(entry.project().id()); REASONS.remove(entry.project().id()); SITE_RETRY.remove(entry.project().id()); }
+        else highlight(level,list);
+        return worked;
+    }
+    private static void highlight(ServerLevel level,List<BlockPos> positions) {
+        var red=new net.minecraft.core.particles.DustParticleOptions(new org.joml.Vector3f(1F,.1F,.1F),1.6F);
+        for(var pos:positions.subList(0,Math.min(16,positions.size())))
+            level.sendParticles(red,pos.getX()+.5,pos.getY()+.5,pos.getZ()+.5,6,.35,.35,.35,0);
+    }
+
+    /**
+     * Moves items, orbs, animals and residents out of the building volume before a stage is placed, so a
+     * chicken or a dropped item can no longer stall construction. Players and hostile mobs are reported;
+     * a Builder holding a sword strikes a hostile mob in the way.
+     */
+    static void evacuate(ServerLevel level,ConstructionSavedData.Entry entry,Villager builder) {
+        var box=entry.plan().buildings().getFirst().volume(); var at=safePoint(level,entry);
+        // The placement checks every planned position, including paths around the footprint.
+        int minX=box.minX(),minY=box.minY(),minZ=box.minZ(),maxX=box.maxX(),maxY=box.maxY(),maxZ=box.maxZ();
+        for(var pos:entry.plan().before().keySet()) { minX=Math.min(minX,pos.getX());minY=Math.min(minY,pos.getY());minZ=Math.min(minZ,pos.getZ());
+            maxX=Math.max(maxX,pos.getX());maxY=Math.max(maxY,pos.getY());maxZ=Math.max(maxZ,pos.getZ()); }
+        var area=new net.minecraft.world.phys.AABB(minX,minY,minZ,maxX+1,maxY+1,maxZ+1);
+        var scope=entry.plan().before().keySet();
+        for(var entity:level.getEntities((net.minecraft.world.entity.Entity)null,area,e -> !e.isSpectator() && touches(e,scope))) {
+            if(entity instanceof ServerPlayer player) { reason(entry.project().id(),"player",player.blockPosition(),player.getGameProfile().getName()); continue; }
+            if(entity instanceof net.minecraft.world.entity.monster.Enemy && entity instanceof net.minecraft.world.entity.LivingEntity mob) {
+                reason(entry.project().id(),"monster",mob.blockPosition(),mob.getName().getString());
+                highlight(level,List.of(mob.blockPosition().above()));
+                if(builder!=null && builder.getMainHandItem().is(net.minecraft.tags.ItemTags.SWORDS) && builder.distanceToSqr(mob)<64) {
+                    builder.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+                    mob.hurt(level.damageSources().mobAttack(builder),6F);
+                }
+                continue;
+            }
+            if(entity==builder) continue;
+            // The Mayor is a fixed plaza anchor and is never relocated.
+            if(dev.livingkingdoms.npc.NpcIdentity.read(entity).filter(id -> id.role()==dev.livingkingdoms.npc.NpcRole.MAYOR).isPresent()) {
+                reason(entry.project().id(),"occupied",entity.blockPosition(),entity.getName().getString()); continue;
+            }
+            if(entity instanceof net.minecraft.world.entity.item.ItemEntity || entity instanceof net.minecraft.world.entity.ExperienceOrb
+                    || entity instanceof net.minecraft.world.entity.animal.Animal || entity instanceof Villager)
+                entity.teleportTo(at.getX()+.5,at.getY(),at.getZ()+.5);
+        }
+    }
+
+    private static boolean touches(net.minecraft.world.entity.Entity entity,Set<BlockPos> scope) {
+        var b=entity.getBoundingBox();
+        for(var pos:BlockPos.betweenClosed((int)Math.floor(b.minX),(int)Math.floor(b.minY),(int)Math.floor(b.minZ),(int)Math.floor(b.maxX),(int)Math.floor(b.maxY),(int)Math.floor(b.maxZ)))
+            if(scope.contains(pos)) return true;
+        return false;
+    }
+    private static final Map<UUID,BlockPos> SAFE_POINTS=new LinkedHashMap<>();
+    /**
+     * A standable spot just outside every planned position (footprint and paths), so evacuated entities and
+     * dropped obstacle items never land back inside the placement scope. Falls back to the work point.
+     */
+    static BlockPos safePoint(ServerLevel level,ConstructionSavedData.Entry entry) {
+        var cached=SAFE_POINTS.get(entry.project().id());
+        if(cached!=null && level.getBlockState(cached).isAir() && level.getBlockState(cached.below()).isSolid()) return cached;
+        var scope=entry.plan().before().keySet(); var center=workPoint(entry); BlockPos found=null;
+        search:
+        for(int radius=1;radius<=10;radius++) for(int dx=-radius;dx<=radius;dx++) for(int dz=-radius;dz<=radius;dz++) {
+            if(Math.max(Math.abs(dx),Math.abs(dz))!=radius) continue;
+            for(int dy=-2;dy<=2;dy++) {
+                var feet=center.offset(dx,dy,dz);
+                if(!level.hasChunkAt(feet) || scope.contains(feet) || scope.contains(feet.above()) || scope.contains(feet.below())) continue;
+                if(level.getBlockState(feet).isAir() && level.getBlockState(feet.above()).isAir() && level.getBlockState(feet.below()).isSolid()) { found=feet; break search; }
+            }
+        }
+        if(found==null) found=center;
+        if(SAFE_POINTS.size()>=128) SAFE_POINTS.remove(SAFE_POINTS.keySet().iterator().next());
+        SAFE_POINTS.put(entry.project().id(),found); return found;
+    }
+    private static void reason(UUID project,String key,BlockPos pos,String subject) {
+        if(!REASONS.containsKey(project) && REASONS.size()>=256) REASONS.remove(REASONS.keySet().iterator().next());
+        REASONS.put(project,new Reason("construction.livingkingdoms.reason."+key,List.of(subject,pos.getX()+" "+pos.getY()+" "+pos.getZ())));
+    }
+    public static Optional<Reason> reason(UUID project) { return Optional.ofNullable(REASONS.get(project)); }
+    public static List<BlockPos> obstacles(UUID project) { return List.copyOf(OBSTACLES.getOrDefault(project,List.of())); }
     private static boolean workerEligible(MinecraftServer server,ConstructionSavedData.Entry entry) {
         var p=entry.project(); if(p.builderId()==null) return false;
         var level=level(server,entry); if(level==null) return false;
@@ -378,7 +563,7 @@ public final class ConstructionService {
                 next=next.awardStageXp(stage); reward+=BuilderConfig.XP_PER_STAGE.get();
             }
             if(!ConstructionSavedData.get(server).replace(entry.project(),next)) return false;
-            transaction.commit(); if(reward>0) reward(server,next.builderId(),reward); SITE_RETRY.remove(next.id()); return true;
+            transaction.commit(); if(reward>0) reward(server,next.builderId(),reward); SITE_RETRY.remove(next.id()); REASONS.remove(next.id()); return true;
         }
     }
     private static void reward(MinecraftServer server,UUID citizen,int xp) {
@@ -388,11 +573,22 @@ public final class ConstructionService {
     private static void blocked(MinecraftServer server,ConstructionSavedData.Entry entry,ConstructionStages.Transaction transaction) {
         var p=entry.project(); var storage=ConstructionSavedData.get(server);
         if(transaction.result()==ConstructionStages.Result.UNLOADED) return;
+        if(!transaction.obstacles().isEmpty()) {
+            if(!OBSTACLES.containsKey(p.id()) && OBSTACLES.size()>=256) OBSTACLES.remove(OBSTACLES.keySet().iterator().next());
+            OBSTACLES.put(p.id(),new ArrayList<>(transaction.obstacles()));
+            var first=transaction.obstacles().getFirst(); var level=level(server,entry);
+            reason(p.id(),"obstacle",first,level==null?"?":level.getBlockState(first).getBlock().getName().getString());
+            if(p.builderRequired()) { if(SITE_RETRY.size()>=1024) SITE_RETRY.remove(SITE_RETRY.keySet().iterator().next()); SITE_RETRY.put(p.id(),now(server)+20); }
+            else { if(p.awaitingChunks()) storage.replace(p,p.resume()); storage.scheduleSiteRetry(p.id(),now(server)); }
+            return;
+        }
         if(transaction.occupied()) {
+            if(!REASONS.containsKey(p.id())) reason(p.id(),"occupied",entry.plan().buildings().getFirst().origin(),"");
             if(p.builderRequired()) { if(SITE_RETRY.size()>=1024) SITE_RETRY.remove(SITE_RETRY.keySet().iterator().next()); SITE_RETRY.put(p.id(),now(server)+100); }
             else { if(p.awaitingChunks()) storage.replace(p,p.resume()); storage.scheduleSiteRetry(p.id(),now(server)); }
         } else if(p.state()==ConstructionState.BUILDING) {
             storage.replace(p,p.fail());
+            reason(p.id(),"failed",entry.plan().buildings().getFirst().origin(),String.valueOf(transaction.failure().map(Throwable::getMessage).orElse("")));
             LogUtils.getLogger().warn("Construction {} retained for safe retry: {}",p.id(),transaction.failure());
         }
     }

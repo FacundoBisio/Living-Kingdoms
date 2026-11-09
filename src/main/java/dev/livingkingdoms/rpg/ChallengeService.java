@@ -64,7 +64,8 @@ public final class ChallengeService {
         final UUID id = UUID.randomUUID(), player, settlement; final ChallengeTier tier; final String dimension;
         final BlockPos center; final long deadline; final ServerBossEvent bar;
         final java.lang.ref.WeakReference<ServerPlayer> handle;
-        final Set<UUID> alive = new LinkedHashSet<>(); int wave = -1, waveSize; boolean boss;
+        final Set<UUID> alive = new LinkedHashSet<>(); int wave = -1, waveSize, pending, spawnedInWave; boolean boss;
+        BlockPos gate;
         Run(ServerPlayer owner, UUID settlement, ChallengeTier tier, String dimension, BlockPos center, long deadline) {
             this.player = owner.getUUID(); this.handle = new java.lang.ref.WeakReference<>(owner); this.settlement = settlement; this.tier = tier; this.dimension = dimension;
             this.center = center; this.deadline = deadline;
@@ -146,6 +147,11 @@ public final class ChallengeService {
         if (now(level) > run.deadline) { end(server, run, false, "timeout"); return; }
         run.alive.removeIf(id -> !(level.getEntity(id) instanceof Mob mob) || !mob.isAlive());
         for (var id : run.alive) if (level.getEntity(id) instanceof Mob mob && mob.getTarget() != player) mob.setTarget(player);
+        // Like a village raid, wave members march in from one side a few at a time.
+        if (run.pending > 0) {
+            if (level.getGameTime() % 30 < 10) trickle(level, run, run.tier.rank() >= 3 ? 2 : 1);
+            updateBar(run, level); return;
+        }
         if (run.alive.isEmpty()) {
             if (run.wave + 1 < run.tier.waves()) nextWave(level, player, run);
             else if (run.tier.boss() && !run.boss) spawnBoss(level, player, run);
@@ -156,14 +162,36 @@ public final class ChallengeService {
 
     private static void nextWave(ServerLevel level, ServerPlayer player, Run run) {
         run.wave++;
-        int count = run.tier.enemies(run.wave);
-        for (int i = 0; i < count; i++) {
-            var mob = member(level, run.tier, run.wave, i);
-            if (mob != null && place(level, run, mob, i, count)) prepare(level, run, mob, false);
-        }
-        run.waveSize = Math.max(1, run.alive.size());
+        run.pending = run.tier.enemies(run.wave); run.spawnedInWave = 0;
+        run.waveSize = Math.max(1, run.pending);
+        double angle = level.getRandom().nextDouble() * Math.PI * 2;
+        run.gate = run.center.offset((int) Math.round(Math.cos(angle) * 20), 0, (int) Math.round(Math.sin(angle) * 20));
+        trickle(level, run, 2);
         player.displayClientMessage(Component.translatable("challenge.livingkingdoms.wave", run.wave + 1, run.tier.waves()).withStyle(ChatFormatting.RED), true);
         level.playSound(null, player.blockPosition(), SoundEvents.RAID_HORN.value(), SoundSource.HOSTILE, 0.8F, 1.2F + run.wave * 0.1F);
+    }
+
+    /** Spawns up to {@code count} pending members near the wave's gate; members that cannot be placed are dropped. */
+    private static void trickle(ServerLevel level, Run run, int count) {
+        for (int i = 0; i < count && run.pending > 0; i++) {
+            run.pending--;
+            var mob = member(level, run.tier, run.wave, run.spawnedInWave++);
+            if (mob != null && placeNear(level, run, mob)) prepare(level, run, mob, false);
+        }
+    }
+
+    private static boolean placeNear(ServerLevel level, Run run, Mob mob) {
+        var random = level.getRandom();
+        for (int attempt = 0; attempt < 10; attempt++) {
+            int x = run.gate.getX() + random.nextInt(7) - 3, z = run.gate.getZ() + random.nextInt(7) - 3;
+            if (!level.hasChunkAt(new BlockPos(x, run.center.getY(), z))) continue;
+            var ground = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, new BlockPos(x, 0, z));
+            if (Math.abs(ground.getY() - run.center.getY()) > 10 || !level.getFluidState(ground.below()).isEmpty()) continue;
+            mob.moveTo(ground.getX() + .5, ground.getY(), ground.getZ() + .5, random.nextFloat() * 360F, 0F);
+            if (level.noCollision(mob)) return true;
+        }
+        // The gate side is blocked (water, cliff): fall back to the ring around the arena.
+        return place(level, run, mob, run.spawnedInWave, Math.max(1, run.waveSize));
     }
 
     private static void spawnBoss(ServerLevel level, ServerPlayer player, Run run) {
@@ -245,14 +273,14 @@ public final class ChallengeService {
         Component name = run.boss
                 ? Component.translatable("challenge.livingkingdoms.bar.boss", Component.translatable("challenge.livingkingdoms.boss." + run.tier.id()))
                 : Component.translatable("challenge.livingkingdoms.bar.wave", Component.translatable("challenge.livingkingdoms.tier." + run.tier.id()),
-                        run.wave + 1, run.tier.waves(), run.alive.size());
+                        run.wave + 1, run.tier.waves(), run.alive.size() + run.pending);
         run.bar.setName(name);
         if (run.boss) {
             float hp = 0, max = 0;
             for (var id : run.alive) if (level.getEntity(id) instanceof Mob mob) { hp += mob.getHealth(); max += mob.getMaxHealth(); }
             run.bar.setProgress(max <= 0 ? 0 : Math.clamp(hp / max, 0F, 1F));
             run.bar.setColor(BossEvent.BossBarColor.PURPLE);
-        } else run.bar.setProgress(Math.clamp((float) run.alive.size() / run.waveSize, 0F, 1F));
+        } else run.bar.setProgress(Math.clamp((float) (run.alive.size() + run.pending) / run.waveSize, 0F, 1F));
     }
 
     private static void end(net.minecraft.server.MinecraftServer server, Run run, boolean victory, String reason) {

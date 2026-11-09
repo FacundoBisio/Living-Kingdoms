@@ -751,8 +751,8 @@
   "hud.livingkingdoms.renown": "%1$s · %2$s de renombre",
   "war.livingkingdoms.capitulated": "¡%1$s capituló! %2$s pide la paz y el reino ahora es independiente.",
   "item.livingkingdoms.royal_whetstone": "Piedra de afilar real",
-  "item.livingkingdoms.royal_whetstone.tooltip": "Sostené un arma en la otra mano y usala para refinarla (+0,4 de daño por nivel, máx. +5). Cuesta niveles de experiencia.",
-  "item.livingkingdoms.royal_whetstone.no_weapon": "Sostené una espada, hacha, tridente o maza en la otra mano.",
+  "item.livingkingdoms.royal_whetstone.tooltip": "Sostené un arma o pieza de armadura en la otra mano y usala para refinarla, máx. +5. Armas: +0,4 de daño por nivel. Armadura: +0,5 de armadura y +0,25 de dureza por nivel. Cuesta niveles de experiencia.",
+  "item.livingkingdoms.royal_whetstone.no_weapon": "Sostené una espada, hacha, tridente, maza o pieza de armadura en la otra mano.",
   "item.livingkingdoms.royal_whetstone.maxed": "Esta arma ya está refinada al máximo.",
   "item.livingkingdoms.royal_whetstone.levels": "Necesitás %s niveles de experiencia para refinar.",
   "item.livingkingdoms.royal_whetstone.refined": "¡%1$s refinada a +%2$s/%3$s!",
@@ -867,5 +867,16 @@
   "contract.livingkingdoms.refused.outside": "Reclamá los contratos dentro de tu propio reino.",
   "contract.livingkingdoms.refused.bonus": "Primero reclamá todos los contratos diarios.",
   "contract.livingkingdoms.refused.missing": "Ese contrato ya no está disponible.",
-  "contract.livingkingdoms.refused.pending": "Ese contrato todavía no está terminado."
+  "contract.livingkingdoms.refused.pending": "Ese contrato todavía no está terminado.",
+  "construction.livingkingdoms.reason.obstacle": "Bloqueado por %1$s en %2$s (marcado en rojo). Los constructores lo están quitando, o rompelo vos.",
+  "construction.livingkingdoms.reason.protected": "%1$s en %2$s no se puede quitar solo (contenedor o bloque protegido). Movelo para continuar.",
+  "construction.livingkingdoms.reason.player": "%1$s está parado dentro de la obra en %2$s. Salí para que pueda continuar.",
+  "construction.livingkingdoms.reason.monster": "Un %1$s está en el medio en %2$s. Derrotalo (un constructor con espada lo enfrenta).",
+  "construction.livingkingdoms.reason.occupied": "Hay algo dentro del área de la obra cerca de %2$s; esperando a que se mueva.",
+  "construction.livingkingdoms.reason.failed": "La colocación falló cerca de %2$s: %1$s. Usá Reintentar.",
+  "construction.livingkingdoms.helpers": "%s constructor(es) ayudando a acelerar esta obra",
+  "citizen.livingkingdoms.equip.done": "%1$s ahora lleva %2$s.",
+  "citizen.livingkingdoms.equip.only_workers": "Solo los guardias y constructores aceptan herramientas o armas.",
+  "advancement.livingkingdoms.armed_guard.title": "Armado y listo",
+  "advancement.livingkingdoms.armed_guard.description": "Agachate y usá una espada sobre uno de tus guardias para armarlo."
 }

@@ -9,6 +9,8 @@ package dev.livingkingdoms.rpg.domain;
 public final class RefinementRules {
     public static final int MAX_LEVEL = 5;
     public static final double DAMAGE_PER_LEVEL = 0.4;
+    /** Armor refinement: +0.5 armor and +0.25 toughness per level (+2.5 / +1.25 at the cap). */
+    public static final double ARMOR_PER_LEVEL = 0.5, TOUGHNESS_PER_LEVEL = 0.25;
     private RefinementRules() {}
 
     public static double damageBonus(int level) {
@@ -16,6 +18,9 @@ public final class RefinementRules {
     }
 
     /** Experience levels charged to go from {@code current} to {@code current + 1}. */
+    public static double armorBonus(int level) { return clamp(level) * ARMOR_PER_LEVEL; }
+    public static double toughnessBonus(int level) { return clamp(level) * TOUGHNESS_PER_LEVEL; }
+
     public static int experienceCost(int current) {
         if (current < 0 || current >= MAX_LEVEL) throw new IllegalArgumentException("No refinement step from " + current);
         return 1 + current;

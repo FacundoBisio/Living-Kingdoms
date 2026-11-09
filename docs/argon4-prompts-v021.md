@@ -28,3 +28,18 @@ Keep vanilla pixel density, no gradients beyond 3 shades per material, readable 
 Self-check: every UV face lies inside its box, no overlapping islands, transparent pixels only where the vanilla
 illager template is transparent. Deliver PNGs plus a short note listing the UV boxes you painted.
 ```
+
+## Mayor face and outfit (0.23)
+
+The Mayor already wears an in-code gold crown (a render layer, no texture needed). The face/outfit texture is
+the part to replace:
+
+```
+Using the existing Living Kingdoms citizen geometry and UV layout (citizen.geo.json; do not change bones, pivots
+or UV boxes), paint one 64x64 skin: mayor.png. A dignified elder leader: warm skin tone, short neat grey beard and
+moustache, kind but determined eyes with visible white highlights (2 px eyes, no huge anime eyes), defined brows,
+no open mouth. Outfit: deep royal-blue long coat with gold trim and buttons, crimson sash across the chest, white
+collar, dark trousers, brown boots. Leave the top 2 rows of the head plain hair (a crown is rendered on top).
+Vanilla pixel density, max 3 shades per material, readable at 16 blocks. Self-check: every painted pixel lies
+inside its UV box, no overlapping islands, overlay layer transparent except the coat collar and sash.
+```

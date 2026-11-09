@@ -81,6 +81,7 @@ public final class ConstructionStages {
 
         Map<BlockPos, BlockState> rollback = new LinkedHashMap<>();
         boolean ownsPrevious = true;
+        List<BlockPos> obstacles = new ArrayList<>();
         for (var pos : scope) {
             var current = level.getBlockState(pos);
             rollback.put(pos, current);
@@ -88,7 +89,11 @@ public final class ConstructionStages {
                 boolean sharedPath = targetStage == 4 && !blueprint.site().contains(pos)
                         && plan.pathBlocks().containsKey(pos) && current.equals(target.get(pos))
                         && registeredColumn(pos, registeredPathFloors) && level.getBlockEntity(pos) == null;
-                if (!sharedPath) ownsPrevious = false;
+                // Blocks already placed by gradual construction, and natural noise (air, grass, snow
+                // layers, small plants) never invalidate a site: the stage simply writes over them.
+                boolean progressed = level.getBlockEntity(pos) == null && current.equals(target.get(pos));
+                boolean noise = level.getBlockEntity(pos) == null && tolerable(current);
+                if (!sharedPath && !progressed && !noise) { ownsPrevious = false; if (obstacles.size() < 64) obstacles.add(pos.immutable()); }
             }
         }
         if (!ownsPrevious) {
@@ -96,7 +101,8 @@ public final class ConstructionStages {
             // target after an interrupted save, never a partially placed stage or edited container.
             if (matchesTarget(level, blueprint, target, scope, targetStage))
                 return new Transaction(level, Result.APPLIED, null);
-            return new Transaction(level, Result.BLOCKED, new IllegalStateException("Construction site changed"));
+            // Foreign blocks are reported, not fatal: Builders clear them (or the player does) and work resumes.
+            return new Transaction(level, Result.BLOCKED, new Obstructed(List.copyOf(obstacles)));
         }
 
         // One local spatial query per stage, then intersect only actual writes. A resident inside
@@ -129,6 +135,63 @@ public final class ConstructionStages {
             transaction.close();
             return new Transaction(level, Result.BLOCKED, failure);
         }
+    }
+
+    /** Replaceable, fluid-free states (air, grass, ferns, snow layers, dead bushes) that a stage may overwrite. */
+    static boolean tolerable(BlockState state) {
+        return state.getFluidState().isEmpty() && (state.isAir() || state.canBeReplaced());
+    }
+
+    /** Foreign blocks at the reserved site that must be removed before the next stage. */
+    public static final class Obstructed extends IllegalStateException {
+        private final List<BlockPos> positions;
+        public Obstructed(List<BlockPos> positions) { super("Construction site obstructed at " + positions.size() + " block(s)"); this.positions = positions; }
+        public List<BlockPos> positions() { return positions; }
+    }
+
+    /**
+     * Gradual construction between stages: writes up to {@code budget} blocks of the next stage, bottom-up,
+     * until {@code fraction} of that stage's differing blocks are in place. Only positions still in their
+     * previous-stage (or tolerable) state are touched; block entities, doors, beds and two-block plants wait
+     * for the authoritative stage/native placement. Returns the positions written.
+     */
+    public static List<BlockPos> partial(ServerLevel level, ConstructionSavedData.Entry entry, int currentStage,
+                                         double fraction, int budget, Set<UUID> workers) {
+        if (currentStage < 0 || currentStage >= 4 || budget < 1 || !level.getServer().isSameThread()) return List.of();
+        var blueprint = cached(entry);
+        var previous = blueprint.states().get(currentStage + 1);
+        var target = blueprint.states().get(currentStage + 2);
+        var order = new ArrayList<BlockPos>();
+        for (var pos : blueprint.site()) {
+            var wanted = target.get(pos);
+            if (wanted == null || wanted.equals(previous.get(pos)) || !simple(wanted)) continue;
+            order.add(pos);
+        }
+        if (order.isEmpty()) return List.of();
+        for (var pos : order) if (!level.getChunkSource().hasChunk(pos.getX() >> 4, pos.getZ() >> 4)) return List.of();
+        order.sort(Comparator.<BlockPos>comparingInt(BlockPos::getY).thenComparingInt(BlockPos::getX).thenComparingInt(BlockPos::getZ));
+        int want = (int) Math.ceil(Math.max(0, Math.min(1, fraction)) * order.size());
+        int placed = 0;
+        for (var pos : order) if (level.getBlockState(pos).equals(target.get(pos))) placed++;
+        var building = entry.plan().buildings().getFirst().volume();
+        var nearby = level.getEntities((Entity) null, new AABB(building.minX(), building.minY(), building.minZ(),
+                building.maxX() + 1, building.maxY() + 1, building.maxZ() + 1), entity -> !entity.isSpectator() && !workers.contains(entity.getUUID()));
+        var written = new ArrayList<BlockPos>();
+        for (var pos : order) {
+            if (placed >= want || written.size() >= budget) break;
+            var current = level.getBlockState(pos); var wanted = target.get(pos);
+            if (current.equals(wanted)) continue;
+            if (level.getBlockEntity(pos) != null || !(current.equals(previous.get(pos)) || tolerable(current))) continue;
+            if (!wanted.isAir() && nearby.stream().anyMatch(e -> e.getBoundingBox().intersects(new AABB(pos)))) continue;
+            if (level.setBlock(pos, wanted, FLAGS)) { written.add(pos); placed++; }
+        }
+        return written;
+    }
+
+    private static boolean simple(BlockState state) {
+        return !state.hasBlockEntity() && state.getFluidState().isEmpty() && !(state.getBlock() instanceof DoorBlock)
+                && !(state.getBlock() instanceof BedBlock) && !(state.getBlock() instanceof DoublePlantBlock)
+                && !state.is(KingdomBlocks.CONSTRUCTION_MARKER.get());
     }
 
     private static boolean registeredColumn(BlockPos position, Set<BlockPos> floors) {
@@ -258,6 +321,7 @@ public final class ConstructionStages {
         }
         public Result result() { return result; }
         public boolean occupied() { return failure instanceof SettlementPlacement.Occupied; }
+        public List<BlockPos> obstacles() { return failure instanceof Obstructed obstructed ? obstructed.positions() : List.of(); }
         public Optional<RuntimeException> failure() { return Optional.ofNullable(failure); }
         public void commit() {
             if (result != Result.APPLIED || closed) throw new IllegalStateException("Cannot commit unapplied construction");

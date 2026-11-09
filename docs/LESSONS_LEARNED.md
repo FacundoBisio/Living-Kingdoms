@@ -87,6 +87,26 @@ Format: **What happened** → **Rule** → **Check**.
     missing two days cost three. Caught by `ProgressionLoopTest` before release.
     → Apply time-based decay in exactly one transition; later steps read the stored value.
 
+21. **Finishing a building required the Builder to stand within 0.75 blocks of one exact spot**; when pathing
+    could not reach it the project sat at 99–100% showing "Path blocked" forever (playtest, 0.22).
+    → Never gate completion on precise NPC positioning. Clear the site (evacuate entities) and finish from the
+      normal work range.
+
+22. **Any foreign block in a reserved site permanently failed the project** ("Construction site changed"), and
+    grass, snow or a dropped item could stall it with no visible reason.
+    → Tolerate natural noise, report real obstacles with position and name, highlight them, and let Builders clear
+      them. Every stall must show its reason and a way forward in the UI.
+
+23. **Builder-less (timed) projects had no visual stages**, so the first House popped into existence at the end.
+    → Every construction path must reuse the same visible progression (stages + gradual blocks).
+
+24. **The Mayor's crown was a layer on the vanilla VillagerRenderer**, but citizens render through the humanoid
+    renderer, so nobody ever saw it.
+    → Visual layers go on the renderer that actually draws the entity; check with the in-game model toggle.
+
+25. **Citizen name tags used only the NORMAL text pass**, so they vanished behind blocks and other entities.
+    → Follow vanilla: a faint SEE_THROUGH pass plus the NORMAL pass.
+
 ## Adding an entry
 
 Append to the right section with the next number. Keep it to three lines. If the rule changes how features are

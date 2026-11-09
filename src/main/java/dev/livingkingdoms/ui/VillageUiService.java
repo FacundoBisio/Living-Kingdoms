@@ -441,6 +441,9 @@ public final class VillageUiService {
             }
             view.putLong("duration",p.durationTicks());
             view.putBoolean("waiting_site",dev.livingkingdoms.construction.persistence.ConstructionSavedData.get(player.server).waitingForClearSite(p.id()));
+            dev.livingkingdoms.construction.ConstructionService.reason(p.id()).ifPresent(r -> {
+                view.putString("reason",r.key()); var args=new ListTag(); r.args().forEach(a -> args.add(net.minecraft.nbt.StringTag.valueOf(a))); view.put("reason_args",args); });
+            view.putInt("helpers",dev.livingkingdoms.construction.ConstructionService.assistants(p.id()));
             view.putLong("remaining",p.builderRequired() ? (long)Math.ceil(p.remainingWork()/(20*speed))
                     : p.startedAt()<0 ? p.durationTicks()/20 : Math.max(0,(p.deadline()-now(player)+19)/20));
             ListTag costs=new ListTag();boolean storedAvailable=false,carriedAvailable=false;
