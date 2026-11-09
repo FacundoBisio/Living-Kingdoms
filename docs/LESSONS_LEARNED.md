@@ -111,6 +111,16 @@ Format: **What happened** → **Rule** → **Check**.
     delivery failed even though the delivery was correct (0.23 equip, 0.24 wishes).
     → Assert on item counts, not on which slot is empty, whenever a reward is granted in the same action.
 
+27. **The first wall cost table charged up to 1.5 stone per ring column**, which exceeded the 256-per-resource
+    Kingdom Storage capacity for normal territories, so stone walls could never be paid (0.30 design review).
+    → Any cost paid from Kingdom Storage must be clamped below the base capacity; add a unit test for it.
+28. **NoAI mobs never call `Entity.move`**, so a GameTest waiting for a Spike Trap's `entityInside` hook on a
+    frozen zombie never saw damage (0.30).
+    → Drive block entity hooks directly in tests, or let the mob move; don't freeze the entity you test.
+
+29. **A test looked for the caravan with `getTags()`** while the service marks it in persistent data (0.30).
+    → Query the same marker the service writes; prefer a public helper over re-deriving the marker in tests.
+
 ## Adding an entry
 
 Append to the right section with the next number. Keep it to three lines. If the rule changes how features are

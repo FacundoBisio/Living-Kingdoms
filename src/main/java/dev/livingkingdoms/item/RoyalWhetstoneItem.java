@@ -39,6 +39,7 @@ public final class RoyalWhetstoneItem extends Item {
             return InteractionResultHolder.fail(stone);
         }
         int cost = RefinementRules.experienceCost(current);
+        if (dev.livingkingdoms.rpg.TechniqueService.knows(server, dev.livingkingdoms.rpg.domain.Technique.MASTER_SMITH)) cost = Math.max(1, cost - 1);
         if (!server.getAbilities().instabuild && server.experienceLevel < cost) {
             server.displayClientMessage(Component.translatable("item.livingkingdoms.royal_whetstone.levels", cost), true);
             return InteractionResultHolder.fail(stone);

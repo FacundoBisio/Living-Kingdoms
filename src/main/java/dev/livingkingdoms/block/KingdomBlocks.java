@@ -25,7 +25,12 @@ public final class KingdomBlocks {
     public static final DeferredBlock<KingdomStorageBlock> KINGDOM_STORAGE=BLOCKS.registerBlock("kingdom_storage",
             KingdomStorageBlock::new,BlockBehaviour.Properties.of().strength(2.5F).sound(SoundType.WOOD).noOcclusion());
 
+    public static final DeferredBlock<SpikeTrapBlock> SPIKE_TRAP=BLOCKS.registerBlock("spike_trap",
+            SpikeTrapBlock::new,BlockBehaviour.Properties.of().strength(1.5F).sound(SoundType.METAL).noOcclusion());
+
     static {
+        ITEMS.registerSimpleBlockItem(SPIKE_TRAP);
+        BLOCK_TYPES.register("spike_trap",()->SpikeTrapBlock.CODEC);
         ITEMS.registerSimpleBlockItem(QUEST_BOARD);
         ITEMS.registerSimpleBlockItem(KINGDOM_STORAGE);
         BLOCK_TYPES.register("kingdom_storage",()->KingdomStorageBlock.CODEC);
@@ -41,7 +46,7 @@ public final class KingdomBlocks {
     }
 
     private static void creativeTab(BuildCreativeModeTabContentsEvent event) {
-        if (event.getTabKey() == CreativeModeTabs.FUNCTIONAL_BLOCKS) {event.accept(QUEST_BOARD);event.accept(KINGDOM_STORAGE);}
+        if (event.getTabKey() == CreativeModeTabs.FUNCTIONAL_BLOCKS) {event.accept(QUEST_BOARD);event.accept(KINGDOM_STORAGE);event.accept(SPIKE_TRAP);}
     }
 
     private KingdomBlocks() {}

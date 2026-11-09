@@ -31,12 +31,7 @@ final class VillageButton extends Button {
     @Override protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
         int x = getX(), y = getY(), w = getWidth(), h = getHeight();
         boolean accent = active && (selected || primary);
-        graphics.fill(x, y, x+w, y+h, VillageTheme.WOOD);
-        graphics.fill(x+1, y+1, x+w-1, y+h-1,
-                !active ? VillageTheme.DISABLED : accent ? VillageTheme.BLUE
-                        : isHoveredOrFocused() ? VillageTheme.HOVER : VillageTheme.INSET);
-        graphics.fill(x+1, y+1, x+w-1, y+2, accent ? VillageTheme.GOLD : VillageTheme.HOVER);
-        graphics.fill(x+1, y+h-2, x+w-1, y+h-1, VillageTheme.WOOD_LIGHT);
+        RpgFrame.button(graphics, x, y, w, h, !active ? 3 : accent ? 2 : isHoveredOrFocused() ? 1 : 0);
         if (selected) graphics.fill(x+3, y+4, x+5, y+h-4, VillageTheme.GOLD);
         // Eased hover accent: a gold underline grows from the center instead of a hard color swap.
         hover += ((isHoveredOrFocused() && active ? 1F : 0F) - hover) * Math.min(1F, delta * 0.6F + 0.15F);

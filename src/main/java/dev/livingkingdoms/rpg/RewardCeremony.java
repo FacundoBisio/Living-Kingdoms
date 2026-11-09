@@ -25,6 +25,9 @@ public final class RewardCeremony {
 
     public static void questClaimed(ServerPlayer player, java.util.UUID settlement, boolean regional, String titleKey,
                                     int emeralds, int reputation, QuestBonus bonus) {
+        // Festivals double the RPG bonus layer (never the persisted emerald/reputation receipt).
+        if (settlement != null && EventService.festival(player.server, settlement))
+            bonus = new QuestBonus(Math.min(5000, bonus.experience() * 2), Math.min(16, bonus.whetstones() * 2), bonus.tomes());
         if (settlement != null) KingdomProgressService.award(player, settlement, Math.max(10, bonus.experience()));
         if (regional) ContractService.progress(player, dev.livingkingdoms.rpg.domain.Contract.Kind.QUEST, 1);
         var items = new ArrayList<ItemStack>();
@@ -46,11 +49,19 @@ public final class RewardCeremony {
     /** {@code rarity} (nullable) colors the banner and particles for loot chests. */
     public static void celebrate(ServerPlayer player, String kind, Component title, int emeralds, int reputation,
                                  int experience, List<ItemStack> items, boolean epic, dev.livingkingdoms.rpg.domain.LootRarity rarity) {
+        celebrate(player, kind, title, emeralds, reputation, experience, items, epic, rarity, List.of());
+    }
+
+    /** {@code notes} are translation keys shown under the banner (e.g. perks unlocked by a rank-up). */
+    public static void celebrate(ServerPlayer player, String kind, Component title, int emeralds, int reputation,
+                                 int experience, List<ItemStack> items, boolean epic, dev.livingkingdoms.rpg.domain.LootRarity rarity,
+                                 List<String> notes) {
         if (!player.server.isSameThread()) throw new IllegalStateException("Rewards are granted on the server thread");
         if (experience > 0) player.giveExperiencePoints(experience);
-        var names = new ListTag();
+        var names = new ListTag(); var stacks = new ListTag();
         for (var stack : items) {
             if (stack.isEmpty()) continue;
+            if (stacks.size() < 8) stacks.add(stack.save(player.registryAccess()));
             names.add(StringTag.valueOf(Component.Serializer.toJson(
                     Component.literal(stack.getCount() + "× ").append(stack.getHoverName()), player.registryAccess())));
             var copy = stack.copy();
@@ -74,7 +85,8 @@ public final class RewardCeremony {
         if (rarity != null) tag.putString("rarity", rarity.id());
         tag.putString("title", Component.Serializer.toJson(title, player.registryAccess()));
         tag.putInt("emeralds", emeralds); tag.putInt("reputation", reputation); tag.putInt("experience", experience);
-        tag.putBoolean("epic", epic); tag.put("items", names);
+        tag.putBoolean("epic", epic); tag.put("items", names); tag.put("stacks", stacks);
+        var noteList = new ListTag(); for (var note : notes) noteList.add(StringTag.valueOf(note)); tag.put("notes", noteList);
         PacketDistributor.sendToPlayer(player, new RpgPayloads.RewardBanner(tag));
     }
 }

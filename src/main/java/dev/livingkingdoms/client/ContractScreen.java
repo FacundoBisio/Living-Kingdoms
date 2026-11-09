@@ -66,9 +66,8 @@ final class ContractScreen extends KingdomScreen {
     @Override public void render(GuiGraphics g, int mouseX, int mouseY, float delta) {
         if (renderSizeHint(g, mouseX, mouseY, delta)) return;
         renderBackdrop(g);
-        g.fill(left - 2, top - 2, left + panelWidth + 2, top + panelHeight + 2, VillageTheme.WOOD);
-        g.fill(left, top, left + panelWidth, top + panelHeight, VillageTheme.PARCHMENT);
-        g.fill(left, top, left + panelWidth, top + 22, VillageTheme.BLUE);
+        RpgFrame.panel(g, left, top, panelWidth, panelHeight);
+        RpgFrame.header(g, left + 2, top + 2, panelWidth - 4, 20);
         g.drawString(font, title, left + 10, top + 7, VillageTheme.ON_BLUE, false);
         var streak = Component.translatable("ui.livingkingdoms.contracts.streak", data.getInt("streak"), data.getInt("multiplier"));
         g.drawString(font, streak, left + panelWidth - 10 - font.width(streak), top + 7, VillageTheme.GOLD, false);
@@ -80,13 +79,35 @@ final class ContractScreen extends KingdomScreen {
         g.fill(barX, barY, barX + (int) (barW * (double) progress / span), barY + 6, 0xFF6DA862);
         var daily = data.getList("daily", 10);
         g.drawString(font, Component.translatable("ui.livingkingdoms.contracts.daily", (data.getLong("reset") + 3599) / 3600), left + 10, top + 49, VillageTheme.MUTED, false);
+        if (data.getBoolean("festival")) {
+            var festival = Component.translatable("ui.livingkingdoms.contracts.festival");
+            g.drawString(font, festival, left + panelWidth - 10 - font.width(festival), top + 49, VillageTheme.GOLD, false);
+        }
+        // Learned techniques: a compact badge with a hover list.
+        var known = data.getList("techniques", 8);
+        var badge = Component.translatable("ui.livingkingdoms.contracts.techniques", known.size());
+        int badgeX = left + panelWidth - 10 - font.width(badge);
+        g.drawString(font, badge, badgeX, top + 28, known.isEmpty() ? VillageTheme.MUTED : 0xFF6DA862, false);
+        if (mouseX >= badgeX && mouseX <= badgeX + font.width(badge) && mouseY >= top + 26 && mouseY <= top + 38) {
+            var lines = new java.util.ArrayList<net.minecraft.util.FormattedCharSequence>();
+            lines.add(Component.translatable("ui.livingkingdoms.contracts.techniques_title").withStyle(net.minecraft.ChatFormatting.GOLD).getVisualOrderText());
+            if (known.isEmpty()) lines.add(Component.translatable("ui.livingkingdoms.contracts.techniques_none").withStyle(net.minecraft.ChatFormatting.GRAY).getVisualOrderText());
+            for (int i = 0; i < known.size(); i++) {
+                var id = known.getString(i);
+                lines.add(Component.literal("✦ ").append(Component.translatable("technique.livingkingdoms." + id)).withStyle(net.minecraft.ChatFormatting.GREEN).getVisualOrderText());
+                lines.addAll(font.split(Component.translatable("technique.livingkingdoms." + id + ".effect").withStyle(net.minecraft.ChatFormatting.GRAY), 200));
+            }
+            pendingTooltip = lines;
+        }
         for (int i = 0; i < daily.size(); i++) row(g, daily.getCompound(i), rowY(i), new ItemStack(Items.PAPER));
         int weeklyY = rowY(5);
         g.drawString(font, Component.translatable("ui.livingkingdoms.contracts.weekly"), left + 10, weeklyY - 10, VillageTheme.MUTED, false);
         if (data.contains("weekly", 10)) row(g, data.getCompound("weekly"), weeklyY, new ItemStack(Items.WRITABLE_BOOK));
         else g.drawString(font, Component.translatable("ui.livingkingdoms.contracts.weekly_locked"), left + 30, weeklyY + 6, VillageTheme.MUTED, false);
         super.render(g, mouseX, mouseY, delta);
+        if (pendingTooltip != null) { g.renderTooltip(font, pendingTooltip, mouseX, mouseY); pendingTooltip = null; }
     }
+    private java.util.List<net.minecraft.util.FormattedCharSequence> pendingTooltip;
 
     private void row(GuiGraphics g, CompoundTag c, int y, ItemStack icon) {
         boolean claimed = c.getBoolean("claimed"), ready = c.getBoolean("ready");

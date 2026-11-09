@@ -25,7 +25,8 @@ public final class CitizenRoutine {
     private CitizenRoutine() {}
     public static boolean workingHours(ServerLevel level) {long time=Math.floorMod(level.getDayTime(),24000);return time>=1000 && time<11000;}
     public static boolean threatened(Villager worker,Citizen citizen) {
-        return worker.level() instanceof ServerLevel level && (DefenseService.status(level.getServer(),citizen.settlementId())==SettlementSafety.THREATENED || BuilderWork.inDanger(worker));
+        return worker.level() instanceof ServerLevel level && (DefenseService.status(level.getServer(),citizen.settlementId())==SettlementSafety.THREATENED || BuilderWork.inDanger(worker)
+                || dev.livingkingdoms.rpg.AlarmService.active(level.getServer(),citizen.settlementId()));
     }
     public static boolean shelter(Villager worker,Citizen citizen,Profession profession,long now) {
         if(!(worker.level() instanceof ServerLevel level) || citizen.role()==CitizenRole.MAYOR) return false;

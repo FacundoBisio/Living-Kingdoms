@@ -42,7 +42,11 @@ public final class KingdomProgressService {
         var items = new ArrayList<net.minecraft.world.item.ItemStack>();
         var rarity = KingdomRank.levelUpChest(level);
         items.add(LootChests.chest(rarity));
-        RewardCeremony.celebrate(player, "rank", Component.translatable("rank.livingkingdoms.level_up", level), 0, 0, 0, items, true, rarity);
+        var notes = new ArrayList<String>();
+        for (var unlock : KingdomRank.unlocks(level)) notes.add("rank.livingkingdoms.unlock." + unlock);
+        for (var decoration : dev.livingkingdoms.rpg.domain.TownDecor.tiersAt(level)) notes.add("decor.livingkingdoms.tier." + decoration.id());
+        RewardCeremony.celebrate(player, "rank", Component.translatable("rank.livingkingdoms.level_up", level), 0, 0, 0, items, true, rarity, notes);
+        TownDecorService.beautify(player.serverLevel(), settlement, level);
         var name = SettlementSavedData.get(player.server).get(settlement).map(dev.livingkingdoms.ui.VillageNames::display).orElse("");
         var message = Component.translatable("rank.livingkingdoms.announce", name, level).withStyle(ChatFormatting.GOLD);
         for (var unlock : KingdomRank.unlocks(level))

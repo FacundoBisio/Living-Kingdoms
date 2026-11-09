@@ -369,6 +369,11 @@ Local results and known runtime limits: [Milestone 0](docs/validation.md), [Mile
 - **Friendship (0.24):** right-click a resident to talk (sneak-right-click Merchants). Bring today's wish in your hand to deliver it. Loyal residents gift you something every day.
 - **Expeditions (0.24):** Mayor → Citizens → *Expedition* for an unassigned resident. Operators can end trips with `/kingdom expedition finish`. Bonds, expeditions and undelivered loot use `livingkingdoms_rpg.dat` schema 2 (schema 1 migrates automatically).
 
+- **Town beautification (0.30):** every kingdom rank from 2 to 10 decorates the town (lanterns, flowers, banners, fountain, benches, braziers, hedges, a hero statue). Operators: `/kingdom beautify`.
+- **Events (0.30):** festivals (double rewards), merchant caravans and treasure hunts appear while you are home; the HUD counts down. Operators: `/kingdom event <festival|caravan|treasure>`.
+- **Techniques (0.30):** each worker teaches a permanent perk the first time they become Loyal; see them in Contracts.
+- **Defense (0.30):** Management → *Walls* raises palisade, stone and fortress walls from Kingdom Storage; give a Guard a bow or crossbow to man towers and wall posts; ring a bell in town for the alarm; craft Spike Traps. Operators: `/kingdom wall`, `/kingdom alarm`. Decorations, techniques and walls use `livingkingdoms_rpg.dat` schema 3 (older schemas migrate).
+
 Trials and rallies are transient: nothing is written to the world save, and trial enemies left by a crash are removed when their chunk loads.
 
 ## Next milestone

@@ -43,6 +43,7 @@ public final class ManagementService {
             case EQUIP -> GuardEquipment.forge(player,session.kingdom,request.target());
             case REPAIR_HELD -> EconomicWork.repairHeld(player,session.kingdom);
             case EXPAND -> BuildingDevelopment.expand(player,session.kingdom);
+            case FORTIFY -> dev.livingkingdoms.rpg.WallService.fortify(player,session.kingdom);
             default -> false;
         };
         send(player,session,result?"management.livingkingdoms.success":"management.livingkingdoms.rejected");return result;
@@ -69,6 +70,12 @@ public final class ManagementService {
         SESSIONS.put(player,new Session(session.token,session.kingdom,session.dimension,session.anchor,session.opened,Set.copyOf(ids)));
         var tag=new CompoundTag();tag.putUUID("session",session.token);tag.putUUID("kingdom",session.kingdom);tag.putString("kingdom_name",realm.name());tag.putLong("revision",account.revision());tag.put("entries",rows);
         tag.put("history",dev.livingkingdoms.chronicle.ChronicleService.history(player.server,session.kingdom));
-        tag.putBoolean("expand",BuildingDevelopment.canExpand(player.server,realm));if(notice!=null) tag.putString("notice",notice);return tag;
+        tag.putBoolean("expand",BuildingDevelopment.canExpand(player.server,realm));
+        var wall=new CompoundTag();int wallTier=dev.livingkingdoms.rpg.WallService.tier(player.server,realm.id());wall.putInt("tier",wallTier);
+        var blocked=dev.livingkingdoms.rpg.WallService.blocked(player.server,realm);blocked.ifPresent(reason->wall.putString("blocked",reason));
+        if(wallTier<dev.livingkingdoms.rpg.domain.Fortification.MAX_TIER) {var wallCosts=new ListTag();
+            for(var entry:dev.livingkingdoms.rpg.WallService.nextCost(player.server,realm).entrySet()) {var cost=new CompoundTag();cost.putString("resource",entry.getKey().key());cost.putInt("amount",entry.getValue());cost.putInt("available",account.balance(entry.getKey()));wallCosts.add(cost);}
+            wall.put("costs",wallCosts);}
+        wall.putInt("breaches",dev.livingkingdoms.rpg.WallService.breaches(realm.id()));tag.put("wall",wall);if(notice!=null) tag.putString("notice",notice);return tag;
     }
 }

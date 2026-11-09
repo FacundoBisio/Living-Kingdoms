@@ -109,4 +109,35 @@ class RpgSavedDataTest {
             assertTrue(data.startExpedition(dev.livingkingdoms.rpg.domain.Expedition.start(UUID.randomUUID(), settlement, UUID.randomUUID(), dev.livingkingdoms.rpg.domain.Expedition.Kind.FORAGE, 0)));
         assertFalse(data.startExpedition(dev.livingkingdoms.rpg.domain.Expedition.start(UUID.randomUUID(), settlement, UUID.randomUUID(), dev.livingkingdoms.rpg.domain.Expedition.Kind.FORAGE, 0)));
     }
+
+    @Test void schemaThreeKeepsDecorTechniquesAndWalls() {
+        var storage = storage();
+        var data = RpgSavedData.getOrCreate(storage, directory);
+        UUID settlement = UUID.randomUUID(), player = UUID.randomUUID();
+        data.markDecor(settlement, dev.livingkingdoms.rpg.domain.TownDecor.LANTERNS.bit());
+        data.markDecor(settlement, dev.livingkingdoms.rpg.domain.TownDecor.FOUNTAIN.bit());
+        assertTrue(data.learn(player, dev.livingkingdoms.rpg.domain.Technique.DRILL));
+        assertFalse(data.learn(player, dev.livingkingdoms.rpg.domain.Technique.DRILL), "A technique is learned once");
+        assertTrue(data.learn(player, dev.livingkingdoms.rpg.domain.Technique.HAGGLING));
+        var wall = dev.livingkingdoms.rpg.domain.Fortification.none(40).upgrade().progress(17);
+        assertTrue(data.putWall(settlement, wall));
+        storage.save();
+        IOUtilities.waitUntilIOWorkerComplete();
+        var reopened = RpgSavedData.getOrCreate(storage(), directory);
+        assertEquals(dev.livingkingdoms.rpg.domain.TownDecor.LANTERNS.bit() | dev.livingkingdoms.rpg.domain.TownDecor.FOUNTAIN.bit(), reopened.decor(settlement));
+        assertEquals(java.util.Set.of(dev.livingkingdoms.rpg.domain.Technique.DRILL, dev.livingkingdoms.rpg.domain.Technique.HAGGLING), reopened.techniques(player));
+        assertEquals(wall, reopened.wall(settlement).orElseThrow());
+        assertEquals(List.of(settlement), reopened.walledSettlements());
+        assertTrue(reopened.techniques(UUID.randomUUID()).isEmpty() && reopened.decor(UUID.randomUUID()) == 0);
+    }
+
+    @Test void schemaTwoMigratesWithoutDecorTechniquesOrWalls() {
+        var tag = new RpgSavedData().save(new CompoundTag(), null);
+        tag.putInt("schema_version", 2);
+        tag.remove("decor"); tag.remove("techniques"); tag.remove("walls");
+        var data = RpgSavedData.load(tag, null);
+        assertTrue(data.walledSettlements().isEmpty() && data.decor(UUID.randomUUID()) == 0);
+        assertTrue(data.isDirty(), "Migrated data is rewritten as schema 3");
+        assertEquals(3, data.save(new CompoundTag(), null).getInt("schema_version"));
+    }
 }

@@ -28,7 +28,8 @@ public final class CitizenEquipment {
     private CitizenEquipment() {}
 
     public static boolean giftable(ItemStack stack) {
-        return !stack.isEmpty() && (stack.is(ItemTags.SWORDS) || stack.is(ItemTags.AXES) || stack.is(ItemTags.PICKAXES));
+        return !stack.isEmpty() && (stack.is(ItemTags.SWORDS) || stack.is(ItemTags.AXES) || stack.is(ItemTags.PICKAXES)
+                || stack.getItem() instanceof net.minecraft.world.item.ProjectileWeaponItem);
     }
 
     public static boolean equip(ServerPlayer player, Villager villager) {

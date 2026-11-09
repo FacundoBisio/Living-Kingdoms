@@ -153,18 +153,65 @@ Long loop (hours): refine a weapon to +5, win the Warlord trial, develop the Tow
   25% chance to rescue a survivor who arrives as an immigration candidate (rare chest if there is no housing).
 - `livingkingdoms_rpg.dat` schema 2 stores bonds, expeditions and undelivered loot; schema 1 files migrate.
 
+### 4.15 A town that grows more beautiful (0.30)
+- Every kingdom rank from 2 to 10 unlocks a decoration tier: lanterns along paths (2), flower beds (3), banners
+  (4), a plaza fountain (5), benches (6), braziers (7), hedges (8) and a golden hero statue (10). The rank-up
+  splash lists what was unlocked, and the tier is placed right away with particles and a chime.
+- Tiers are a bitmask in `livingkingdoms_rpg.dat`; each tier is applied once, only into empty, supported,
+  loaded spots outside building footprints (+1) and off path columns. Missed tiers catch up when a member next
+  talks to the Mayor. Operators: `/kingdom beautify`.
+
+### 4.16 Timed kingdom events (0.30)
+- One event per kingdom at a time, scheduled every 8–15 minutes only while a member is in the territory:
+  **Harvest Festival** (contracts, quest XP and whetstones pay double, fireworks), **Merchant Caravan** (a
+  trader with whetstones, chests, tomes and a totem) and **Treasure Hunt** (a loot chest somewhere in the
+  territory, with a HUD compass). A one-minute warning and the remaining time show in the HUD.
+- Events are transient: a restart removes the caravan and the unclaimed chest. Operators:
+  `/kingdom event <festival|caravan|treasure>`.
+
+### 4.17 Techniques taught by loyal villagers (0.30)
+- The first time a worker becomes Loyal they teach their craft once per player: Master Smith (whetstones cost
+  one level less), Hearty Meals (+2 hearts), Masonry (+1.5 reach), Guard Drill (+1 damage), Timber (+15% break
+  speed), Prospector (+1.5 luck), Haggling (+15% contract emeralds), Shortcuts (+5% speed).
+- Stored per player in `livingkingdoms_rpg.dat` schema 3; attribute modifiers are reapplied on login/respawn.
+  The Contracts screen lists learned techniques.
+
+### 4.18 Kingdom defense (0.30)
+- **Walls:** Management → *Walls*. Three tiers paid from Kingdom Storage (palisade: wood; stone wall: stone +
+  4 iron; fortress: stone bricks + 16 iron; costs scale with the ring and stay under the 256 base capacity).
+  A ring three blocks inside the border rises four columns a second; paths get doors and every 12th column is a
+  flat archer post. Only air, replaceable blocks, leaves and our own wall blocks are ever written.
+- **Archers:** a Guard handed a bow or crossbow (sneak-use) climbs to a free post — watchtower tops first, then
+  wall posts — and shoots monsters within 24 blocks every 1.5 s. Damage grows with the tower level or wall tier;
+  level 3 shoots fire arrows. Archer arrows never hurt villagers or players and cannot be picked up.
+- **Siege and repairs:** while a raid threatens the kingdom, invaders hugging the wall may knock pieces out;
+  once safe, breaches are repaired from storage (one wood or stone each). Breaches are transient.
+- **Alarm bell:** ringing any bell inside your kingdom sounds a two-minute alarm: civilians shelter, guards stay
+  on watch at night and monsters glow. Operators: `/kingdom alarm`, `/kingdom wall`.
+- **Spike traps:** craft 4 from 3 iron nuggets, 1 iron ingot and 3 planks; monsters crossing them take 3
+  damage every half second and are slowed. Players, villagers and animals are unaffected.
+- Trials still pit enemies against the player only; there is no wave defense against the base.
+
+### 4.19 Emberville-style presentation (0.30)
+- All kingdom screens use textured RPG frames: parchment body, carved frame, ribbon header and stateful
+  buttons. The dialogue portrait is a framed card with a name plaque.
+- Reward banners show item cards that flip in one by one with a rarity glow; rank-ups get a splash with
+  rotating rays and the list of unlocks. The HUD shows events, construction sites, contracts ready to claim,
+  rising walls, breaches and the alarm countdown.
+
 ## 5. Roadmap (next steps, in priority order)
 
 Done in 0.22: kingdom rank with HUD bar, daily/weekly contracts with streak, rarity loot chests.
 Done in 0.24: citizen bonds with daily wishes and perks, expeditions with survivor rescue.
+Done in 0.30: rank decorations, timed events with HUD countdown, techniques, walls/archers/alarm/traps, RPG frames.
 
 
 | # | Feature | Why | Acceptance |
 |---|---|---|---|
 | 3 | Checklists for every multi-step main quest (Watchtower, Patrol) | Pillar 2 | Each step updates from real state; GameTest per quest |
-| 4 | Timed world events (blood moon horde, merchant caravan, festival) with HUD countdown | Appointment play | One active event per kingdom, cleaned on restart |
+| 4 | Blood moon event (harder night trial with bonus chest) | Appointment play | Reuses the event scheduler, player-targeted only |
 | 9 | Codex / collections (bosses, trophies, enemies, citizens) with set rewards | Completionism | One-time set receipts |
-| 10 | Visible town upgrades per rank (lanterns, banners, paths) | Progress you can see | Placement reuses construction safety rules |
+| 10 | Gatehouse and tower roofs as wall tier 4 cosmetics | Progress you can see | Same overwrite rules as walls |
 | 11 | Player talent tree from rank/renown points | Build choice | Respec rules, bounded passives |
 | 5 | Blacksmith service: spend emeralds + whetstone to reroll/upgrade one enchant | Sink for emeralds | Server-validated, no item duplication |
 | 6 | Trial modifiers (night, no armor, double boss) for bonus loot | Replayability | Shown in picker, tested reward multipliers |

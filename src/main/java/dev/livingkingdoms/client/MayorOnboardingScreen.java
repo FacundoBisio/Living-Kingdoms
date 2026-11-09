@@ -143,9 +143,8 @@ public final class MayorOnboardingScreen extends KingdomScreen {
     @Override public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
         if (renderSizeHint(graphics,mouseX,mouseY,delta)) return;
         renderBackdrop(graphics);
-        graphics.fill(left, top, left + panelWidth, top + panelHeight, WOOD);
-        graphics.fill(left + 3, top + 3, left + panelWidth - 3, top + panelHeight - 3, PAPER);
-        graphics.fill(left + 3, top + 3, left + panelWidth - 3, top + 31, BLUE);
+        RpgFrame.panel(graphics, left, top, panelWidth, panelHeight);
+        RpgFrame.header(graphics, left + 4, top + 4, panelWidth - 8, 27);
         graphics.drawString(font, data.getString("name"), left + 16, top + 12, ON_BLUE, false);
         graphics.drawString(font, stageHeading, left + 16, top + 43, INK, false);
         int y = bodyTop;

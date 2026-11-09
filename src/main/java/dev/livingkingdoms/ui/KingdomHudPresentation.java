@@ -29,6 +29,27 @@ public final class KingdomHudPresentation {
             } else {
                 if (local.contains("rank", 3)) kingdom.add(new Row(Icon.PROGRESS, tr("kingdom_rank", Math.clamp(local.getInt("rank"), 1, 20),
                         Math.max(0, local.getLong("rank_progress")), Math.max(1, local.getLong("rank_span"))), Tone.SUCCESS));
+                if (local.contains("event", 10)) {
+                    var event = local.getCompound("event"); String kind = event.getString("kind");
+                    if (kind.matches("[a-z_]{1,24}")) {
+                        long sec = Math.max(0, event.getLong("seconds"));
+                        var time = String.format("%d:%02d", sec / 60, sec % 60);
+                        kingdom.add(new Row(Icon.QUEST, tr(event.getString("phase").equals("active") ? "event_active" : "event_upcoming",
+                                Component.translatable("event.livingkingdoms." + kind), time), Tone.WARNING));
+                        if (event.contains("distance")) kingdom.add(new Row(Icon.LOCATION, tr("treasure", event.getInt("distance"),
+                                Component.translatable("hud.livingkingdoms.dir." + event.getString("direction"))), Tone.NORMAL));
+                    }
+                }
+                if (local.contains("site", 10)) {
+                    var site = local.getCompound("site");
+                    kingdom.add(new Row(Icon.PROGRESS, tr(site.getBoolean("blocked") ? "site_blocked" : "site",
+                            Component.translatable("construction.livingkingdoms.building." + site.getString("building")),
+                            Math.clamp(site.getInt("percent"), 0, 100), site.getInt("helpers")), site.getBoolean("blocked") ? Tone.WARNING : Tone.NORMAL));
+                }
+                if (local.getInt("contracts_ready") > 0) kingdom.add(new Row(Icon.CHECK, tr("contracts_ready", local.getInt("contracts_ready")), Tone.SUCCESS));
+                if (local.contains("wall_building")) kingdom.add(new Row(Icon.SHIELD, tr("wall_building"), Tone.MUTED));
+                if (local.getInt("wall_breaches") > 0) kingdom.add(new Row(Icon.SHIELD, tr("wall_breaches", local.getInt("wall_breaches")), Tone.WARNING));
+                if (local.getInt("alarm") > 0) kingdom.add(new Row(Icon.SHIELD, tr("alarm", local.getInt("alarm") / 60, String.format(java.util.Locale.ROOT, "%02d", local.getInt("alarm") % 60)), Tone.WARNING));
                 kingdom.add(new Row(Icon.REPUTATION, tr("reputation_value", local.getInt("reputation")), Tone.NORMAL));
                 kingdom.add(new Row(Icon.PEOPLE, expanded ? tr("population", local.getInt("population"), local.getInt("housing")) : tr("population_value", local.getInt("population")), Tone.NORMAL));
                 if (local.getString("safety").equals("threatened")) kingdom.add(new Row(Icon.SHIELD, tr("threatened"), Tone.WARNING));

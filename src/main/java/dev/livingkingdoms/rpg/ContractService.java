@@ -109,6 +109,10 @@ public final class ContractService {
         tag.putBoolean("bonus_ready", board.allDailyClaimed() && !board.dailyBonusClaimed());
         tag.putBoolean("bonus_claimed", board.dailyBonusClaimed());
         tag.putBoolean("inside", inside(player, kingdom));
+        var known = new ListTag();
+        for (var technique : RpgSavedData.get(player.server).techniques(player.getUUID())) known.add(net.minecraft.nbt.StringTag.valueOf(technique.id()));
+        tag.put("techniques", known);
+        tag.putBoolean("festival", EventService.festival(player.server, kingdom));
         return tag;
     }
 
@@ -125,7 +129,10 @@ public final class ContractService {
 
     private static int dailyEmeralds(ServerPlayer player, ContractBoard board) {
         int bonus = kingdom(player).map(k -> KingdomRank.emeraldBonusPercent(KingdomProgressService.level(player.server, k))).orElse(0);
-        return (int) Math.round(DAILY_EMERALDS * board.multiplier() * (100 + bonus) / 100.0);
+        var kingdom = kingdom(player).orElse(null);
+        double festival = kingdom != null && EventService.festival(player.server, kingdom) ? 2 : 1;
+        double haggling = TechniqueService.knows(player, dev.livingkingdoms.rpg.domain.Technique.HAGGLING) ? 1.15 : 1;
+        return (int) Math.round(DAILY_EMERALDS * board.multiplier() * (100 + bonus) / 100.0 * festival * haggling);
     }
 
     private static boolean inside(ServerPlayer player, UUID kingdom) {

@@ -59,7 +59,7 @@ public final class CommerceScreen extends KingdomScreen {
     @Override public void render(GuiGraphics g,int mouseX,int mouseY,float delta) {
         if(language!=net.minecraft.locale.Language.getInstance()) rebuildWidgets();
         if(renderSizeHint(g,mouseX,mouseY,delta))return;
-        renderBackdrop(g);g.fill(left,top,left+panelWidth,top+196,WOOD);g.fill(left+3,top+3,left+panelWidth-3,top+193,PARCHMENT);
+        renderBackdrop(g);RpgFrame.panel(g,left,top,panelWidth,196);
         g.drawCenteredString(font,title,width/2,top+10,INK);
         g.drawCenteredString(font,balance,width/2,top+24,MUTED);
         for(int i=0;i<rows.size();i++) {

@@ -41,6 +41,17 @@ public final class ManagementScreen extends KingdomScreen {
         selected=Math.clamp(selected,0,Math.max(0,rows.size()-1));offset=Math.clamp(offset,0,Math.max(0,rows.size()-layout.rows()));
         for(int m=0;m<3;m++) {final int choice=m;button("tab"+m,tr(new String[]{"buildings","guards","history"}[m]),layout.left()+8+m*40,layout.top()+32,36,()->{mode=choice;selected=offset=page=0;rebuildWidgets();}).glyph(new String[]{"B","G","H"}[m]).selected(mode==m);}
         button("expand",tr("expand"),layout.left()+layout.width()-112,layout.top()+32,102,()->send(ManagementPayloads.Action.EXPAND)).active=!pending && data.getBoolean("expand");
+        var wall=data.getCompound("wall");int wallTier=wall.getInt("tier");
+        var fortify=button("fortify",tr(wallTier>=3?"fortify_max":"fortify",Component.translatable("wall.livingkingdoms.tier."+Math.min(3,wallTier+1))),
+                Math.max(layout.left()+128,layout.left()+layout.width()-216),layout.top()+32,Math.min(100,layout.width()-244),()->send(ManagementPayloads.Action.FORTIFY)).glyph("W");
+        fortify.active=!pending && !wall.contains("blocked") && wallTier<3;
+        var wallTip=Component.empty().append(tr("fortify_help"));
+        if(wallTier>0) wallTip.append("\n").append(tr("fortify_current",Component.translatable("wall.livingkingdoms.tier."+wallTier)));
+        for(var cost:wall.getList("costs",10)) {var c=(CompoundTag)cost;wallTip.append("\n").append(tr("cost_line",Component.translatable(c.getString("resource")),c.getInt("amount"),c.getInt("available"))
+                .withStyle(c.getInt("available")>=c.getInt("amount")?net.minecraft.ChatFormatting.GREEN:net.minecraft.ChatFormatting.RED));}
+        if(wall.contains("blocked")) wallTip.append("\n").append(Component.translatable(wall.getString("blocked")).withStyle(net.minecraft.ChatFormatting.GOLD));
+        if(wall.getInt("breaches")>0) wallTip.append("\n").append(tr("fortify_breaches",wall.getInt("breaches")).withStyle(net.minecraft.ChatFormatting.RED));
+        fortify.setTooltip(Tooltip.create(wallTip));
         for(int i=offset;i<Math.min(rows.size(),offset+layout.rows());i++) {final int index=i;var row=rows.get(i);
             var label=mode==0?Component.translatable(row.getString("name")):Component.literal(mode==2?row.getString("subject"):row.getString("name"));
             button("row"+i,label,layout.left()+8,layout.contentTop()+(i-offset)*34,layout.listWidth()-14,()->{selected=index;page=0;rebuildWidgets();}).selected(i==selected);
@@ -94,9 +105,8 @@ public final class ManagementScreen extends KingdomScreen {
     @Override public boolean isPauseScreen() {return false;}
     @Override public void render(GuiGraphics g,int mouseX,int mouseY,float delta) {
         if(language!=Language.getInstance()) rebuildWidgets();if(renderSizeHint(g,mouseX,mouseY,delta)) return;renderBackdrop(g);
-        g.fill(layout.left(),layout.top(),layout.left()+layout.width(),layout.top()+layout.height(),WOOD);
-        g.fill(layout.left()+2,layout.top()+2,layout.left()+layout.width()-2,layout.top()+layout.height()-2,PARCHMENT);
-        g.fill(layout.left()+4,layout.top()+4,layout.left()+layout.width()-4,layout.top()+28,BLUE);
+        RpgFrame.panel(g,layout.left(),layout.top(),layout.width(),layout.height());
+        RpgFrame.header(g,layout.left()+4,layout.top()+4,layout.width()-8,24);
         g.drawString(font,title,layout.left()+10,layout.top()+12,ON_BLUE,false);
         g.fill(layout.detailX()-4,layout.contentTop()-4,layout.left()+layout.width()-6,layout.contentBottom(),PAPER);
         int y=layout.contentTop();for(var line:pages.get(page)) {g.drawString(font,line,layout.detailX(),y,INK,false);y+=11;}

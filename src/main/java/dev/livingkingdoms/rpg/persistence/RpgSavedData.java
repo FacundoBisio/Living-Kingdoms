@@ -23,11 +23,12 @@ import java.util.UUID;
  * Kingdom rank XP per settlement and each player's contract board. New file in 0.22
  * ({@code <world>/data/livingkingdoms_rpg.dat}); older mod versions ignore it. Server thread only, capped.
  * Schema 2 (0.24) adds citizen bonds, active expeditions and undelivered expedition loot; schema 1 files load
- * with those empty and are rewritten as schema 2.
+ * with those empty and are rewritten as schema 2. Schema 3 (0.30) adds applied town decoration tiers, learned
+ * player techniques and kingdom walls; older files load with those empty.
  */
 public final class RpgSavedData extends SavedData {
     public static final String DATA_NAME = "livingkingdoms_rpg";
-    public static final int SCHEMA_VERSION = 2;
+    public static final int SCHEMA_VERSION = 3;
     public static final int MAX_KINGDOMS = 65536, MAX_PLAYERS = 65536, MAX_BONDS = 262144, MAX_EXPEDITIONS = 4096, MAX_PENDING_STACKS = 64;
     private final Map<UUID, Long> kingdomXp = new LinkedHashMap<>();
     private final Map<UUID, ContractBoard> boards = new LinkedHashMap<>();
@@ -35,6 +36,32 @@ public final class RpgSavedData extends SavedData {
     private final Map<UUID, dev.livingkingdoms.rpg.domain.Expedition> expeditions = new LinkedHashMap<>();
     /** Expedition loot for players who were offline at return time, as saved item stacks. */
     private final Map<UUID, java.util.List<CompoundTag>> pending = new LinkedHashMap<>();
+    private final Map<UUID, Integer> decor = new LinkedHashMap<>();
+    private final Map<UUID, java.util.Set<dev.livingkingdoms.rpg.domain.Technique>> techniques = new LinkedHashMap<>();
+    private final Map<UUID, dev.livingkingdoms.rpg.domain.Fortification> walls = new LinkedHashMap<>();
+
+    public int decor(UUID settlement) { return decor.getOrDefault(settlement, 0); }
+    public void markDecor(UUID settlement, int bits) {
+        int next = decor(settlement) | bits;
+        if (next == decor(settlement) || !decor.containsKey(settlement) && decor.size() >= MAX_KINGDOMS) return;
+        decor.put(settlement, next); setDirty();
+    }
+    public java.util.Set<dev.livingkingdoms.rpg.domain.Technique> techniques(UUID player) {
+        return java.util.Set.copyOf(techniques.getOrDefault(player, java.util.Set.of()));
+    }
+    public boolean learn(UUID player, dev.livingkingdoms.rpg.domain.Technique technique) {
+        if (!techniques.containsKey(player) && techniques.size() >= MAX_PLAYERS) return false;
+        var set = techniques.computeIfAbsent(player, ignored -> java.util.EnumSet.noneOf(dev.livingkingdoms.rpg.domain.Technique.class));
+        if (!set.add(technique)) return false;
+        setDirty(); return true;
+    }
+    public java.util.Optional<dev.livingkingdoms.rpg.domain.Fortification> wall(UUID settlement) { return java.util.Optional.ofNullable(walls.get(settlement)); }
+    public java.util.List<UUID> walledSettlements() { return java.util.List.copyOf(walls.keySet()); }
+    public boolean putWall(UUID settlement, dev.livingkingdoms.rpg.domain.Fortification wall) {
+        if (!walls.containsKey(settlement) && walls.size() >= MAX_KINGDOMS) return false;
+        if (wall.equals(walls.get(settlement))) return true;
+        walls.put(settlement, wall); setDirty(); return true;
+    }
 
     public dev.livingkingdoms.rpg.domain.Bond bond(UUID citizen) { return bonds.getOrDefault(Objects.requireNonNull(citizen), dev.livingkingdoms.rpg.domain.Bond.empty()); }
     public boolean putBond(UUID citizen, dev.livingkingdoms.rpg.domain.Bond bond) {
@@ -155,6 +182,25 @@ public final class RpgSavedData extends SavedData {
                 if (stacks.size() > MAX_PENDING_STACKS || data.pending.put(e.getUUID("player"), stacks) != null) throw new IllegalArgumentException("Invalid pending loot");
             }
         }
+        if (schema >= 3) {
+            for (var raw : list(tag, "decor")) {
+                var e = (CompoundTag) raw;
+                if (!e.hasUUID("settlement") || data.decor.put(e.getUUID("settlement"), e.getInt("bits")) != null) throw new IllegalArgumentException("Invalid decor");
+            }
+            for (var raw : list(tag, "techniques")) {
+                var e = (CompoundTag) raw;
+                if (!e.hasUUID("player")) throw new IllegalArgumentException("Invalid technique owner");
+                var set = java.util.EnumSet.noneOf(dev.livingkingdoms.rpg.domain.Technique.class);
+                for (var id : e.getList("known", Tag.TAG_STRING)) set.add(dev.livingkingdoms.rpg.domain.Technique.fromId(id.getAsString()));
+                if (data.techniques.put(e.getUUID("player"), set) != null) throw new IllegalArgumentException("Duplicate techniques");
+            }
+            for (var raw : list(tag, "walls")) {
+                var e = (CompoundTag) raw;
+                if (!e.hasUUID("settlement")) throw new IllegalArgumentException("Invalid wall");
+                var wall = new dev.livingkingdoms.rpg.domain.Fortification(e.getInt("tier"), e.getInt("radius"), e.getInt("built"), e.getBoolean("complete"));
+                if (data.walls.put(e.getUUID("settlement"), wall) != null) throw new IllegalArgumentException("Duplicate wall");
+            }
+        }
         if (data.kingdomXp.size() > MAX_KINGDOMS || data.boards.size() > MAX_PLAYERS || data.bonds.size() > MAX_BONDS
                 || data.expeditions.size() > MAX_EXPEDITIONS) throw new IllegalArgumentException("RPG data exceeds caps");
         data.setDirty(schema < SCHEMA_VERSION);
@@ -187,6 +233,17 @@ public final class RpgSavedData extends SavedData {
         var pendingList = new ListTag();
         pending.forEach((id, stacks) -> { var e = new CompoundTag(); e.putUUID("player", id); var items = new ListTag(); stacks.forEach(items::add); e.put("items", items); pendingList.add(e); });
         tag.put("pending", pendingList);
+        var decorList = new ListTag();
+        decor.forEach((id, bits) -> { var e = new CompoundTag(); e.putUUID("settlement", id); e.putInt("bits", bits); decorList.add(e); });
+        tag.put("decor", decorList);
+        var techniqueList = new ListTag();
+        techniques.forEach((id, set) -> { var e = new CompoundTag(); e.putUUID("player", id); var known = new ListTag();
+            set.forEach(t -> known.add(net.minecraft.nbt.StringTag.valueOf(t.id()))); e.put("known", known); techniqueList.add(e); });
+        tag.put("techniques", techniqueList);
+        var wallList = new ListTag();
+        walls.forEach((id, w) -> { var e = new CompoundTag(); e.putUUID("settlement", id); e.putInt("tier", w.tier()); e.putInt("radius", w.radius());
+            e.putInt("built", w.built()); e.putBoolean("complete", w.complete()); wallList.add(e); });
+        tag.put("walls", wallList);
         return tag;
     }
 

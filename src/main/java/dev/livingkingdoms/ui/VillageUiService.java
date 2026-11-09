@@ -100,6 +100,11 @@ public final class VillageUiService {
         MayorPresentation.apply(npc);
         // Independent NPC kingdoms greet players as visitors: no onboarding, quests or management.
         if (dev.livingkingdoms.npckingdom.NpcKingdoms.refuseVisitor(player, settlement.get())) return false;
+        // Catch up town decorations for kingdoms that ranked up before 0.30 (each tier is applied once).
+        int rank = dev.livingkingdoms.rpg.KingdomProgressService.level(player.server, settlement.get().id());
+        if (!dev.livingkingdoms.rpg.domain.TownDecor.pending(rank, dev.livingkingdoms.rpg.persistence.RpgSavedData.get(player.server).decor(settlement.get().id())).isEmpty()
+                && dev.livingkingdoms.onboarding.KingdomOnboardingService.canHelp(player, settlement.get()))
+            dev.livingkingdoms.rpg.TownDecorService.beautify(player.serverLevel(), settlement.get().id(), rank);
         if (!KingdomOnboardingService.begin(player, settlement.get(), npc)) return false;
         Session session = new Session(UUID.randomUUID(), settlement.get().id(), player.level().dimension().location().toString(), null, npc.getUUID(), now(player));
         QuestJournalService.dismiss(player);SESSIONS.put(player, session);

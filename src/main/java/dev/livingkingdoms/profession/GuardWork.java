@@ -46,6 +46,7 @@ public final class GuardWork {
         GuardEquipment.apply(v,p);
     }
     public static void release(Villager v) {
+        dev.livingkingdoms.rpg.ArcherWork.release(v);
         var goal=CONTROLLED.remove(v);
         if(goal!=null) { v.goalSelector.removeGoal(goal); v.setTarget(null); v.getNavigation().stop(); if(v.level() instanceof ServerLevel level) v.refreshBrain(level); }
         // Covers assignment removal while the entity was unloaded: vanilla NBT is the equipment authority.
@@ -117,7 +118,7 @@ public final class GuardWork {
     /** Current local search radius for a settlement's guards, widened while a settlement threat is underway. */
     public static double searchRadius(ServerLevel level,Settlement s) {
         boolean alert=dev.livingkingdoms.defense.persistence.DefenseSavedData.get(level.getServer()).active(s.id())
-                .filter(event -> event.state().threatened()).isPresent();
+                .filter(event -> event.state().threatened()).isPresent() || dev.livingkingdoms.rpg.AlarmService.active(level.getServer(),s.id());
         return GuardPolicy.searchRadius(GuardConfig.SEARCH_RANGE.get(),alert,GuardConfig.ALERT_SEARCH_MULTIPLIER.get(),defense(s));
     }
     public static double defense(Settlement s) { return Math.min(s.territory().radius(),GuardConfig.DEFENSE_RANGE.get()); }
@@ -141,6 +142,8 @@ public final class GuardWork {
             var s=SettlementSavedData.get(level.getServer()).get(settlement).orElse(null);
             if(s==null || !s.faction().isAllied() || !s.territory().dimension().equals(level.dimension().location().toString())) { lowerShield(); v.setTarget(null); v.getNavigation().stop(); return; }
             if(v.isPassenger() || v.isLeashed() || v.isTrading()) { lowerShield(); v.setTarget(null); v.getNavigation().stop(); state(WorkState.IDLE); return; }
+            // Bow and crossbow guards man watchtower tops and wall posts instead of fighting on foot.
+            if(dev.livingkingdoms.rpg.ArcherWork.tick(v,level,s)) { lowerShield(); state(v.getTarget()!=null?WorkState.ENGAGING:WorkState.IDLE); return; }
             double defense=defense(s), chase=defense+GuardConfig.CHASE_RANGE.get();
             LivingEntity target=v.getTarget();
             if(target!=null && (!hostile(target) || target.level()!=level || !inside(s,target,chase) || !inside(s,v,chase))) {

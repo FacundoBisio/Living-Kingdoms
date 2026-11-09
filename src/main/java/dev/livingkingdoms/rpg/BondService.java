@@ -117,9 +117,11 @@ public final class BondService {
         if (level != before.level()) {
             player.sendSystemMessage(Component.translatable("bond.livingkingdoms.level_up", name, Component.translatable("bond.livingkingdoms.level." + level.id()))
                     .withStyle(ChatFormatting.LIGHT_PURPLE));
-            if (bond.loyal() && !before.loyal())
+            if (bond.loyal() && !before.loyal()) {
                 player.sendSystemMessage(Component.translatable("bond.livingkingdoms.perk." + profession(player.server, citizen).name().toLowerCase(java.util.Locale.ROOT))
                         .withStyle(ChatFormatting.AQUA));
+                TechniqueService.learnFrom(player, profession(player.server, citizen), citizen.name());
+            }
             applyPerks(villager, citizen, bond);
         }
         if (delivered || !rewards.isEmpty()) {

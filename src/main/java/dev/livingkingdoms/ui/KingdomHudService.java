@@ -45,6 +45,28 @@ public final class KingdomHudService {
                         settlement.putInt("rank",dev.livingkingdoms.rpg.domain.KingdomRank.level(xp));
                         settlement.putLong("rank_progress",dev.livingkingdoms.rpg.domain.KingdomRank.progress(xp));
                         settlement.putLong("rank_span",dev.livingkingdoms.rpg.domain.KingdomRank.span(xp));
+                        // Dynamic context rows: events, claimable contracts and the construction you stand next to.
+                        var event=dev.livingkingdoms.rpg.EventService.hud(player,s.id());
+                        if(!event.isEmpty()) settlement.put("event",event);
+                        dev.livingkingdoms.rpg.ContractService.board(player).ifPresent(board -> {
+                            int ready=(int)board.daily().stream().filter(c -> !c.claimed() && c.tracked() && c.complete()).count()
+                                    +(board.weekly()!=null && !board.weekly().claimed() && board.weekly().tracked() && board.weekly().complete()?1:0);
+                            if(ready>0) settlement.putInt("contracts_ready",ready);
+                        });
+                        dev.livingkingdoms.construction.ConstructionService.current(player.server,s.id()).ifPresent(entry -> {
+                            var origin=entry.plan().buildings().getFirst().origin();
+                            if(origin.distSqr(player.blockPosition())<=24*24 && entry.project().state()==dev.livingkingdoms.construction.domain.ConstructionState.BUILDING) {
+                                var site=new CompoundTag(); site.putString("building",entry.project().building().name().toLowerCase(java.util.Locale.ROOT));
+                                site.putInt("percent",(int)Math.round(entry.project().progress(player.server.overworld().getGameTime())*100));
+                                site.putInt("helpers",dev.livingkingdoms.construction.ConstructionService.assistants(entry.project().id()));
+                                site.putBoolean("blocked",dev.livingkingdoms.construction.ConstructionService.reason(entry.project().id()).isPresent());
+                                settlement.put("site",site);
+                            }
+                        });
+                        dev.livingkingdoms.rpg.persistence.RpgSavedData.get(player.server).wall(s.id()).filter(w -> !w.complete()).ifPresent(w ->
+                                settlement.putInt("wall_building",w.tier()));
+                        int breaches=dev.livingkingdoms.rpg.WallService.breaches(s.id());if(breaches>0) settlement.putInt("wall_breaches",breaches);
+                        long alarm=dev.livingkingdoms.rpg.AlarmService.remaining(player.server,s.id());if(alarm>0) settlement.putInt("alarm",(int)(alarm/20));
                     }
                     tag.put("settlement",settlement);
                 });

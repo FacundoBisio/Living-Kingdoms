@@ -56,9 +56,8 @@ final class ChallengeScreen extends KingdomScreen {
     @Override public void render(GuiGraphics g, int mouseX, int mouseY, float delta) {
         if (renderSizeHint(g, mouseX, mouseY, delta)) return;
         renderBackdrop(g);
-        g.fill(left - 2, top - 2, left + panelWidth + 2, top + panelHeight + 2, VillageTheme.WOOD);
-        g.fill(left, top, left + panelWidth, top + panelHeight, VillageTheme.PARCHMENT);
-        g.fill(left, top, left + panelWidth, top + 22, VillageTheme.BLUE);
+        RpgFrame.panel(g, left, top, panelWidth, panelHeight);
+        RpgFrame.header(g, left + 2, top + 2, panelWidth - 4, 20);
         g.drawString(font, title, left + 10, top + 7, VillageTheme.ON_BLUE, false);
         long cooldown = data.getLong("cooldown");
         if (data.getBoolean("active")) g.drawString(font, Component.translatable("ui.livingkingdoms.challenges.active"), left + 120, top + 7, VillageTheme.GOLD, false);

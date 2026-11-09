@@ -133,9 +133,8 @@ public final class StockScreen extends KingdomScreen {
         if(language!=Language.getInstance()) rebuildWidgets();
         if(renderSizeHint(g,mouseX,mouseY,delta)) return;
         renderBackdrop(g);var p=layout.panel();
-        g.fill(p.left(),p.top(),p.left()+p.width(),p.top()+p.height(),WOOD);
-        g.fill(p.left()+2,p.top()+2,p.left()+p.width()-2,p.top()+p.height()-2,PARCHMENT);
-        g.fill(p.left()+4,p.top()+4,p.left()+p.width()-4,p.top()+28,BLUE);
+        RpgFrame.panel(g,p.left(),p.top(),p.width(),p.height());
+        RpgFrame.header(g,p.left()+4,p.top()+4,p.width()-8,24);
         g.drawString(font,title,p.left()+10,p.top()+12,ON_BLUE,false);
         g.renderItem(icon,p.detailX(),p.top()+33);
         g.drawString(font,caption,p.detailX()+22,p.top()+38,INK,false);

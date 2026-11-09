@@ -43,3 +43,21 @@ collar, dark trousers, brown boots. Leave the top 2 rows of the head plain hair 
 Vanilla pixel density, max 3 shades per material, readable at 16 blocks. Self-check: every painted pixel lies
 inside its UV box, no overlapping islands, overlay layer transparent except the coat collar and sash.
 ```
+
+## 0.30 assets
+
+The Spike Trap ships with simple generated placeholder textures (`textures/block/spike_trap_base.png` and
+`spike_trap_spike.png`, used by a hand-built model with a plank base and nine iron spikes). To replace them:
+
+```
+Paint two 16x16 vanilla-style Minecraft block textures for "Spike Trap" (Living Kingdoms, MC 1.21.1).
+1) spike_trap_base.png: a weathered dark-oak plank board seen from above, two iron straps crossing it, rusty nail
+   heads at the strap ends; max 4 shades of brown and 3 of grey, no anti-aliasing, tileable edges.
+2) spike_trap_spike.png: the side of a forged iron spike, lit from the top-left: bright tip (top rows), darker
+   base, one rust pixel cluster near the bottom. Only the left 2 columns x 6 rows and the top-left 2x2 are sampled
+   by the model, so keep the detail there and fill the rest with the same pattern.
+Vanilla palette density, readable at 16 blocks, no text or logos.
+```
+
+Wall tiers reuse vanilla blocks (stripped spruce logs, cobblestone, stone bricks and their walls), and the
+Caravan master is a vanilla Wandering Trader with a custom name, so no new art is required for them.

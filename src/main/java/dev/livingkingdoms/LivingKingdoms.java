@@ -49,11 +49,22 @@ public final class LivingKingdoms {
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.rpg.ExpeditionService::onServerTick);
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.rpg.ExpeditionService::onLogin);
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.rpg.ExpeditionService::onJoin);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.rpg.TechniqueService::onLogin);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.rpg.TechniqueService::onRespawn);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.rpg.EventService::onServerTick);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.rpg.EventService::onRightClickBlock);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.rpg.EventService::onJoin);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.rpg.WallService::onServerTick);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.rpg.AlarmService::onServerTick);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.rpg.AlarmService::onRightClickBlock);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.rpg.ArcherWork::onImpact);
         NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, false, dev.livingkingdoms.rpg.ContractService::onKill);
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.rpg.ChallengeService::onLogout);
         NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, false, dev.livingkingdoms.rpg.ChallengeService::onPlayerDeath);
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.server.ServerStoppingEvent event) -> {
-            dev.livingkingdoms.rpg.ChallengeService.shutdown(event.getServer()); dev.livingkingdoms.rpg.RallyService.clear(); });
+            dev.livingkingdoms.rpg.ChallengeService.shutdown(event.getServer()); dev.livingkingdoms.rpg.RallyService.clear();
+            dev.livingkingdoms.rpg.EventService.clear(); dev.livingkingdoms.rpg.WallService.clear();
+            dev.livingkingdoms.rpg.AlarmService.clear(); dev.livingkingdoms.rpg.ArcherWork.clear(); });
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.npc.MayorPresentation::onJoin);
         container.registerConfig(ModConfig.Type.SERVER, KingdomConfig.SPEC);
         NeoForge.EVENT_BUS.addListener(SettlementCommands::register);

@@ -553,11 +553,8 @@ public final class VillageScreen extends KingdomScreen {
     @Override public void render(GuiGraphics g,int mouseX,int mouseY,float delta) {
         if (renderSizeHint(g,mouseX,mouseY,delta)) return;
         renderBackdrop(g);
-        g.fill(left-2,top-2,left+panelWidth+2,top+panelHeight+2,WOOD);
-        g.fill(left,top,left+panelWidth,top+panelHeight,PARCHMENT);
-        g.fill(left,top,left+panelWidth,top+1,HOVER);
-        g.fill(left,top+panelHeight-1,left+panelWidth,top+panelHeight,WOOD_LIGHT);
-        g.fill(left+4,top+4,left+panelWidth-4,top+27,BLUE);
+        RpgFrame.panel(g,left,top,panelWidth,panelHeight);
+        RpgFrame.header(g,left+4,top+4,panelWidth-8,24);
         Component rep=tr("reputation",data.getInt("reputation"));
         if(data.getString("safety").equals("threatened")) rep=safety();
         boolean threatened=data.getString("safety").equals("threatened");
@@ -884,9 +881,19 @@ public final class VillageScreen extends KingdomScreen {
 
     private void renderDialogue(GuiGraphics g,int mouseX,int mouseY) {
         int x=layout.detailX(),w=layout.detailWidth();
-        g.fill(left+9,top+35,left+listWidth,top+panelHeight-12,INSET);
+        // Framed portrait card with a name plaque, Emberville-style.
+        int portraitBottom=top+panelHeight-12;
+        RpgFrame.card(g,left+8,top+34,listWidth-7,portraitBottom-top-34);
+        g.fill(left+12,top+38,left+listWidth-5,portraitBottom-4,0x5532261A);
         if(minecraft.level!=null&&minecraft.level.getEntity(data.getInt("entity")) instanceof LivingEntity npc)
-            InventoryScreen.renderEntityInInventoryFollowsMouse(g,left+10,top+40,left+listWidth-2,top+panelHeight-(data.getBoolean("info")?20:55),Math.min(55,(panelHeight-100)/2),0.0625F,mouseX,mouseY,npc);
+            InventoryScreen.renderEntityInInventoryFollowsMouse(g,left+10,top+40,left+listWidth-2,top+panelHeight-(data.getBoolean("info")?34:55),Math.min(55,(panelHeight-100)/2),0.0625F,mouseX,mouseY,npc);
+        if(data.getBoolean("info")) {
+            int plaqueY=portraitBottom-20;
+            RpgFrame.header(g,left+10,plaqueY,listWidth-11,16);
+            var name=Component.literal(data.getString("name"));
+            int nameWidth=Math.min(font.width(name),listWidth-20);
+            g.drawString(font,font.plainSubstrByWidth(data.getString("name"),listWidth-20),left+8+(listWidth-7-nameWidth)/2,plaqueY+4,0xFFF4E2B8,true);
+        }
         dialogueStart=paragraph(g,speaker(),x,top+37,w-24,INK);
         int y=dialogueStart-detailScroll;
         g.enableScissor(x,dialogueStart,x+w-24,dialogueActionsTop()-8);
