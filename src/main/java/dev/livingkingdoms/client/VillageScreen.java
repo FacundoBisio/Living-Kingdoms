@@ -47,6 +47,7 @@ public final class VillageScreen extends KingdomScreen {
     private long constructionTicks;
     private boolean buildingPicker;
     private boolean professionPicker;
+    private boolean expeditionPicker;
     private dev.livingkingdoms.structure.BuildingKind previewKind=dev.livingkingdoms.structure.BuildingKind.HOUSE;
     private int professionPage,buildingPage;
     private boolean history;
@@ -79,7 +80,8 @@ public final class VillageScreen extends KingdomScreen {
         textCache.clear();
         citizenDetailCache.clear();
         constructionTicks = 0;
-        if (changedScreen) { detailScroll = 0; focusKey = null; buildingPicker = false; professionPicker = false; selectDefense(); restartTransition(); }
+        if (changedScreen) { detailScroll = 0; focusKey = null; buildingPicker = false; professionPicker = false; expeditionPicker = false; selectDefense(); restartTransition(); }
+        if (data.contains("notice") && data.getString("notice").startsWith("ui.livingkingdoms.expedition")) expeditionPicker = false;
         if(!data.getBoolean("plan")) buildingPicker = false;
         if(!data.getBoolean("can_help")) { buildingPicker=false; professionPicker=false; }
         if (pendingQuest != null) selected = pendingQuest;
@@ -260,7 +262,7 @@ public final class VillageScreen extends KingdomScreen {
         for(int i=offset;i<Math.min(quests.size(),offset+rows);i++) {
             CompoundTag q=quests.get(i);
             var row = button(q.getUUID("id").toString(), questTitle(q), left+8, listTop()+(i-offset)*34, listWidth-12,
-                    () -> {selected=q.getUUID("id");detailScroll=0;buildingPicker=false;professionPicker=false;rebuildWidgets();});
+                    () -> {selected=q.getUUID("id");detailScroll=0;buildingPicker=false;professionPicker=false;expeditionPicker=false;rebuildWidgets();});
             row.selected(q.getUUID("id").equals(selected));
             if (board()) row.stateMark(QuestBoardPresentation.status(q).mark(), questColor(q));
             row.setTooltip(Tooltip.create(questTitle(q).copy().append("\n").append(construction()?queueStatus(q):state(q))));
@@ -304,14 +306,29 @@ public final class VillageScreen extends KingdomScreen {
                     ()->{if(q!=null) send(UiPayloads.Action.RALLY_ONE,q.getUUID("id"));});
             rallyOne.active=!pending && q!=null && !data.getBoolean("remote") && q.getString("status").equals("active");
             rallyOne.setTooltip(Tooltip.create(tr("rally.one_help")));
-            int actionWidth=(available-4)/2;
+            int actionWidth=(available-8)/3;
             var assign=button("profession_picker",tr(pending?"working":professionPicker?"back":q!=null && q.getBoolean("remove")?"citizens.remove":"citizens.choose_profession"),x,layout.footerTop(),actionWidth,
                     ()->{if(q!=null && q.getBoolean("remove")) send(UiPayloads.Action.REMOVE_PROFESSION,q.getUUID("id"));
-                        else {professionPicker=!professionPicker;detailScroll=0;rebuildWidgets();}});
+                        else {professionPicker=!professionPicker;expeditionPicker=false;detailScroll=0;rebuildWidgets();}});
             assign.primary(); assign.active=!pending && q!=null && (professionPicker || q.getBoolean("assign") || q.getBoolean("assign_guard") || q.getBoolean("assign_builder")
                     || q.getBoolean("assign_lumberjack") || q.getBoolean("assign_miner") || q.getBoolean("assign_blacksmith") || q.getBoolean("assign_merchant") || q.getBoolean("remove"));
             if(!assign.active && !pending) assign.setTooltip(Tooltip.create(tr("citizens.requirement")));
-            button(tr("back"),x+actionWidth+4,layout.footerTop(),actionWidth,()->send(returnAction(),null)).active=!pending;
+            var expedition=button("expedition_picker",tr(expeditionPicker?"back":"expedition"),x+actionWidth+4,layout.footerTop(),actionWidth,
+                    ()->{expeditionPicker=!expeditionPicker;professionPicker=false;detailScroll=0;rebuildWidgets();});
+            expedition.active=!pending && q!=null && !data.getBoolean("remote") && (expeditionPicker || q.getBoolean("can_expedition"));
+            expedition.setTooltip(Tooltip.create(tr(expedition.active?"expedition.help":"expedition.requirement")));
+            button(tr("back"),x+(actionWidth+4)*2,layout.footerTop(),actionWidth,()->send(returnAction(),null)).active=!pending;
+            if(expeditionPicker && q!=null) {
+                String[] kinds={"forage","mine","explore"};
+                UiPayloads.Action[] actions={UiPayloads.Action.EXPEDITION_FORAGE,UiPayloads.Action.EXPEDITION_MINE,UiPayloads.Action.EXPEDITION_EXPLORE};
+                for(int i=0;i<3;i++) {
+                    final int index=i;
+                    var choice=button("expedition_"+kinds[i],Component.translatable("expedition.livingkingdoms.kind."+kinds[i]),layout.detailX(),layout.contentTop()+26+i*24,layout.detailWidth()-28,
+                            ()->send(actions[index],q.getUUID("id")));
+                    choice.active=!pending && q.getBoolean("can_expedition");
+                    choice.setTooltip(Tooltip.create(Component.translatable("expedition.livingkingdoms.describe."+kinds[i])));
+                }
+            }
             if(professionPicker && q!=null) {
                 int pickerX=layout.detailX(),pickerWidth=(layout.detailWidth()-28)/2;
                 int capacity=dev.livingkingdoms.ui.PickerPages.capacity(layout.viewport());professionPage%=dev.livingkingdoms.ui.PickerPages.count(7,layout.viewport());
@@ -778,6 +795,13 @@ public final class VillageScreen extends KingdomScreen {
         details.add(p.getBoolean("workplace")?tr("citizens.workplace_kind",Component.translatable("construction.livingkingdoms.building."+p.getString("workplace_kind")),p.getInt("work_x"),p.getInt("work_z"),p.getInt("workers"),p.getInt("slots")):tr("citizens.no_workplace"));
         if(p.getString("profession").equals("builder")) details.add(p.contains("project_building")?
                 tr("citizens.current_project",Component.translatable("construction.livingkingdoms.building."+p.getString("project_building"))):tr("citizens.no_project"));
+        if(p.contains("bond")) {
+            int bond=p.getInt("bond"); var hearts=new StringBuilder(); for(int i=0;i<5;i++) hearts.append(i<bond/20?'\u2764':'\u2661');
+            details.add(tr("bond.line",Component.translatable("bond.livingkingdoms.level."+p.getString("bond_level")),hearts.toString(),bond));
+            var wish=net.minecraft.core.registries.BuiltInRegistries.ITEM.get(net.minecraft.resources.ResourceLocation.parse(p.getString("wish_item")));
+            details.add(p.getBoolean("wish_done")?tr("bond.wish_done"):tr("bond.wish",p.getInt("wish_count"),wish.getDescription()));
+        }
+        if(p.contains("away_kind")) details.add(tr("expedition.away",Component.translatable("expedition.livingkingdoms.kind."+p.getString("away_kind")),(p.getLong("away_seconds")+59)/60));
         details.add(tr("citizens.status",Component.translatable("citizen.livingkingdoms.state."+p.getString("status")),
                 Component.translatable("work.livingkingdoms."+p.getString("work_state")),tr(p.getBoolean("active")?"citizens.active":"citizens.inactive")));
         var result=List.copyOf(details);citizenDetailCache.put(id,result);return result;
@@ -812,6 +836,12 @@ public final class VillageScreen extends KingdomScreen {
             g.drawString(font,ellipsize(state(people.get(i)),listWidth-20),left+11,layout.contentTop()+23+(i-offset)*34,MUTED,false);
         int x=layout.detailX(),y=layout.contentTop()-detailScroll,w=layout.detailWidth()-24,start=y;
         var person=selectedQuest();
+        if(expeditionPicker && person!=null) {
+            paragraph(g,tr("expedition.choose",person.getString("name")).withStyle(net.minecraft.ChatFormatting.BOLD),x,layout.contentTop(),w-30,INK);
+            g.enableScissor(x,layout.contentTop()+100,x+w,layout.contentBottom());
+            paragraph(g,tr("expedition.explain"),x,layout.contentTop()+104,w,MUTED);
+            detailHeight=0;detailScroll=0;g.disableScissor();return;
+        }
         if(professionPicker && person!=null) {
             paragraph(g,tr("citizens.choose_profession").withStyle(net.minecraft.ChatFormatting.BOLD),x,layout.contentTop(),w-30,INK);
             g.enableScissor(x,layout.contentTop()+76,x+w,layout.contentBottom());

@@ -67,7 +67,8 @@ public final class CitizenEvents {
     public static void onTick(EntityTickEvent.Post event) {
         if (!(event.getEntity() instanceof Villager villager) || Math.floorMod(villager.tickCount+villager.getId(),40) != 0
                 || !(villager.level() instanceof ServerLevel level)
-                || !villager.getPersistentData().hasUUID(CitizenService.CITIZEN_ID_KEY)) return;
+                || !villager.getPersistentData().hasUUID(CitizenService.CITIZEN_ID_KEY)
+                || dev.livingkingdoms.rpg.ExpeditionService.away(villager)) return;
         CitizenSavedData.get(level.getServer()).byEntity(villager.getUUID())
                 .filter(c -> c.state() == CitizenState.ACTIVE
                         && c.id().equals(villager.getPersistentData().getUUID(CitizenService.CITIZEN_ID_KEY))

@@ -107,6 +107,10 @@ Format: **What happened** → **Rule** → **Check**.
 25. **Citizen name tags used only the NORMAL text pass**, so they vanished behind blocks and other entities.
     → Follow vanilla: a faint SEE_THROUGH pass plus the NORMAL pass.
 
+26. **Reward items land in the slot the player just emptied**, so tests that checked "main hand is empty" after a
+    delivery failed even though the delivery was correct (0.23 equip, 0.24 wishes).
+    → Assert on item counts, not on which slot is empty, whenever a reward is granted in the same action.
+
 ## Adding an entry
 
 Append to the right section with the next number. Keep it to three lines. If the rule changes how features are

@@ -137,15 +137,30 @@ Long loop (hours): refine a weapon to +5, win the Warlord trial, develop the Tow
 - Royal Whetstones also refine armor: +0.5 armor and +0.25 toughness per level.
 - Chests add 1–4 surprise rolls from a wide weighted pool; epic/legendary chests can hold refined armor.
 
+### 4.13 Friendship with citizens (0.24)
+- Right-click a resident (sneak-right-click a Merchant; sneak + tool still equips) to talk. Once per calendar day
+  talking gives +3 bond; each resident has one profession-themed **wish** per day (deterministic per citizen and
+  day). Talking while holding it delivers it: +15 bond, 3 emeralds, 20 XP, 15 kingdom XP, 15% common chest.
+- Bond levels: Stranger 0, Friendly 25, Trusted 50, Loyal 75, Devoted 100. Loyal residents give a daily gift
+  and unlock a perk (Builders +20% work, Guards +6 max health); Devoted pays a one-time epic chest.
+- The roster shows bond hearts, today's wish and whether it was fulfilled.
+
+### 4.14 Expeditions (0.24)
+- Mayor → Citizens → *Expedition* on an unassigned resident: Forage (5 min), Mine (10 min), Explore (15 min).
+  Up to 3 away per kingdom. The resident is hidden in place (invisible, frozen, invulnerable) so identity and
+  home are untouched; a restart without the expedition record makes them visible again.
+- On return the sender gets the loot with a banner (or on next login), +5 bond and 20 kingdom XP. Explore has a
+  25% chance to rescue a survivor who arrives as an immigration candidate (rare chest if there is no housing).
+- `livingkingdoms_rpg.dat` schema 2 stores bonds, expeditions and undelivered loot; schema 1 files migrate.
+
 ## 5. Roadmap (next steps, in priority order)
 
 Done in 0.22: kingdom rank with HUD bar, daily/weekly contracts with streak, rarity loot chests.
+Done in 0.24: citizen bonds with daily wishes and perks, expeditions with survivor rescue.
 
 
 | # | Feature | Why | Acceptance |
 |---|---|---|---|
-| 1 | Citizen stories / affinity: 3–5 personal quests per named citizen, unlocking a perk | Emberville "townsfolk" pillar | Persisted per citizen; perk visible in roster |
-| 2 | Expeditions: send residents away for N minutes, return with loot or a rescued survivor | Reason to come back | Bounded timers in SavedData; result survives restart |
 | 3 | Checklists for every multi-step main quest (Watchtower, Patrol) | Pillar 2 | Each step updates from real state; GameTest per quest |
 | 4 | Timed world events (blood moon horde, merchant caravan, festival) with HUD countdown | Appointment play | One active event per kingdom, cleaned on restart |
 | 9 | Codex / collections (bosses, trophies, enemies, citizens) with set rewards | Completionism | One-time set receipts |
@@ -170,6 +185,8 @@ Visual/3D assets for new mobs or items go through Argon 4 (owner's pipeline); Cl
 | Kingdom rank curve, perks, level-up chests | `rpg/domain/KingdomRank` | see 4.8 |
 | Contract pools, streak math | `rpg/domain/ContractBoard`, `rpg/ContractService` | see 4.9 |
 | Chest rarity weights / contents | `rpg/domain/LootRarity`, `rpg/LootChests` | see 4.10 |
+| Bond gains, levels, wishes | `rpg/domain/Bond`, `rpg/domain/PersonalRequest` | see 4.13 |
+| Expedition durations, loot, rescue chance | `rpg/domain/Expedition`, `rpg/ExpeditionService` | see 4.14 |
 
 Balance tables are code on purpose: changes show up as reviewable diffs and the domain tests assert the escalation
 contract (later tiers always pay more, later waves are larger, refinement cost always increases).

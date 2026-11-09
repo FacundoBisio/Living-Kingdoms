@@ -22,13 +22,57 @@ import java.util.UUID;
 /**
  * Kingdom rank XP per settlement and each player's contract board. New file in 0.22
  * ({@code <world>/data/livingkingdoms_rpg.dat}); older mod versions ignore it. Server thread only, capped.
+ * Schema 2 (0.24) adds citizen bonds, active expeditions and undelivered expedition loot; schema 1 files load
+ * with those empty and are rewritten as schema 2.
  */
 public final class RpgSavedData extends SavedData {
     public static final String DATA_NAME = "livingkingdoms_rpg";
-    public static final int SCHEMA_VERSION = 1;
-    public static final int MAX_KINGDOMS = 65536, MAX_PLAYERS = 65536;
+    public static final int SCHEMA_VERSION = 2;
+    public static final int MAX_KINGDOMS = 65536, MAX_PLAYERS = 65536, MAX_BONDS = 262144, MAX_EXPEDITIONS = 4096, MAX_PENDING_STACKS = 64;
     private final Map<UUID, Long> kingdomXp = new LinkedHashMap<>();
     private final Map<UUID, ContractBoard> boards = new LinkedHashMap<>();
+    private final Map<UUID, dev.livingkingdoms.rpg.domain.Bond> bonds = new LinkedHashMap<>();
+    private final Map<UUID, dev.livingkingdoms.rpg.domain.Expedition> expeditions = new LinkedHashMap<>();
+    /** Expedition loot for players who were offline at return time, as saved item stacks. */
+    private final Map<UUID, java.util.List<CompoundTag>> pending = new LinkedHashMap<>();
+
+    public dev.livingkingdoms.rpg.domain.Bond bond(UUID citizen) { return bonds.getOrDefault(Objects.requireNonNull(citizen), dev.livingkingdoms.rpg.domain.Bond.empty()); }
+    public boolean putBond(UUID citizen, dev.livingkingdoms.rpg.domain.Bond bond) {
+        Objects.requireNonNull(citizen); Objects.requireNonNull(bond);
+        if (!bonds.containsKey(citizen) && bonds.size() >= MAX_BONDS) return false;
+        if (bond.equals(bonds.get(citizen))) return true;
+        bonds.put(citizen, bond); setDirty(); return true;
+    }
+
+    public java.util.Optional<dev.livingkingdoms.rpg.domain.Expedition> expedition(UUID citizen) { return java.util.Optional.ofNullable(expeditions.get(citizen)); }
+    public java.util.List<dev.livingkingdoms.rpg.domain.Expedition> expeditions() { return java.util.List.copyOf(expeditions.values()); }
+    public long expeditionsIn(UUID settlement) { return expeditions.values().stream().filter(e -> e.settlement().equals(settlement)).count(); }
+    public boolean startExpedition(dev.livingkingdoms.rpg.domain.Expedition expedition) {
+        if (expeditions.containsKey(expedition.citizen()) || expeditions.size() >= MAX_EXPEDITIONS
+                || expeditionsIn(expedition.settlement()) >= dev.livingkingdoms.rpg.domain.Expedition.MAX_PER_SETTLEMENT) return false;
+        expeditions.put(expedition.citizen(), expedition); setDirty(); return true;
+    }
+    public boolean endExpedition(UUID citizen) {
+        if (expeditions.remove(citizen) == null) return false;
+        setDirty(); return true;
+    }
+
+    public java.util.List<CompoundTag> pending(UUID player) { return java.util.List.copyOf(pending.getOrDefault(player, java.util.List.of())); }
+    /** Stores up to {@link #MAX_PENDING_STACKS} stacks per player; extra stacks are reported as not stored. */
+    public int addPending(UUID player, java.util.List<CompoundTag> stacks) {
+        if (!pending.containsKey(player) && pending.size() >= MAX_PLAYERS) return 0;
+        var list = pending.computeIfAbsent(player, ignored -> new java.util.ArrayList<>());
+        int stored = 0;
+        for (var stack : stacks) { if (list.size() >= MAX_PENDING_STACKS) break; list.add(stack.copy()); stored++; }
+        if (list.isEmpty()) pending.remove(player);
+        if (stored > 0) setDirty();
+        return stored;
+    }
+    public java.util.List<CompoundTag> takePending(UUID player) {
+        var list = pending.remove(player);
+        if (list == null) return java.util.List.of();
+        setDirty(); return list;
+    }
 
     public static RpgSavedData get(MinecraftServer server) {
         if (!server.isSameThread()) throw new IllegalStateException("RPG data must be accessed on the server thread");
@@ -89,7 +133,30 @@ public final class RpgSavedData extends SavedData {
                     entry.getInt("streak"), entry.getLong("last_full_day"), entry.getBoolean("bonus_claimed"));
             if (data.boards.put(entry.getUUID("player"), board) != null) throw new IllegalArgumentException("Duplicate contract board");
         }
-        if (data.kingdomXp.size() > MAX_KINGDOMS || data.boards.size() > MAX_PLAYERS) throw new IllegalArgumentException("RPG data exceeds caps");
+        if (schema >= 2) {
+            for (var raw : list(tag, "bonds")) {
+                var e = (CompoundTag) raw;
+                if (!e.hasUUID("citizen")) throw new IllegalArgumentException("Invalid bond citizen");
+                var bond = new dev.livingkingdoms.rpg.domain.Bond(e.getInt("value"), e.getLong("talk"), e.getLong("request"), e.getLong("gift"), e.getBoolean("devoted"));
+                if (data.bonds.put(e.getUUID("citizen"), bond) != null) throw new IllegalArgumentException("Duplicate bond");
+            }
+            for (var raw : list(tag, "expeditions")) {
+                var e = (CompoundTag) raw;
+                if (!e.hasUUID("citizen") || !e.hasUUID("settlement") || !e.hasUUID("player")) throw new IllegalArgumentException("Invalid expedition");
+                var expedition = new dev.livingkingdoms.rpg.domain.Expedition(e.getUUID("citizen"), e.getUUID("settlement"), e.getUUID("player"),
+                        dev.livingkingdoms.rpg.domain.Expedition.Kind.valueOf(e.getString("kind")), e.getLong("started"), e.getLong("ends"));
+                if (data.expeditions.put(expedition.citizen(), expedition) != null) throw new IllegalArgumentException("Duplicate expedition");
+            }
+            for (var raw : list(tag, "pending")) {
+                var e = (CompoundTag) raw;
+                if (!e.hasUUID("player")) throw new IllegalArgumentException("Invalid pending loot owner");
+                var stacks = new java.util.ArrayList<CompoundTag>();
+                for (var stack : e.getList("items", Tag.TAG_COMPOUND)) stacks.add((CompoundTag) stack);
+                if (stacks.size() > MAX_PENDING_STACKS || data.pending.put(e.getUUID("player"), stacks) != null) throw new IllegalArgumentException("Invalid pending loot");
+            }
+        }
+        if (data.kingdomXp.size() > MAX_KINGDOMS || data.boards.size() > MAX_PLAYERS || data.bonds.size() > MAX_BONDS
+                || data.expeditions.size() > MAX_EXPEDITIONS) throw new IllegalArgumentException("RPG data exceeds caps");
         data.setDirty(schema < SCHEMA_VERSION);
         return data;
     }
@@ -109,6 +176,17 @@ public final class RpgSavedData extends SavedData {
             list.add(e);
         });
         tag.put("boards", list);
+        var bondList = new ListTag();
+        bonds.forEach((id, b) -> { var e = new CompoundTag(); e.putUUID("citizen", id); e.putInt("value", b.value()); e.putLong("talk", b.lastTalkDay());
+            e.putLong("request", b.lastRequestDay()); e.putLong("gift", b.lastGiftDay()); e.putBoolean("devoted", b.devotedRewarded()); bondList.add(e); });
+        tag.put("bonds", bondList);
+        var expeditionList = new ListTag();
+        expeditions.values().forEach(x -> { var e = new CompoundTag(); e.putUUID("citizen", x.citizen()); e.putUUID("settlement", x.settlement());
+            e.putUUID("player", x.player()); e.putString("kind", x.kind().name()); e.putLong("started", x.startedAt()); e.putLong("ends", x.endsAt()); expeditionList.add(e); });
+        tag.put("expeditions", expeditionList);
+        var pendingList = new ListTag();
+        pending.forEach((id, stacks) -> { var e = new CompoundTag(); e.putUUID("player", id); var items = new ListTag(); stacks.forEach(items::add); e.put("items", items); pendingList.add(e); });
+        tag.put("pending", pendingList);
         return tag;
     }
 

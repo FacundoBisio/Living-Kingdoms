@@ -70,4 +70,43 @@ class RpgSavedDataTest {
         var missing = new CompoundTag(); missing.putInt("schema_version", 1);
         assertThrows(IllegalArgumentException.class, () -> RpgSavedData.load(missing, null));
     }
+    @Test void schemaTwoKeepsBondsExpeditionsAndPendingLoot() {
+        var storage = storage();
+        var data = RpgSavedData.getOrCreate(storage, directory);
+        UUID citizen = UUID.randomUUID(), settlement = UUID.randomUUID(), player = UUID.randomUUID();
+        var bond = dev.livingkingdoms.rpg.domain.Bond.empty().talked(4).fulfilled(4);
+        assertTrue(data.putBond(citizen, bond));
+        var trip = dev.livingkingdoms.rpg.domain.Expedition.start(citizen, settlement, player, dev.livingkingdoms.rpg.domain.Expedition.Kind.EXPLORE, 50);
+        assertTrue(data.startExpedition(trip));
+        assertFalse(data.startExpedition(trip), "A citizen travels once at a time");
+        var stack = new CompoundTag(); stack.putString("id", "minecraft:emerald"); stack.putInt("count", 5);
+        assertEquals(1, data.addPending(player, List.of(stack)));
+        storage.save();
+        IOUtilities.waitUntilIOWorkerComplete();
+        var reopened = RpgSavedData.getOrCreate(storage(), directory);
+        assertEquals(bond, reopened.bond(citizen));
+        assertEquals(trip, reopened.expedition(citizen).orElseThrow());
+        assertEquals(List.of(stack), reopened.pending(player));
+        assertEquals(List.of(stack), reopened.takePending(player));
+        assertTrue(reopened.pending(player).isEmpty() && reopened.endExpedition(citizen) && reopened.expedition(citizen).isEmpty());
+    }
+
+    @Test void schemaOneMigratesWithEmptyFriendshipData() {
+        var tag = new CompoundTag(); tag.putInt("schema_version", 1);
+        var kingdom = new CompoundTag(); UUID id = UUID.randomUUID(); kingdom.putUUID("settlement", id); kingdom.putLong("xp", 120);
+        var kingdoms = new net.minecraft.nbt.ListTag(); kingdoms.add(kingdom);
+        tag.put("kingdoms", kingdoms); tag.put("boards", new net.minecraft.nbt.ListTag());
+        var data = RpgSavedData.load(tag, null);
+        assertEquals(120, data.kingdomXp(id));
+        assertTrue(data.expeditions().isEmpty() && data.bond(UUID.randomUUID()).value() == 0);
+        assertTrue(data.isDirty(), "Migrated data is rewritten as the current schema");
+        assertEquals(RpgSavedData.SCHEMA_VERSION, data.save(new CompoundTag(), null).getInt("schema_version"));
+    }
+
+    @Test void expeditionsPerSettlementAreCapped() {
+        var data = new RpgSavedData(); UUID settlement = UUID.randomUUID();
+        for (int i = 0; i < dev.livingkingdoms.rpg.domain.Expedition.MAX_PER_SETTLEMENT; i++)
+            assertTrue(data.startExpedition(dev.livingkingdoms.rpg.domain.Expedition.start(UUID.randomUUID(), settlement, UUID.randomUUID(), dev.livingkingdoms.rpg.domain.Expedition.Kind.FORAGE, 0)));
+        assertFalse(data.startExpedition(dev.livingkingdoms.rpg.domain.Expedition.start(UUID.randomUUID(), settlement, UUID.randomUUID(), dev.livingkingdoms.rpg.domain.Expedition.Kind.FORAGE, 0)));
+    }
 }

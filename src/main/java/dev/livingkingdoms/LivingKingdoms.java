@@ -43,6 +43,12 @@ public final class LivingKingdoms {
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.command.RpgCommands::register);
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.rpg.ChallengeService::onServerTick);
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.rpg.ChallengeService::onJoin);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.rpg.BondService::onInteract);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.rpg.BondService::onSpecific);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.rpg.BondService::onJoin);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.rpg.ExpeditionService::onServerTick);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.rpg.ExpeditionService::onLogin);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.rpg.ExpeditionService::onJoin);
         NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, false, dev.livingkingdoms.rpg.ContractService::onKill);
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.rpg.ChallengeService::onLogout);
         NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, false, dev.livingkingdoms.rpg.ChallengeService::onPlayerDeath);

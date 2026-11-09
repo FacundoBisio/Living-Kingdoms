@@ -37,6 +37,15 @@ public final class RpgCommands {
                                     RefinementService.level(held)), false);
                             return 1;
                         })))
+                .then(Commands.literal("expedition").requires(source -> source.hasPermission(2))
+                        .then(Commands.literal("finish").executes(context -> {
+                            var server = context.getSource().getServer(); int done = 0;
+                            for (var expedition : dev.livingkingdoms.rpg.persistence.RpgSavedData.get(server).expeditions())
+                                if (dev.livingkingdoms.rpg.ExpeditionService.finish(server, expedition)) done++;
+                            int finished = done;
+                            context.getSource().sendSuccess(() -> Component.translatable("command.livingkingdoms.expedition.finished", finished), false);
+                            return finished;
+                        })))
                 .then(Commands.literal("whetstones").requires(source -> source.hasPermission(2)).executes(context -> {
                     context.getSource().getPlayerOrException().getInventory().add(new ItemStack(KingdomItems.ROYAL_WHETSTONE.get(), 8));
                     return 1;

@@ -229,6 +229,14 @@ public final class VillageUiService {
                     : dev.livingkingdoms.profession.ProfessionService.remove(player,settlement.id(),request.quest());
             sendCitizens(player,session,settlement,result?"ui.livingkingdoms.citizens.changed":"ui.livingkingdoms.citizens.rejected"); return result;
         }
+        if(session.citizens && (request.action()==UiPayloads.Action.EXPEDITION_FORAGE || request.action()==UiPayloads.Action.EXPEDITION_MINE
+                || request.action()==UiPayloads.Action.EXPEDITION_EXPLORE)) {
+            var kind=switch(request.action()) { case EXPEDITION_FORAGE -> dev.livingkingdoms.rpg.domain.Expedition.Kind.FORAGE;
+                case EXPEDITION_MINE -> dev.livingkingdoms.rpg.domain.Expedition.Kind.MINE; default -> dev.livingkingdoms.rpg.domain.Expedition.Kind.EXPLORE; };
+            boolean result=dev.livingkingdoms.rpg.ExpeditionService.start(player,settlement.id(),request.quest(),kind);
+            sendCitizens(player,session,settlement,result?"ui.livingkingdoms.expedition.sent":"ui.livingkingdoms.expedition.rejected");
+            return result;
+        }
         if(session.citizens && (request.action()==UiPayloads.Action.RALLY_ALL || request.action()==UiPayloads.Action.RALLY_ONE || request.action()==UiPayloads.Action.RALLY_CANCEL)) {
             boolean result=switch(request.action()) {
                 case RALLY_ALL -> dev.livingkingdoms.rpg.RallyService.callAll(player,settlement.id());
@@ -518,6 +526,13 @@ public final class VillageUiService {
             for(var type:java.util.List.of(dev.livingkingdoms.profession.domain.ProfessionType.LUMBERJACK,dev.livingkingdoms.profession.domain.ProfessionType.MINER,dev.livingkingdoms.profession.domain.ProfessionType.BLACKSMITH,dev.livingkingdoms.profession.domain.ProfessionType.MERCHANT))
                 v.putBoolean("assign_"+type.name().toLowerCase(java.util.Locale.ROOT),settlement.lifecycle()==dev.livingkingdoms.settlement.domain.SettlementLifecycle.ESTABLISHED
                         && dev.livingkingdoms.profession.ProfessionService.canAssignOperational(player.serverLevel(),citizen,p,buildings,jobs,type));
+            var rpg=dev.livingkingdoms.rpg.persistence.RpgSavedData.get(player.server); var bond=rpg.bond(citizen.id());
+            v.putInt("bond",bond.value()); v.putString("bond_level",bond.level().id());
+            var wish=dev.livingkingdoms.rpg.BondService.request(player.server,citizen);
+            v.putString("wish_item",wish.item()); v.putInt("wish_count",wish.count()); v.putBoolean("wish_done",!bond.canFulfill(dev.livingkingdoms.rpg.RpgClock.today()));
+            rpg.expedition(citizen.id()).ifPresent(x -> { v.putString("away_kind",x.kind().id()); v.putLong("away_seconds",x.remaining(player.server.overworld().getGameTime())/20); });
+            v.putBoolean("can_expedition",dev.livingkingdoms.rpg.ExpeditionService.eligible(player.server,citizen.id())
+                    && rpg.expeditionsIn(settlement.id())<dev.livingkingdoms.rpg.domain.Expedition.MAX_PER_SETTLEMENT);
             if(p.type()==dev.livingkingdoms.profession.domain.ProfessionType.BUILDER)
                 dev.livingkingdoms.construction.ConstructionService.projectForBuilder(player.server,citizen.id())
                         .ifPresent(e -> v.putString("project_building",e.project().building().name().toLowerCase(java.util.Locale.ROOT)));

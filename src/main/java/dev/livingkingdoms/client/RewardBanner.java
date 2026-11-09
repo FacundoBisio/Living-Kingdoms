@@ -84,8 +84,8 @@ public final class RewardBanner {
         }
         int textAlpha = Math.max(4, (int) (alpha * 255)) << 24;
         g.renderItem(new ItemStack(switch (entry.kind()) { case "chest" -> Items.CHEST; case "rank" -> Items.BELL;
-            case "contract" -> Items.WRITABLE_BOOK; default -> entry.epic() ? Items.NETHER_STAR : Items.EMERALD; }), x + 8, y + 7);
-        var header = Component.translatable(switch (entry.kind()) { case "chest", "rank", "contract" -> "reward.livingkingdoms.header_" + entry.kind();
+            case "contract" -> Items.WRITABLE_BOOK; case "expedition" -> Items.COMPASS; default -> entry.epic() ? Items.NETHER_STAR : Items.EMERALD; }), x + 8, y + 7);
+        var header = Component.translatable(switch (entry.kind()) { case "chest", "rank", "contract", "expedition" -> "reward.livingkingdoms.header_" + entry.kind();
             default -> entry.epic() ? "reward.livingkingdoms.header_epic" : "reward.livingkingdoms.header"; });
         g.drawString(font, header, x + 30, y + 6, textAlpha | accent, false);
         g.drawString(font, font.plainSubstrByWidth(entry.title().getString(), width - 36), x + 30, y + 16, textAlpha | 0xF5F2E9, false);

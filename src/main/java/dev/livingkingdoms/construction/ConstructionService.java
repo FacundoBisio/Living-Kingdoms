@@ -336,7 +336,8 @@ public final class ConstructionService {
         var p=entry.project(); long now=now(server); int interval=BuilderConfig.WORK_INTERVAL.get();
         if(now-p.lastWorkAt()<interval) return false;
         // One interval maximum: traveling, unloading, sleeping and server downtime never bank work.
-        long units=Math.max(1,Math.round(interval*BuilderPolicy.speedMultiplier(job.level().value(),BuilderConfig.LEVEL_CAP.get(),BuilderConfig.MAX_SPEED_BONUS.get())));
+        long units=Math.max(1,Math.round(interval*BuilderPolicy.speedMultiplier(job.level().value(),BuilderConfig.LEVEL_CAP.get(),BuilderConfig.MAX_SPEED_BONUS.get())
+                *(dev.livingkingdoms.rpg.BondService.loyal(server,job.citizenId())?dev.livingkingdoms.rpg.BondService.LOYAL_BUILDER_SPEED:1)));
         var next=p.addWork(now,units); if(next.equals(p)) return false;
         int target=next.targetStage();
         if(target>=4) {
@@ -382,7 +383,8 @@ public final class ConstructionService {
         if(helper.distanceToSqr(at.getX()+.5,at.getY(),at.getZ()+.5)>range*range || !chunksLoaded(level,current)) return false;
         if(clearObstacles(level,current,helper)) return true;
         var p=current.project();
-        long units=Math.max(1,Math.round(BuilderConfig.WORK_INTERVAL.get()*BuilderPolicy.speedMultiplier(job.level().value(),BuilderConfig.LEVEL_CAP.get(),BuilderConfig.MAX_SPEED_BONUS.get())));
+        long units=Math.max(1,Math.round(BuilderConfig.WORK_INTERVAL.get()*BuilderPolicy.speedMultiplier(job.level().value(),BuilderConfig.LEVEL_CAP.get(),BuilderConfig.MAX_SPEED_BONUS.get())
+                *(dev.livingkingdoms.rpg.BondService.loyal(server,job.citizenId())?dev.livingkingdoms.rpg.BondService.LOYAL_BUILDER_SPEED:1)));
         // Helpers stop just short of completion; the lead's next interval finishes and places the building.
         long capped=Math.min(units,Math.max(0,p.durationTicks()-1-p.workTicks()));
         if(capped<1) return false;
