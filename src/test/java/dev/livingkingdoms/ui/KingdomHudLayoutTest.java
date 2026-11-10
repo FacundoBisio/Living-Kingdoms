@@ -29,7 +29,8 @@ class KingdomHudLayoutTest {
     }
     @Test void shortcutDefaultsAreDistinctAndHaveTranslatedControlNames() {
         assertEquals(75,ShortcutAction.KINGDOM.defaultKey()); assertEquals(74,ShortcutAction.QUESTS.defaultKey());
-        assertEquals(72,ShortcutAction.HUD.defaultKey());
-        assertEquals(3,java.util.Arrays.stream(ShortcutAction.values()).map(ShortcutAction::titleKey).distinct().count());
+        assertEquals(72,ShortcutAction.HUD.defaultKey()); assertEquals(77,ShortcutAction.MAP.defaultKey());
+        assertEquals(4,java.util.Arrays.stream(ShortcutAction.values()).mapToInt(ShortcutAction::defaultKey).distinct().count());
+        assertEquals(4,java.util.Arrays.stream(ShortcutAction.values()).map(ShortcutAction::titleKey).distinct().count());
     }
 }

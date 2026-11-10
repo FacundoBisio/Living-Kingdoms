@@ -13,7 +13,7 @@ import java.util.function.Consumer;
 
 public final class CommercePayloads {
     public static Consumer<Snapshot> clientReceiver=ignored->{};
-    public enum Action { BUY,SELL,REFRESH,CLOSE }
+    public enum Action { BUY,SELL,REFRESH,CLOSE,STALL,STALL_CYCLE }
     public record Request(UUID session,UUID offer,StockResource resource,Action action) implements CustomPacketPayload {
         public static final Type<Request> TYPE=new Type<>(ResourceLocation.parse("livingkingdoms:commerce_action"));
         public static final StreamCodec<RegistryFriendlyByteBuf,Request> CODEC=StreamCodec.of((b,v)->{b.writeUUID(v.session);b.writeUUID(v.offer);b.writeEnum(v.resource);b.writeEnum(v.action);},
@@ -26,7 +26,7 @@ public final class CommercePayloads {
         @Override public Type<Snapshot> type(){return TYPE;}
     }
     public static void register(RegisterPayloadHandlersEvent event) {
-        var registrar=event.registrar("1");
+        var registrar=event.registrar("2");
         registrar.playToClient(Snapshot.TYPE,Snapshot.CODEC,(payload,context)->clientReceiver.accept(payload));
         registrar.playToServer(Request.TYPE,Request.CODEC,(payload,context)->{if(context.player() instanceof ServerPlayer player)CommerceService.handle(player,payload);});
     }

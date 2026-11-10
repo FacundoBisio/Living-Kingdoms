@@ -8,7 +8,9 @@ import java.util.List;
  * bitmask) and only ever places blocks into empty, supported, loaded spots outside buildings and paths.
  */
 public enum TownDecor {
-    LANTERNS(2), FLOWERS(3), BANNERS(4), FOUNTAIN(5), BENCHES(6), BRAZIERS(7), HEDGES(8), STATUE(10);
+    LANTERNS(2), FLOWERS(3), BANNERS(4), FOUNTAIN(5), BENCHES(6), BRAZIERS(7), HEDGES(8), STATUE(10),
+    // 0.33 home upgrades per kingdom stage (appended: bits of existing tiers never move).
+    VILLAGE_HOMES(3), TOWN_HOMES(6), CITY_HOMES(9);
 
     private final int rank;
     TownDecor(int rank) { this.rank = rank; }

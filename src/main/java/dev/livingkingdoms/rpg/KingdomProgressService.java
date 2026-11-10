@@ -43,6 +43,8 @@ public final class KingdomProgressService {
         var rarity = KingdomRank.levelUpChest(level);
         items.add(LootChests.chest(rarity));
         var notes = new ArrayList<String>();
+        var stage = dev.livingkingdoms.rpg.domain.KingdomStage.reachedAt(level);
+        stage.ifPresent(st -> notes.add("stage.livingkingdoms.reached." + st.id()));
         for (var unlock : KingdomRank.unlocks(level)) notes.add("rank.livingkingdoms.unlock." + unlock);
         for (var decoration : dev.livingkingdoms.rpg.domain.TownDecor.tiersAt(level)) notes.add("decor.livingkingdoms.tier." + decoration.id());
         RewardCeremony.celebrate(player, "rank", Component.translatable("rank.livingkingdoms.level_up", level), 0, 0, 0, items, true, rarity, notes);
@@ -52,5 +54,12 @@ public final class KingdomProgressService {
         for (var unlock : KingdomRank.unlocks(level))
             message.append(Component.literal("\n • ").append(Component.translatable("rank.livingkingdoms.unlock." + unlock)).withStyle(ChatFormatting.YELLOW));
         player.sendSystemMessage(message);
+        stage.ifPresent(st -> {
+            var announce = Component.translatable("stage.livingkingdoms.announce", name, Component.translatable("stage.livingkingdoms." + st.id())).withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD);
+            for (var other : player.server.getPlayerList().getPlayers())
+                if (SettlementSavedData.get(player.server).get(settlement).filter(s -> s.territory().contains(other.level().dimension().location().toString(), other.getBlockX(), other.getBlockZ())).isPresent() || other == player)
+                    other.sendSystemMessage(announce);
+            player.serverLevel().playSound(null, player.blockPosition(), net.minecraft.sounds.SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, net.minecraft.sounds.SoundSource.PLAYERS, 1F, 1F);
+        });
     }
 }

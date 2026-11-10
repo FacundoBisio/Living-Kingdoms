@@ -20,7 +20,7 @@ public final class QuestJournalService {
         long now=player.server.overworld().getGameTime();
         if(!player.isAlive() || player.isSpectator() || action==ShortcutAction.HUD || now<SHORTCUTS.getOrDefault(player,0L)) return;
         SHORTCUTS.put(player,now+5);
-        if(action==ShortcutAction.KINGDOM) VillageUiService.openShortcut(player); else open(player);
+        if(action==ShortcutAction.KINGDOM) VillageUiService.openShortcut(player); else if(action==ShortcutAction.MAP) KingdomMapService.open(player); else open(player);
     }
     public static boolean open(ServerPlayer player) {
         if(!player.server.isSameThread() || !player.isAlive() || player.isSpectator()) return false;

@@ -30,13 +30,13 @@ import java.util.*;
 
 /**
  * Guards holding a bow or crossbow man the kingdom's high ground: watchtower tops first, then wall posts.
- * They hop up to a free post, hold it day and night and loose arrows at hostiles within range. Tower level
+ * They walk (or, if no path is found within ten seconds, hop) up to a free post, hold it day and night and loose arrows at hostiles within range. Tower level
  * (or wall tier) raises arrow damage; level/tier 3 lights them on fire. Archer arrows never hurt citizens or
  * players. Post claims are transient and bounded; they are re-derived after a restart.
  */
 public final class ArcherWork {
     public static final double RANGE = 24;
-    public static final int SHOT_TICKS = 30, SEARCH_TICKS = 10, MAX_CLAIMS = 512;
+    public static final int SHOT_TICKS = 30, SEARCH_TICKS = 10, MAX_CLAIMS = 512, WALK_TICKS = 200;
     public static final String ARROW_TAG = "livingkingdoms:archer_arrow";
     public record Post(BlockPos stand, double damage, boolean fire) {}
     private record Cache(long at, List<Post> posts) {}
@@ -102,15 +102,23 @@ public final class ArcherWork {
         var post = post(v, level, settlement);
         if (post == null) return false;
         var stand = post.stand;
+        var timers = TIMERS.computeIfAbsent(v, k -> new int[]{0, 0, -1});
         if (v.distanceToSqr(stand.getX() + .5, stand.getY(), stand.getZ() + .5) > 2.25) {
             if (!level.hasChunkAt(stand) || !standable(level, stand)) { CLAIMS.remove(v.getUUID()); POSTS.remove(settlement.id()); return false; }
             if (v.isSleeping()) v.stopSleeping();
+            // Walk up (stairs, ladders) when a path exists; hop up only after ~10 s without arriving or from far away.
+            if (timers[2] < 0) timers[2] = v.tickCount;
+            boolean stuck = v.tickCount - timers[2] > WALK_TICKS || v.distanceToSqr(stand.getX() + .5, stand.getY(), stand.getZ() + .5) > 48 * 48;
+            if (!stuck) {
+                if (v.tickCount % 20 == 0) v.getNavigation().moveTo(stand.getX() + .5, stand.getY(), stand.getZ() + .5, .7);
+                return true;
+            }
             level.sendParticles(ParticleTypes.CLOUD, v.getX(), v.getY() + 1, v.getZ(), 6, .3, .5, .3, 0);
             v.teleportTo(stand.getX() + .5, stand.getY(), stand.getZ() + .5);
             level.playSound(null, stand, SoundEvents.ARMOR_EQUIP_LEATHER.value(), SoundSource.NEUTRAL, .7F, 1F);
         }
+        timers[2] = -1;
         v.getNavigation().stop();
-        var timers = TIMERS.computeIfAbsent(v, k -> new int[]{0, 0});
         LivingEntity target = v.getTarget();
         if (target != null && (!target.isAlive() || target.level() != level || v.distanceToSqr(target) > RANGE * RANGE || !shootable(target))) { v.setTarget(null); target = null; }
         if (target == null && v.tickCount >= timers[0]) {

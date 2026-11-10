@@ -17,6 +17,7 @@ public final class UiPayloads {
     private UiPayloads() {}
     public static Consumer<Snapshot> clientReceiver = ignored -> {};
     public static Consumer<HudSnapshot> hudReceiver = ignored -> {};
+    public static Consumer<MapSnapshot> mapReceiver = ignored -> {};
     public static Consumer<TerritoryOverlay> territoryReceiver = ignored -> {};
     public static Consumer<QuestNotification> notificationReceiver = ignored -> {};
     public enum Action { ACCEPT, CLAIM, TALK, BOARD, INFO, CLOSE, REFRESH, CONSTRUCTION, DEPOSIT, RETRY, PLAN,
@@ -40,6 +41,12 @@ public final class UiPayloads {
         @Override public Type<MayorRequest> type() { return TYPE; }
     }
 
+    public record MapSnapshot(CompoundTag data) implements CustomPacketPayload {
+        public static final Type<MapSnapshot> TYPE=new Type<>(ResourceLocation.fromNamespaceAndPath(LivingKingdoms.MOD_ID,"kingdom_map"));
+        public static final StreamCodec<RegistryFriendlyByteBuf,MapSnapshot> CODEC=StreamCodec.of(
+                (buf,value) -> buf.writeNbt(value.data),buf -> new MapSnapshot(java.util.Objects.requireNonNull(buf.readNbt())));
+        @Override public Type<MapSnapshot> type() { return TYPE; }
+    }
     public record HudSnapshot(CompoundTag data) implements CustomPacketPayload {
         public static final Type<HudSnapshot> TYPE=new Type<>(ResourceLocation.fromNamespaceAndPath(LivingKingdoms.MOD_ID,"kingdom_hud"));
         public static final StreamCodec<RegistryFriendlyByteBuf,HudSnapshot> CODEC=StreamCodec.of(
@@ -82,13 +89,14 @@ public final class UiPayloads {
     }
 
     public static void register(RegisterPayloadHandlersEvent event) {
-        var registrar = event.registrar("16");
+        var registrar = event.registrar("17");
         registrar.playToClient(QuestNotification.TYPE,QuestNotification.CODEC,(payload,context)->notificationReceiver.accept(payload));
         registrar.playToClient(TerritoryOverlay.TYPE, TerritoryOverlay.CODEC, (payload, context) -> territoryReceiver.accept(payload));
         registrar.playToServer(MayorRequest.TYPE, MayorRequest.CODEC, (payload, context) -> {
             if (context.player() instanceof ServerPlayer player) VillageUiService.handleMayor(player, payload);
         });
         registrar.playToClient(HudSnapshot.TYPE,HudSnapshot.CODEC,(payload,context) -> hudReceiver.accept(payload));
+        registrar.playToClient(MapSnapshot.TYPE,MapSnapshot.CODEC,(payload,context) -> mapReceiver.accept(payload));
         registrar.playToServer(Shortcut.TYPE,Shortcut.CODEC,(payload,context) -> {
             if(context.player() instanceof ServerPlayer player) QuestJournalService.shortcut(player,payload.action());
         });

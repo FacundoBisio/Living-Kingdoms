@@ -51,6 +51,7 @@ public final class VillageClient {
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(UiMotion::pre);
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(UiMotion::post);
         UiPayloads.hudReceiver=payload -> KingdomHud.update(payload.data());
+        UiPayloads.mapReceiver=payload -> KingdomMapScreen.receive(payload.data());
         UiPayloads.notificationReceiver=QuestNotifications::receive;
         UiPayloads.territoryReceiver=payload -> TerritoryOverlay.update(payload.data());
         UiPayloads.clientReceiver = payload -> {

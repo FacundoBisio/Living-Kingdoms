@@ -9,14 +9,14 @@ import java.util.ArrayList;
 import static org.junit.jupiter.api.Assertions.*;
 
 class KingdomKeysTest {
-    @Test void controlsRegistrationCreatesThreeNativeRemappableInGameBindings() {
+    @Test void controlsRegistrationCreatesFourNativeRemappableInGameBindings() {
         var controls=new ArrayList<KeyMapping>(); KingdomKeys.registerMappings(controls::add);
-        assertEquals(3,controls.size());
+        assertEquals(4,controls.size());
         for(int i=0;i<controls.size();i++) {
             var key=controls.get(i); var action=ShortcutAction.values()[i];
             assertEquals(action.titleKey(),key.getName()); assertEquals(action.defaultKey(),key.getDefaultKey().getValue());
             assertEquals("key.categories.livingkingdoms",key.getCategory()); assertSame(KeyConflictContext.IN_GAME,key.getKeyConflictContext());
-            var remapped=InputConstants.Type.KEYSYM.getOrCreate(76+i); key.setKey(remapped);
+            var remapped=InputConstants.Type.KEYSYM.getOrCreate(80+i); key.setKey(remapped);
             assertEquals(remapped,key.getKey()); assertEquals(action.defaultKey(),key.getDefaultKey().getValue());
         }
         KeyMapping.resetMapping();

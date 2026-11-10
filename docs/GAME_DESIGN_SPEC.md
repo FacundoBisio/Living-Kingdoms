@@ -208,26 +208,55 @@ Long loop (hours): refine a weapon to +5, win the Warlord trial, develop the Tow
   how many are away and when the next one returns.
 - Any resident whose job is inactive (retired by the game or removed) is free: they can take any job or travel.
 
+### 4.21 Market stalls (0.33)
+- The Market building was redrawn as an open market hall with a striped awning, stalls, a bell and lanterns. It
+  keeps the same footprint and the barrel/lectern stations, so markets in existing worlds keep working.
+- Every Merchant runs one stall. Plain click: the kingdom stock screen, now with **Stall** and **Change** buttons.
+  The stall opens the vanilla trading screen with the classic villager trades of its specialty (13 vanilla
+  specialties, two trades per tier, more tiers as the Merchant levels up) plus today's **rare kingdom goods**.
+- Rare goods are hard to get and time-limited: they need emeralds plus a rare ingredient (diamonds, gold,
+  netherite scrap), sell out after 1–3 trades and change every real-time day. Market level 2 and 3 unlock rarer
+  goods and more slots; a festival adds one more. Offers and used counts are stored on the Merchant entity.
+
+### 4.22 Kingdom stages and the kingdom map (0.33)
+- Stages derive from rank: Hamlet (1), Village (3), Town (6), City (9). Reaching a stage is announced to the
+  kingdom and upgrades **every house**: Village adds a lantern post by the door and flower beds; Town adds a
+  smoking brick chimney and a cobbled skirt; City adds a banner by the door and flowering hedges. Applied once,
+  only into free spots outside footprints and off paths. The HUD shows the stage next to the rank.
+- **Kingdom map** (key M, remappable, or `/kingdom map`): terrain painted from the client's loaded chunks
+  with vanilla map colours, buildings by type and level, construction sites with progress, residents with their
+  job and what they are doing, walls, the player and a fuzzy treasure area. Hover for details.
+
 ## 5. Roadmap (next steps, in priority order)
 
 Done in 0.22: kingdom rank with HUD bar, daily/weekly contracts with streak, rarity loot chests.
 Done in 0.24: citizen bonds with daily wishes and perks, expeditions with survivor rescue.
 Done in 0.30: rank decorations, timed events with HUD countdown, techniques, walls/archers/alarm/traps, RPG frames.
+Done in 0.31: resident life sheet with small talk, Away tab, playtest fixes (housing, retired jobs, ground).
+Done in 0.33 (includes the 0.32 polish pass): market stalls with classic and rare daily trades, new market
+building, kingdom stages (Hamlet → Village → Town → City) that upgrade every home, kingdom map (M), archers walk
+to their posts, `/kingdom perf`.
 
+**Process rule (from the 0.30–0.31 playtests):** ship smaller versions and let the owner play each one before the
+next. Every playtest so far found blocking bugs that unit tests and GameTests could not see. A full GameTest run
+happens once per version, before the merge, not after every change.
 
-| # | Feature | Why | Acceptance |
+**Deferred on purpose:** multiplayer (shared kingdoms, roles, concurrency) is out of scope until a single-player
+end-to-end polish pass is done. Full sieges against the player's base stay out (trials attack the player only).
+New mob models wait until there is an art pipeline again (Argon 4 is no longer available); prefer blocks,
+structures and vanilla-texture geometry.
+
+| Version | Feature | Why | Acceptance |
 |---|---|---|---|
-| 3 | Checklists for every multi-step main quest (Watchtower, Patrol) | Pillar 2 | Each step updates from real state; GameTest per quest |
-| 4 | Blood moon event (harder night trial with bonus chest) | Appointment play | Reuses the event scheduler, player-targeted only |
-| 9 | Codex / collections (bosses, trophies, enemies, citizens) with set rewards | Completionism | One-time set receipts |
-| 10 | Gatehouse and tower roofs as wall tier 4 cosmetics | Progress you can see | Same overwrite rules as walls |
-| 11 | Player talent tree from rank/renown points | Build choice | Respec rules, bounded passives |
-| 5 | Blacksmith service: spend emeralds + whetstone to reroll/upgrade one enchant | Sink for emeralds | Server-validated, no item duplication |
-| 6 | Trial modifiers (night, no armor, double boss) for bonus loot | Replayability | Shown in picker, tested reward multipliers |
-| 7 | Rally destinations (plaza, gate, a clicked block) and "defend here" for guards | Requested control | Guards follow without breaking patrol AI |
-| 8 | Wave composition from hostile NPC kingdoms (warband skins in trials) | Ties trials to the world | Uses existing warband assets |
-
-Visual/3D assets for new mobs or items go through Argon 4 (owner's pipeline); Claude produces the prompt.
+| 0.34 | Owner playtest + single-player polish pass end to end (found → City with walls) | Every system works together | Checklist passes on a real client; `/kingdom perf` stays under 1 ms/tick with 30 residents |
+| 0.35 | Resident happiness and 3 traits (hard-working, lazy, brave) affecting work and small talk | Residents feel like people | One bar, three traits, bounded effects; shown in the life sheet |
+| 0.35 | Expeditions that discover ruins: a map item leads to a real dungeon with a boss and a trophy | Exploration pays more than mining | Structure placed once, cleaned up, trophy only from the boss |
+| 0.36 | Production chains (bakery: wheat → bread; carpentry: logs → furniture that raises happiness) | Every building matters | Uses Kingdom Storage, no free items |
+| 0.36 | Diplomacy with NPC kingdoms: envoys with requests, trade treaties, caravans between kingdoms | The world is alive | Reputation per kingdom, reversible, no forced war |
+| 0.37 | Player titles (Squire → Knight → Lord → King) with a small talent choice each and regalia | Build choice | Respec rules, bounded passives |
+| 0.37 | Codex / collections (bosses, trophies, enemies, residents) with set rewards | Completionism | One-time set receipts |
+| later | Multiplayer kingdoms (co-owners, permissions) | Requested later | Separate design pass first |
+| later | Blood moon event, trial modifiers, wall tier 4 cosmetics, rally destinations, blacksmith rerolls | Backlog | As before |
 
 ## 6. Balance knobs
 

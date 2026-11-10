@@ -376,6 +376,9 @@ Local results and known runtime limits: [Milestone 0](docs/validation.md), [Mile
 
 - **Residents (0.31):** right-click a resident to chat and open their sheet: see their job and life, hire them if they are free, or send them on an expedition. The roster's *Away* tab shows who is travelling and when they return.
 
+- **Market stalls (0.33):** click a Merchant and press *Stall* for classic villager trades plus rare kingdom goods that change every day and sell out; *Change* switches the stall's specialty.
+- **Stages and map (0.33):** the kingdom grows from Hamlet to Village, Town and City and every house is upgraded on the way. Press **M** (or `/kingdom map`) for the kingdom map. Operators: `/kingdom perf` shows the cost of the RPG services per tick.
+
 Trials and rallies are transient: nothing is written to the world save, and trial enemies left by a crash are removed when their chunk loads.
 
 ## Next milestone

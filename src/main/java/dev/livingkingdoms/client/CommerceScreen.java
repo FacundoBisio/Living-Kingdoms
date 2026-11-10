@@ -52,7 +52,14 @@ public final class CommerceScreen extends KingdomScreen {
             var sell=addRenderableWidget(new VillageButton("sell_"+resource,tr("sell",row.getInt("sell")),left+panelWidth-76,y,64,()->send(resource,CommercePayloads.Action.SELL)));
             sell.active=!pending && row.getBoolean("can_sell");sell.setTooltip(Tooltip.create(tr("sell_help",row.getInt("demand"))));
         }
-        addRenderableWidget(new VillageButton("refresh",Component.translatable("ui.livingkingdoms.refresh"),left+12,top+171,100,()->send(StockResource.FOOD,CommercePayloads.Action.REFRESH))).active=!pending;
+        addRenderableWidget(new VillageButton("refresh",Component.translatable("ui.livingkingdoms.refresh"),left+12,top+171,60,()->send(StockResource.FOOD,CommercePayloads.Action.REFRESH))).glyph("R").active=!pending;
+        if(data.contains("stall")) {
+            var stallName=Component.translatable("stall.livingkingdoms.kind."+data.getString("stall"));
+            var stall=addRenderableWidget(new VillageButton("stall",tr("stall_open",stallName),left+76,top+171,panelWidth-256,()->send(StockResource.FOOD,CommercePayloads.Action.STALL)));
+            stall.primary(); stall.active=!pending; stall.setTooltip(Tooltip.create(tr("stall_help")));
+            var cycle=addRenderableWidget(new VillageButton("stall_cycle",tr("stall_cycle"),left+panelWidth-112-64,top+171,60,()->send(StockResource.FOOD,CommercePayloads.Action.STALL_CYCLE)));
+            cycle.glyph("S"); cycle.active=!pending && data.getBoolean("can_cycle"); cycle.setTooltip(Tooltip.create(tr("stall_cycle_help",stallName)));
+        }
         addRenderableWidget(new VillageButton("close",Component.translatable("onboarding.livingkingdoms.close"),left+panelWidth-112,top+171,100,this::onClose));
     }
     private void send(StockResource r,CommercePayloads.Action action){if(pending)return;pending=true;PacketDistributor.sendToServer(new CommercePayloads.Request(data.getUUID("session"),data.getUUID("offer"),r,action));rebuildWidgets();}

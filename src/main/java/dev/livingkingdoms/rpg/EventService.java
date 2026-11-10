@@ -76,6 +76,14 @@ public final class EventService {
     }
 
     /** Forces an event to begin now (development command and tests). */
+    /** A fuzzy area around the hidden treasure (never its exact spot) for the kingdom map. */
+    public static Optional<net.minecraft.core.BlockPos> treasureHint(UUID settlement) {
+        var state = STATES.get(settlement);
+        if (state == null || !state.started || state.kind != Kind.TREASURE || state.treasure == null || state.found) return Optional.empty();
+        int seed = state.treasure.hashCode();
+        return Optional.of(state.treasure.offset(Math.floorMod(seed, 17) - 8, 0, Math.floorMod(seed >> 8, 17) - 8));
+    }
+
     public static boolean trigger(ServerLevel level, Settlement settlement, Kind kind) {
         var state = new State(); long now = now(level.getServer());
         state.kind = kind; state.startsAt = now; state.endsAt = now + DURATION; state.announced = true;

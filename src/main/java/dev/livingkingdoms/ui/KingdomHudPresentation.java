@@ -28,7 +28,8 @@ public final class KingdomHudPresentation {
                 renown(kingdom, local, expanded);
             } else {
                 if (local.contains("rank", 3)) kingdom.add(new Row(Icon.PROGRESS, tr("kingdom_rank", Math.clamp(local.getInt("rank"), 1, 20),
-                        Math.max(0, local.getLong("rank_progress")), Math.max(1, local.getLong("rank_span"))), Tone.SUCCESS));
+                        Math.max(0, local.getLong("rank_progress")), Math.max(1, local.getLong("rank_span")),
+                        Component.translatable("stage.livingkingdoms." + dev.livingkingdoms.rpg.domain.KingdomStage.of(Math.clamp(local.getInt("rank"), 1, 20)).id())), Tone.SUCCESS));
                 if (local.contains("event", 10)) {
                     var event = local.getCompound("event"); String kind = event.getString("kind");
                     if (kind.matches("[a-z_]{1,24}")) {

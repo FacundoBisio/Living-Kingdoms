@@ -75,6 +75,8 @@ public final class CommerceService {
                 || jobs.employmentRevision(s.citizen())!=s.employment() || !authorized(player,worker,p)){close(player,s);return false;}
         if(!s.quote().equals(request.offer()))return false;
         if(request.action()==CommercePayloads.Action.REFRESH){send(player,withRequestTime(s,now),"");return true;}
+        if(request.action()==CommercePayloads.Action.STALL){dismiss(player);return StallService.open(player,worker);}
+        if(request.action()==CommercePayloads.Action.STALL_CYCLE){boolean changed=StallService.cycle(player,worker);send(player,withRequestTime(s,now),changed?"stall_changed":"rejected");return changed;}
         var market=CommerceSavedData.get(player.server).ensure(s.settlement(),now);var economy=KingdomEconomy.ensure(player.server,s.settlement());
         boolean buy=request.action()==CommercePayloads.Action.BUY;var resource=request.resource();int price=CommerceConfig.price(resource,buy);
         if(market.revision()!=s.marketRevision() || economy.revision()!=s.economicRevision()
@@ -110,6 +112,10 @@ public final class CommerceService {
     }
     private static CompoundTag buildSnapshot(ServerPlayer player,Session s,String notice) {
         var tag=new CompoundTag();tag.putUUID("session",s.token());tag.putUUID("offer",s.quote());tag.putString("notice",notice);
+        if(player.serverLevel().getEntity(s.merchant()) instanceof Villager stallWorker) {
+            tag.putString("stall",StallService.stall(stallWorker).id());
+            tag.putBoolean("can_cycle",SettlementSavedData.get(player.server).get(s.settlement()).filter(k->dev.livingkingdoms.onboarding.KingdomOnboardingService.canHelp(player,k)).isPresent());
+        }
         var market=CommerceSavedData.get(player.server).account(s.settlement()).orElseThrow();tag.putInt("treasury",market.emeralds());
         tag.putLong("restock",Math.max(0,market.restockAt()-KingdomEconomy.now(player.server)));var rows=new ListTag();
         for(var r:StockResource.values()) {

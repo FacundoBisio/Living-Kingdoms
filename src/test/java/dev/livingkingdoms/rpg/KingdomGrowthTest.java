@@ -15,13 +15,23 @@ class KingdomGrowthTest {
     @Test void decorTiersUnlockByRankAndApplyOnce() {
         assertTrue(TownDecor.pending(1, 0).isEmpty(), "A fresh hamlet has nothing to decorate yet");
         assertEquals(List.of(TownDecor.LANTERNS), TownDecor.tiersAt(2));
-        assertEquals(List.of(TownDecor.LANTERNS, TownDecor.FLOWERS, TownDecor.BANNERS), TownDecor.pending(4, 0));
+        assertEquals(List.of(TownDecor.LANTERNS, TownDecor.FLOWERS, TownDecor.BANNERS, TownDecor.VILLAGE_HOMES), TownDecor.pending(4, 0));
         int applied = TownDecor.LANTERNS.bit() | TownDecor.FLOWERS.bit();
-        assertEquals(List.of(TownDecor.BANNERS), TownDecor.pending(4, applied), "Applied tiers are never repeated");
+        assertEquals(List.of(TownDecor.BANNERS, TownDecor.VILLAGE_HOMES), TownDecor.pending(4, applied), "Applied tiers are never repeated");
         assertEquals(List.of(TownDecor.values()), TownDecor.pending(20, 0));
-        assertTrue(TownDecor.tiersAt(9).isEmpty());
+        assertEquals(List.of(TownDecor.CITY_HOMES), TownDecor.tiersAt(9), "Reaching City upgrades every home");
         var bits = new HashSet<Integer>();
         for (var tier : TownDecor.values()) assertTrue(bits.add(tier.bit()), "Distinct bits");
+    }
+
+    @Test void stagesFollowRank() {
+        assertEquals(dev.livingkingdoms.rpg.domain.KingdomStage.HAMLET, dev.livingkingdoms.rpg.domain.KingdomStage.of(1));
+        assertEquals(dev.livingkingdoms.rpg.domain.KingdomStage.VILLAGE, dev.livingkingdoms.rpg.domain.KingdomStage.of(5));
+        assertEquals(dev.livingkingdoms.rpg.domain.KingdomStage.TOWN, dev.livingkingdoms.rpg.domain.KingdomStage.of(6));
+        assertEquals(dev.livingkingdoms.rpg.domain.KingdomStage.CITY, dev.livingkingdoms.rpg.domain.KingdomStage.of(20));
+        assertTrue(dev.livingkingdoms.rpg.domain.KingdomStage.reachedAt(1).isEmpty() && dev.livingkingdoms.rpg.domain.KingdomStage.reachedAt(4).isEmpty());
+        assertEquals(dev.livingkingdoms.rpg.domain.KingdomStage.TOWN, dev.livingkingdoms.rpg.domain.KingdomStage.reachedAt(6).orElseThrow());
+        assertTrue(dev.livingkingdoms.rpg.domain.KingdomStage.CITY.next().isEmpty());
     }
 
     @Test void everyWorkerTeachesOneDistinctTechnique() {

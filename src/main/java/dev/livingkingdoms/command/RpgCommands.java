@@ -70,6 +70,12 @@ public final class RpgCommands {
                     context.getSource().sendSuccess(() -> Component.translatable("command.livingkingdoms.beautify.done", applied.size(), rank), false);
                     return applied.size();
                 }))
+                .then(Commands.literal("perf").requires(source -> source.hasPermission(2)).executes(context -> {
+                    for (var line : dev.livingkingdoms.rpg.RpgPerf.report()) context.getSource().sendSuccess(() -> Component.literal(line), false);
+                    dev.livingkingdoms.rpg.RpgPerf.reset();
+                    return 1;
+                }))
+                .then(Commands.literal("map").executes(context -> dev.livingkingdoms.ui.KingdomMapService.open(context.getSource().getPlayerOrException()) ? 1 : 0))
                 .then(Commands.literal("wall").requires(source -> source.hasPermission(2)).executes(context -> {
                     // Debug: raise the next wall tier for free and finish it at once.
                     var player = context.getSource().getPlayerOrException();

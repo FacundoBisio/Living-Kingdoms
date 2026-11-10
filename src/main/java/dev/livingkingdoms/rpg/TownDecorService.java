@@ -51,6 +51,9 @@ public final class TownDecorService {
                 case BRAZIERS -> braziers(level, site);
                 case HEDGES -> hedges(level, site);
                 case STATUE -> statue(level, site, settlement);
+                case VILLAGE_HOMES -> homeGardens(level, site);
+                case TOWN_HOMES -> homeChimneys(level, site);
+                case CITY_HOMES -> homeBanners(level, site);
             };
             // A tier counts as applied even when the terrain allowed few pieces, so it never re-floods later.
             data.markDecor(settlementId, tier.bit());
@@ -69,15 +72,22 @@ public final class TownDecorService {
     }
 
     /** Snapshot of where decorations may go: path tiles, building footprints and the plaza centre. */
-    record Site(BlockPos center, List<BlockPos> paths, List<net.minecraft.world.level.levelgen.structure.BoundingBox> buildings, Settlement settlement) {
+    /** A house of the layout: exact footprint, floor level and the doorstep outside its door. */
+    record Home(int minX, int minZ, int maxX, int maxZ, int floor, BlockPos doorstep) {
+        boolean inside(int x, int z) { return x >= minX && x <= maxX && z >= minZ && z <= maxZ; }
+    }
+    record Site(BlockPos center, List<BlockPos> paths, List<net.minecraft.world.level.levelgen.structure.BoundingBox> buildings, Settlement settlement, List<Home> homes) {
         static Site of(ServerLevel level, Settlement settlement) {
             var t = settlement.territory();
             var center = new BlockPos(t.x(), t.y(), t.z());
             var layout = SettlementSavedData.get(level.getServer()).layout(settlement.id()).orElse(null);
             var paths = new ArrayList<BlockPos>();
             var buildings = new ArrayList<net.minecraft.world.level.levelgen.structure.BoundingBox>();
+            var homes = new ArrayList<Home>();
             if (layout != null) {
                 paths.addAll(layout.paths());
+                for (var b : layout.buildings()) if (b.kind().name().startsWith("HOUSE"))
+                    homes.add(new Home(b.bounds().minX(), b.bounds().minZ(), b.bounds().maxX(), b.bounds().maxZ(), b.origin().getY(), b.entrance()));
                 for (var b : layout.buildings()) buildings.add(new net.minecraft.world.level.levelgen.structure.BoundingBox(
                         b.bounds().minX() - 1, b.origin().getY() - 2, b.bounds().minZ() - 1, b.bounds().maxX() + 1, b.origin().getY() + 24, b.bounds().maxZ() + 1));
             }
@@ -92,13 +102,20 @@ public final class TownDecorService {
                 }
             }
             paths.sort(Comparator.comparingDouble(p -> p.distSqr(center)));
-            return new Site(center, List.copyOf(paths), List.copyOf(buildings), settlement);
+            return new Site(center, List.copyOf(paths), List.copyOf(buildings), settlement, List.copyOf(homes));
         }
         boolean free(BlockPos pos) {
             var t = settlement.territory();
             if (!t.contains(t.dimension(), pos.getX(), pos.getZ())) return false;
             for (var b : buildings) if (b.isInside(pos)) return false;
             return !pathColumn(pos);
+        }
+        /** Next to a house: inside the territory, off paths and outside every exact building footprint. */
+        boolean nearHome(BlockPos pos) {
+            var t = settlement.territory();
+            if (!t.contains(t.dimension(), pos.getX(), pos.getZ()) || pathColumn(pos)) return false;
+            for (var b : buildings) if (b.isInside(pos) && pos.getX() > b.minX() && pos.getX() < b.maxX() && pos.getZ() > b.minZ() && pos.getZ() < b.maxZ()) return false;
+            return true;
         }
         boolean pathColumn(BlockPos pos) {
             for (var p : paths) if (p.getX() == pos.getX() && p.getZ() == pos.getZ() && Math.abs(p.getY() - pos.getY()) <= 3) return true;
@@ -257,5 +274,90 @@ public final class TownDecorService {
             return 1;
         }
         return 0;
+    }
+
+    /** Surface standing spot at a column near a home (air for two blocks, solid floor), or null. */
+    private static BlockPos homeSpot(ServerLevel level, Site site, int x, int z, int floor) {
+        var column = new BlockPos(x, floor, z);
+        if (!level.hasChunkAt(column)) return null;
+        var top = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, column);
+        if (Math.abs(top.getY() - floor) > 2 || !site.nearHome(top) || !empty(level, top) || !empty(level, top.above())
+                || !level.getBlockState(top.below()).isSolidRender(level, top.below())) return null;
+        for (var home : site.homes) if (home.inside(x, z)) return null;
+        return top;
+    }
+
+    /** Unit vector along the house front, perpendicular to the way out of the door. */
+    private static int[] lateral(Home home) {
+        var d = home.doorstep();
+        return d.getZ() > home.maxZ() || d.getZ() < home.minZ() ? new int[]{1, 0} : new int[]{0, 1};
+    }
+
+    /** Village: a lantern post beside every door and flowers along the front. */
+    private static int homeGardens(ServerLevel level, Site site) {
+        int placed = 0; var random = level.getRandom();
+        for (var home : site.homes) {
+            var d = home.doorstep(); int[] side = lateral(home);
+            var post = homeSpot(level, site, d.getX() + side[0] * 2, d.getZ() + side[1] * 2, home.floor());
+            if (post != null && empty(level, post.above(2)) && set(level, post, Blocks.SPRUCE_FENCE.defaultBlockState()) && set(level, post.above(), Blocks.LANTERN.defaultBlockState())) placed++;
+            for (int step = -6; step <= 6; step++) {
+                if (Math.abs(step) < 2 || step == 2) continue;
+                var at = homeSpot(level, site, d.getX() + side[0] * step, d.getZ() + side[1] * step, home.floor());
+                if (at == null || !level.getBlockState(at.below()).is(BlockTags.DIRT)) continue;
+                if (set(level, at, FLOWERS[random.nextInt(FLOWERS.length)].defaultBlockState())) placed++;
+            }
+        }
+        return placed;
+    }
+
+    /** Town: a smoking brick chimney on every roof and a cobbled skirt around each house. */
+    private static int homeChimneys(ServerLevel level, Site site) {
+        int placed = 0;
+        for (var home : site.homes) {
+            int[][] corners = {{home.minX() + 1, home.minZ() + 1}, {home.maxX() - 1, home.minZ() + 1}, {home.minX() + 1, home.maxZ() - 1}, {home.maxX() - 1, home.maxZ() - 1}};
+            for (var c : corners) {
+                var column = new BlockPos(c[0], home.floor(), c[1]);
+                if (!level.hasChunkAt(column)) continue;
+                var top = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING, column);
+                if (top.getY() < home.floor() + 4 || !empty(level, top) || !empty(level, top.above()) || !empty(level, top.above(2)) || !empty(level, top.above(3))) continue;
+                set(level, top, Blocks.BRICKS.defaultBlockState()); set(level, top.above(), Blocks.BRICKS.defaultBlockState());
+                set(level, top.above(2), Blocks.CAMPFIRE.defaultBlockState().setValue(CampfireBlock.SIGNAL_FIRE, false));
+                placed++;
+                break;
+            }
+            for (int x = home.minX() - 1; x <= home.maxX() + 1; x++) for (int z = home.minZ() - 1; z <= home.maxZ() + 1; z++) {
+                if (home.inside(x, z)) continue;
+                var ground = new BlockPos(x, home.floor(), z);
+                if (!level.hasChunkAt(ground) || site.pathColumn(ground)) continue;
+                for (int dy = 0; dy >= -1; dy--) {
+                    var g = ground.above(dy);
+                    if ((level.getBlockState(g).is(Blocks.GRASS_BLOCK) || level.getBlockState(g).is(Blocks.DIRT)) && empty(level, g.above())) {
+                        set(level, g, ((x + z) % 3 == 0 ? Blocks.MOSSY_COBBLESTONE : Blocks.COBBLESTONE).defaultBlockState()); placed++; break;
+                    }
+                }
+            }
+        }
+        return placed;
+    }
+
+    /** City: a kingdom banner beside every door and flowering hedges at the corners. */
+    private static int homeBanners(ServerLevel level, Site site) {
+        int placed = 0;
+        for (var home : site.homes) {
+            var d = home.doorstep(); int[] side = lateral(home);
+            var pole = homeSpot(level, site, d.getX() - side[0] * 2, d.getZ() - side[1] * 2, home.floor());
+            if (pole != null && empty(level, pole.above(2))) {
+                int rotation = d.getZ() > home.maxZ() ? 0 : d.getZ() < home.minZ() ? 8 : d.getX() > home.maxX() ? 12 : 4;
+                if (set(level, pole, Blocks.SPRUCE_FENCE.defaultBlockState())
+                        && set(level, pole.above(), Blocks.BLUE_BANNER.defaultBlockState().setValue(BannerBlock.ROTATION, rotation))) placed++;
+            }
+            int[][] corners = {{home.minX() - 1, home.minZ() - 1}, {home.maxX() + 1, home.minZ() - 1}, {home.minX() - 1, home.maxZ() + 1}, {home.maxX() + 1, home.maxZ() + 1}};
+            for (var c : corners) {
+                var at = homeSpot(level, site, c[0], c[1], home.floor());
+                if (at == null) continue;
+                if (set(level, at, Blocks.FLOWERING_AZALEA_LEAVES.defaultBlockState().setValue(LeavesBlock.PERSISTENT, true))) placed++;
+            }
+        }
+        return placed;
     }
 }

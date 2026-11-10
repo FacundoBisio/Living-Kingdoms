@@ -117,7 +117,10 @@ public final class KingdomDefenseGameTests {
         archer.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.BOW));
         level.addFreshEntity(archer);
         h.assertTrue(ArcherWork.archer(archer), "Bow holders are archers");
-        h.assertTrue(ArcherWork.tick(archer, level, s), "The archer takes a post");
+        h.assertTrue(ArcherWork.tick(archer, level, s), "The archer heads for a post");
+        // No path up within the walking window: the archer hops onto the post.
+        archer.tickCount += ArcherWork.WALK_TICKS + 20;
+        h.assertTrue(ArcherWork.tick(archer, level, s), "The archer takes the post");
         var post = ArcherWork.claim(archer.getUUID()).orElseThrow();
         h.assertTrue(archer.blockPosition().equals(post), "Archer stands on the post");
         var zombie = EntityType.ZOMBIE.create(level); zombie.setPos(post.getX() + 6.5, post.getY(), post.getZ() + .5); zombie.setNoAi(true);
