@@ -28,7 +28,7 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 public class SpikeTrapBlock extends Block {
     public static final MapCodec<SpikeTrapBlock> CODEC = simpleCodec(SpikeTrapBlock::new);
     public static final float DAMAGE = 3F;
-    private static final VoxelShape SHAPE = Block.box(0, 0, 0, 16, 4, 16);
+    private static final VoxelShape SHAPE = Block.box(0, 0, 0, 16, 5, 16);
     public SpikeTrapBlock(Properties properties) { super(properties); }
     @Override protected MapCodec<? extends Block> codec() { return CODEC; }
     @Override protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) { return SHAPE; }

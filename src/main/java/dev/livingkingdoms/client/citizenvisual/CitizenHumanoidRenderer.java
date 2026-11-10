@@ -100,30 +100,36 @@ final class CitizenHumanoidRenderer extends MobRenderer<Villager, CitizenHumanoi
                 buffers, Font.DisplayMode.NORMAL, seeThrough ? 0 : background, light);
     }
 
-    /** Gold crown with gems on the Mayor's head so the leader reads at a glance from across the plaza. */
+    /**
+     * Gold crown with rubies and a glowing sapphire on the Mayor's head, so the leader reads at a glance from across
+     * the plaza. UV islands in {@code mayor_crown.png} match these boxes one to one (64x32 texture).
+     */
     private static final class Crown extends net.minecraft.client.renderer.entity.layers.RenderLayer<Villager, CitizenHumanoidModel> {
-        private static final ResourceLocation GOLD = ResourceLocation.withDefaultNamespace("textures/block/gold_block.png");
-        private static final ResourceLocation GEM = ResourceLocation.withDefaultNamespace("textures/block/redstone_block.png");
-        private static final ResourceLocation JEWEL = ResourceLocation.withDefaultNamespace("textures/block/diamond_block.png");
-        private final net.minecraft.client.model.geom.ModelPart band, gems, jewel;
+        static final ResourceLocation TEXTURE = ResourceLocation.fromNamespaceAndPath("livingkingdoms", "textures/entity/mayor_crown.png");
+        private final net.minecraft.client.model.geom.ModelPart crown, jewel;
         Crown(CitizenHumanoidRenderer parent) {
             super(parent);
-            band = part(net.minecraft.client.model.geom.builders.CubeListBuilder.create()
-                    .addBox(-4.6F, -9.2F, -4.6F, 9.2F, 1.6F, 1F).addBox(-4.6F, -9.2F, 3.6F, 9.2F, 1.6F, 1F)
-                    .addBox(-4.6F, -9.2F, -3.6F, 1F, 1.6F, 7.2F).addBox(3.6F, -9.2F, -3.6F, 1F, 1.6F, 7.2F)
-                    // Five spikes: tall center, shorter sides, plus back points.
-                    .addBox(-0.7F, -12.2F, -4.6F, 1.4F, 3F, 1F).addBox(-3.6F, -11.2F, -4.6F, 1.2F, 2F, 1F)
-                    .addBox(2.4F, -11.2F, -4.6F, 1.2F, 2F, 1F).addBox(-4.6F, -11.2F, -0.6F, 1F, 2F, 1.2F)
-                    .addBox(3.6F, -11.2F, -0.6F, 1F, 2F, 1.2F).addBox(-0.7F, -11.2F, 3.6F, 1.4F, 2F, 1F));
-            gems = part(net.minecraft.client.model.geom.builders.CubeListBuilder.create()
-                    .addBox(-2.8F, -8.9F, -4.9F, 1F, 1F, 0.5F).addBox(1.8F, -8.9F, -4.9F, 1F, 1F, 0.5F)
-                    .addBox(-4.9F, -8.9F, -0.5F, 0.5F, 1F, 1F).addBox(4.4F, -8.9F, -0.5F, 0.5F, 1F, 1F));
-            jewel = part(net.minecraft.client.model.geom.builders.CubeListBuilder.create().addBox(-0.6F, -11.4F, -4.95F, 1.2F, 1.2F, 0.5F));
+            crown = part(net.minecraft.client.model.geom.builders.CubeListBuilder.create()
+                    .texOffs(0, 0).addBox(-4.6F, -9.2F, -4.6F, 9.2F, 1.6F, 1F)
+                    .texOffs(22, 0).addBox(-4.6F, -9.2F, 3.6F, 9.2F, 1.6F, 1F)
+                    .texOffs(44, 0).addBox(-4.6F, -9.2F, -3.6F, 1F, 1.6F, 7.2F)
+                    .texOffs(0, 10).addBox(3.6F, -9.2F, -3.6F, 1F, 1.6F, 7.2F)
+                    .texOffs(18, 10).addBox(-0.7F, -12.2F, -4.6F, 1.4F, 3F, 1F)
+                    .texOffs(24, 10).addBox(-3.6F, -11.2F, -4.6F, 1.2F, 2F, 1F)
+                    .texOffs(30, 10).addBox(2.4F, -11.2F, -4.6F, 1.2F, 2F, 1F)
+                    .texOffs(36, 10).addBox(-4.6F, -11.2F, -0.6F, 1F, 2F, 1.2F)
+                    .texOffs(42, 10).addBox(3.6F, -11.2F, -0.6F, 1F, 2F, 1.2F)
+                    .texOffs(48, 10).addBox(-0.7F, -11.2F, 3.6F, 1.4F, 2F, 1F)
+                    .texOffs(54, 10).addBox(-2.8F, -8.9F, -4.9F, 1F, 1F, 0.5F)
+                    .texOffs(58, 10).addBox(1.8F, -8.9F, -4.9F, 1F, 1F, 0.5F)
+                    .texOffs(0, 20).addBox(-4.9F, -8.9F, -0.5F, 0.5F, 1F, 1F)
+                    .texOffs(4, 20).addBox(4.4F, -8.9F, -0.5F, 0.5F, 1F, 1F));
+            jewel = part(net.minecraft.client.model.geom.builders.CubeListBuilder.create().texOffs(8, 20).addBox(-0.6F, -11.4F, -4.95F, 1.2F, 1.2F, 0.5F));
         }
         private static net.minecraft.client.model.geom.ModelPart part(net.minecraft.client.model.geom.builders.CubeListBuilder cubes) {
             var mesh = new net.minecraft.client.model.geom.builders.MeshDefinition();
             mesh.getRoot().addOrReplaceChild("p", cubes, net.minecraft.client.model.geom.PartPose.ZERO);
-            return net.minecraft.client.model.geom.builders.LayerDefinition.create(mesh, 16, 16).bakeRoot();
+            return net.minecraft.client.model.geom.builders.LayerDefinition.create(mesh, 64, 32).bakeRoot();
         }
         @Override public void render(PoseStack pose, MultiBufferSource buffers, int light, Villager npc,
                 float walk, float speed, float partial, float age, float yaw, float pitch) {
@@ -132,9 +138,10 @@ final class CitizenHumanoidRenderer extends MobRenderer<Villager, CitizenHumanoi
             pose.pushPose();
             getParentModel().getHead().translateAndRotate(pose);
             int overlay = net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY;
-            band.render(pose, buffers.getBuffer(net.minecraft.client.renderer.RenderType.entityCutoutNoCull(GOLD)), light, overlay);
-            gems.render(pose, buffers.getBuffer(net.minecraft.client.renderer.RenderType.entityCutoutNoCull(GEM)), light, overlay);
-            jewel.render(pose, buffers.getBuffer(net.minecraft.client.renderer.RenderType.entityCutoutNoCull(JEWEL)), 0xF000F0, overlay);
+            var buffer = buffers.getBuffer(net.minecraft.client.renderer.RenderType.entityCutoutNoCull(TEXTURE));
+            crown.render(pose, buffer, light, overlay);
+            // The sapphire glows faintly even at night.
+            jewel.render(pose, buffer, 0xF000F0, overlay);
             pose.popPose();
         }
     }

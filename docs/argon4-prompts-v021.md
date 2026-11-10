@@ -46,8 +46,9 @@ inside its UV box, no overlapping islands, overlay layer transparent except the 
 
 ## 0.30 assets
 
-The Spike Trap ships with simple generated placeholder textures (`textures/block/spike_trap_base.png` and
-`spike_trap_spike.png`, used by a hand-built model with a plank base and nine iron spikes). To replace them:
+Argon 4 is no longer available, so the Spike Trap textures (`spike_trap_base.png`, `spike_trap_spike.png`) and the
+Mayor crown (`textures/entity/mayor_crown.png`, 64x32, UV islands matching the boxes in `CitizenHumanoidRenderer.Crown`)
+are hand-made pixel art. The prompt below stays as a reference if another generator is used later:
 
 ```
 Paint two 16x16 vanilla-style Minecraft block textures for "Spike Trap" (Living Kingdoms, MC 1.21.1).

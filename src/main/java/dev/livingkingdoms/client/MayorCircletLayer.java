@@ -16,17 +16,17 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.npc.Villager;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 
-/** Small geometry-only leadership marker using a vanilla gold texture; no new entity or texture pipeline. */
+/** Small leadership circlet for vanilla-rendered Mayors; samples the gold band island of mayor_crown.png. */
 public final class MayorCircletLayer extends RenderLayer<Villager,VillagerModel<Villager>> {
     private final ModelPart crown;
     private MayorCircletLayer(VillagerRenderer parent) {
         super(parent);
         MeshDefinition mesh=new MeshDefinition();
-        mesh.getRoot().addOrReplaceChild("circlet",CubeListBuilder.create().texOffs(0,0)
+        mesh.getRoot().addOrReplaceChild("circlet",CubeListBuilder.create().texOffs(32,20)
                 .addBox(-4.5F,-8,-4.5F,9,1,1).addBox(-4.5F,-8,3.5F,9,1,1)
                 .addBox(-4.5F,-8,-3.5F,1,1,7).addBox(3.5F,-8,-3.5F,1,1,7)
                 .addBox(-1,-10,-4.5F,2,2,1).addBox(-4.5F,-9,-4.5F,1,1,1).addBox(3.5F,-9,-4.5F,1,1,1),PartPose.ZERO);
-        crown=LayerDefinition.create(mesh,16,16).bakeRoot();
+        crown=LayerDefinition.create(mesh,64,32).bakeRoot();
     }
     public static void register(EntityRenderersEvent.AddLayers event) {
         if(event.getRenderer(EntityType.VILLAGER) instanceof VillagerRenderer renderer) renderer.addLayer(new MayorCircletLayer(renderer));
@@ -35,7 +35,7 @@ public final class MayorCircletLayer extends RenderLayer<Villager,VillagerModel<
         if(!npc.isNoAi()||npc.getCustomName()==null||!(npc.getCustomName().getContents() instanceof TranslatableContents text)
                 ||!text.getKey().equals("npc.livingkingdoms.mayor.name"))return;
         pose.pushPose();getParentModel().getHead().translateAndRotate(pose);
-        crown.render(pose,buffers.getBuffer(RenderType.entityCutoutNoCull(ResourceLocation.withDefaultNamespace("textures/block/gold_block.png"))),light,OverlayTexture.NO_OVERLAY);
+        crown.render(pose,buffers.getBuffer(RenderType.entityCutoutNoCull(ResourceLocation.fromNamespaceAndPath("livingkingdoms","textures/entity/mayor_crown.png"))),light,OverlayTexture.NO_OVERLAY);
         pose.popPose();
     }
 }
