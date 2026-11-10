@@ -104,7 +104,7 @@ public final class ConstructionService {
     /** Explicit survival plans use the same terrain/protection/reservation pipeline. */
     public static boolean planEconomicBuilding(ServerLevel level,UUID settlementId,ServerPlayer actor,BuildingKind kind) {
         return switch(kind) {
-            case WAREHOUSE,LUMBERJACK_HUT,MINE,BLACKSMITH,MARKET -> planFunctional(level,settlementId,actor,kind);
+            case WAREHOUSE,LUMBERJACK_HUT,MINE,BLACKSMITH,MARKET,TAVERN -> planFunctional(level,settlementId,actor,kind);
             default -> false;
         };
     }
@@ -270,6 +270,7 @@ public final class ConstructionService {
         if(settlement.lifecycle()==SettlementLifecycle.FOUNDING && settlements.get(settlement.id()).orElseThrow().lifecycle()==SettlementLifecycle.ESTABLISHED)
             dev.livingkingdoms.profession.ProfessionService.ensureStartingGuard(level,settlements.get(settlement.id()).orElseThrow());
         dev.livingkingdoms.quest.persistence.QuestSavedData.get(server).resolveDevelopment(settlement.id(),now);
+        dev.livingkingdoms.economy.BuildingHearts.ensure(level,settlements.get(settlement.id()).orElseThrow());
         for(ServerPlayer player:level.players()) if(canContribute(player,settlement)) {
             if(!debug && entry.project().building()==BuildingKind.WAREHOUSE) dev.livingkingdoms.chronicle.ChronicleAdvancements.grant(player,"first_warehouse");
             dev.livingkingdoms.rpg.RewardCeremony.celebrate(player,"construction",Component.translatable("construction.livingkingdoms.building."+entry.project().building().name().toLowerCase(Locale.ROOT)),

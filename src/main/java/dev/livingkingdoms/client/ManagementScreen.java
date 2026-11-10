@@ -18,6 +18,7 @@ public final class ManagementScreen extends KingdomScreen {
     private VillageUiLayout layout;
     private List<CompoundTag> rows=List.of();
     private int mode,selected,offset,page;
+    private boolean focused;
     private boolean pending;
     private Language language;
     private List<List<FormattedCharSequence>> pages=List.of(List.of());
@@ -38,6 +39,10 @@ public final class ManagementScreen extends KingdomScreen {
         String filter=mode==0?"building":"guard";
         rows=(mode==2?data.getCompound("history").getList("entries",10):data.getList("entries",10)).stream().filter(CompoundTag.class::isInstance).map(CompoundTag.class::cast)
                 .filter(row->mode==2 || row.getString("kind").equals(filter)).toList();
+        if(data.hasUUID("focus") && !focused) {
+            focused=true;
+            for(int i=0;i<rows.size();i++) if(rows.get(i).hasUUID("id") && rows.get(i).getUUID("id").equals(data.getUUID("focus"))) { selected=i; offset=Math.max(0,i-1); }
+        }
         selected=Math.clamp(selected,0,Math.max(0,rows.size()-1));offset=Math.clamp(offset,0,Math.max(0,rows.size()-layout.rows()));
         for(int m=0;m<3;m++) {final int choice=m;button("tab"+m,tr(new String[]{"buildings","guards","history"}[m]),layout.left()+8+m*40,layout.top()+32,36,()->{mode=choice;selected=offset=page=0;rebuildWidgets();}).glyph(new String[]{"B","G","H"}[m]).selected(mode==m);}
         button("expand",tr("expand"),layout.left()+layout.width()-112,layout.top()+32,102,()->send(ManagementPayloads.Action.EXPAND)).active=!pending && data.getBoolean("expand");
@@ -60,12 +65,24 @@ public final class ManagementScreen extends KingdomScreen {
         button("next",Component.translatable("ui.livingkingdoms.next"),layout.left()+30,layout.footerTop(),20,()->{offset++;rebuildWidgets();}).glyph(">").active=offset+layout.rows()<rows.size();
         button("refresh",Component.translatable("ui.livingkingdoms.refresh"),layout.left()+52,layout.footerTop(),layout.listWidth()-58,()->send(ManagementPayloads.Action.REFRESH)).glyph("R").active=!pending;
         var row=selectedRow();preparePages(row);
-        int w=(layout.detailWidth()-8)/3,x=layout.detailX();
+        int w=(layout.detailWidth()-12)/4,x=layout.detailX();
         var action=button("primary",tr(mode==1?"equip":"upgrade"),x,layout.footerTop(),w,()->send(mode==1?ManagementPayloads.Action.EQUIP:ManagementPayloads.Action.UPGRADE));
         action.active=!pending && row!=null && mode!=2 && row.getBoolean(mode==1?"equip":"upgrade");
         var repair=button("repair",tr(mode==1?"repair_held":"repair"),x+w+4,layout.footerTop(),w,()->send(mode==1?ManagementPayloads.Action.REPAIR_HELD:ManagementPayloads.Action.REPAIR));
         repair.active=!pending && mode!=2 && (mode==1 || row!=null && row.getBoolean("repair"));repair.setTooltip(Tooltip.create(tr(mode==1?"repair_held_help":"repair_help")));
-        button("back",Component.translatable("ui.livingkingdoms.back"),x+(w+4)*2,layout.footerTop(),w,()->send(ManagementPayloads.Action.BACK)).active=!pending;
+        button("back",Component.translatable("ui.livingkingdoms.back"),x+(w+4)*3,layout.footerTop(),w,()->send(ManagementPayloads.Action.BACK)).active=!pending;
+        // Building-specific order: Warehouse deposit, Tavern hire, guard role.
+        String kind=row==null?"":row.getString("building_kind");
+        if(mode==1 && row!=null) {
+            var role=button("special",tr(row.getBoolean("archer")?"make_patrol":"make_archer"),x+(w+4)*2,layout.footerTop(),w,()->send(ManagementPayloads.Action.ARCHER));
+            role.active=!pending && row.getBoolean("loaded"); role.setTooltip(Tooltip.create(tr("archer_help")));
+        } else if(mode==0 && kind.equals("warehouse")) {
+            var deposit=button("special",tr("deposit_all"),x+(w+4)*2,layout.footerTop(),w,()->send(ManagementPayloads.Action.DEPOSIT_ALL));
+            deposit.active=!pending; deposit.setTooltip(Tooltip.create(tr("deposit_all_help")));
+        } else if(mode==0 && kind.equals("tavern")) {
+            var hire=button("special",tr("hire",row.getInt("hire_price")),x+(w+4)*2,layout.footerTop(),w,()->send(ManagementPayloads.Action.HIRE));
+            hire.active=!pending; hire.primary(); hire.setTooltip(Tooltip.create(tr("hire_help",row.getInt("hire_price"))));
+        }
         button("page_previous",Component.translatable("ui.livingkingdoms.previous"),layout.left()+layout.width()-54,layout.contentBottom()-20,20,()->{page--;rebuildWidgets();}).glyph("<").active=page>0;
         button("page_next",Component.translatable("ui.livingkingdoms.next"),layout.left()+layout.width()-30,layout.contentBottom()-20,20,()->{page++;rebuildWidgets();}).glyph(">").active=page+1<pages.size();
     }
@@ -87,6 +104,7 @@ public final class ManagementScreen extends KingdomScreen {
                     wrapped.addAll(font.split(tr("location",row.getInt("x"),row.getInt("z")),width));
                     wrapped.addAll(font.split(row.contains("housing")?Component.translatable("citizen.livingkingdoms.home",row.getInt("housing")):tr("workers",row.getInt("workers"),row.getInt("slots")),width));
                     wrapped.addAll(font.split(Component.translatable(row.getString("benefit")),width));
+                    if(row.getBoolean("upgrade")) wrapped.addAll(font.split(tr("upgrade_visual").withStyle(net.minecraft.ChatFormatting.DARK_GREEN),width));
                     for(var cost:row.getList("costs",10)) {var c=(CompoundTag)cost;wrapped.addAll(font.split(tr("cost",Component.translatable(c.getString("resource")),c.getInt("amount"),c.getInt("available")),width));}
                     if(row.getBoolean("repair_pending")) wrapped.addAll(font.split(tr("repair_pending"),width));
                 } else wrapped.addAll(font.split(tr("equipment",row.getInt("equipment")),width));

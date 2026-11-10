@@ -26,12 +26,24 @@ public final class GuardEquipment {
     private static boolean owned(ItemStack stack,UUID citizen) {
         var t=stack.getOrDefault(DataComponents.CUSTOM_DATA,CustomData.EMPTY).copyTag(); return t.hasUUID(OWNER) && t.getUUID(OWNER).equals(citizen);
     }
+    public static final String ARCHER="livingkingdoms:archer";
+    /** Archers carry an issued bow and man towers and wall posts; others patrol with a sword. */
+    public static boolean archer(Villager v) { return v.getPersistentData().getBoolean(ARCHER); }
+    public static void setArcher(Villager v,Profession p,boolean archer,net.minecraft.server.level.ServerPlayer player) {
+        var held=v.getMainHandItem();
+        // A weapon the player gave stays the player's: hand it back before switching roles.
+        if(!held.isEmpty() && !issued(held)) { if(!player.getInventory().add(held.copy())) player.drop(held.copy(),false); v.setItemSlot(EquipmentSlot.MAINHAND,ItemStack.EMPTY); }
+        else if(issued(held)) v.setItemSlot(EquipmentSlot.MAINHAND,ItemStack.EMPTY);
+        if(archer) v.getPersistentData().putBoolean(ARCHER,true); else v.getPersistentData().remove(ARCHER);
+        dev.livingkingdoms.rpg.ArcherWork.release(v);
+        apply(v,p);
+    }
     public static void apply(Villager v,Profession p) {
         if(!(v.level() instanceof ServerLevel level) || !level.getServer().isSameThread()) throw new IllegalStateException("Guard equipment requires server authority");
         if(!v.getPersistentData().contains(PICKUP)) v.getPersistentData().putBoolean(PICKUP,v.canPickUpLoot());
         v.setCanPickUpLoot(false);
         int tier=GuardPolicy.equipmentTier(p.level().value(),GuardConfig.IRON_ARMOR_LEVEL.get());
-        equip(v,p,EquipmentSlot.MAINHAND,Items.IRON_SWORD);
+        equip(v,p,EquipmentSlot.MAINHAND,archer(v)?Items.BOW:Items.IRON_SWORD);
         equip(v,p,EquipmentSlot.OFFHAND,Items.SHIELD);
         equip(v,p,EquipmentSlot.CHEST,tier==2?Items.IRON_CHESTPLATE:Items.CHAINMAIL_CHESTPLATE);
         equip(v,p,EquipmentSlot.HEAD,tier==2?Items.IRON_HELMET:Items.LEATHER_HELMET);

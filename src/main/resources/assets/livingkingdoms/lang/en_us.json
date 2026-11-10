@@ -1157,5 +1157,22 @@
   "resident.livingkingdoms.level_effect.unassigned": "Give them a job to start levelling up.",
   "preview.livingkingdoms.escape": "Esc: leave the preview",
   "reward.livingkingdoms.header_construction": "Construction complete!",
-  "decor.livingkingdoms.tier.outskirts": "Lantern posts light the outskirts"
+  "decor.livingkingdoms.tier.outskirts": "Lantern posts light the outskirts",
+  "block.livingkingdoms.building_ledger": "Building Ledger",
+  "ledger.livingkingdoms.unavailable": "This ledger isn't part of a building of a kingdom you help.",
+  "command.livingkingdoms.ledgers.done": "Placed %s building ledgers.",
+  "construction.livingkingdoms.building.tavern": "Tavern",
+  "management.livingkingdoms.benefit.tavern": "Travellers stop by more often (×2 chance, more per level) and you can hire one on the spot for a few emeralds.",
+  "management.livingkingdoms.hire": "Hire (%s◆)",
+  "management.livingkingdoms.hire_help": "Hire a traveller for %s emeralds. They move into a free bed right away.",
+  "management.livingkingdoms.deposit_all": "Deposit all",
+  "management.livingkingdoms.deposit_all_help": "Put every log, stone, iron ingot and wheat you carry into Kingdom Storage. Items left in the warehouse's barrels and chests are also stored every 30 seconds.",
+  "management.livingkingdoms.make_archer": "Make archer",
+  "management.livingkingdoms.make_patrol": "Make patrol",
+  "management.livingkingdoms.archer_help": "Archers get a bow and man watchtower tops and wall posts; patrols walk the kingdom with a sword. The guard must be nearby (loaded).",
+  "management.livingkingdoms.upgrade_missing": "Kingdom Storage lacks the materials for this upgrade: check the costs below (needed / have). Deposit at a Kingdom Storage or the Warehouse ledger.",
+  "management.livingkingdoms.upgrade_visual": "Each upgrade also improves the building itself: level 2 stone bricks and spruce, level 3 deepslate, dark oak and banners.",
+  "tavern.livingkingdoms.no_emeralds": "You need %s emeralds to hire a traveller.",
+  "tavern.livingkingdoms.no_bed": "There is no free bed: build or upgrade a house first.",
+  "tavern.livingkingdoms.hired": "%1$s accepted your offer (%2$s emeralds) and moves into the kingdom!"
 }

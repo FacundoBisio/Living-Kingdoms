@@ -379,6 +379,8 @@ Local results and known runtime limits: [Milestone 0](docs/validation.md), [Mile
 - **Market stalls (0.33):** click a Merchant and press *Stall* for classic villager trades plus rare kingdom goods that change every day and sell out; *Change* switches the stall's specialty.
 - **Stages and map (0.33):** the kingdom grows from Hamlet to Village, Town and City and every house is upgraded on the way. Press **M** (or `/kingdom map`) for the kingdom map. Operators: `/kingdom perf` shows the cost of the RPG services per tick.
 
+- **Buildings (0.35):** every building has a *Building Ledger* desk inside: use it to see the building, upgrade it (the building visibly improves) and give its orders. New **Tavern** to hire travellers; the **Warehouse** stores what you leave in its barrels; guards can be switched between patrol and archer. Operators: `/kingdom ledgers`.
+
 Trials and rallies are transient: nothing is written to the world save, and trial enemies left by a crash are removed when their chunk loads.
 
 ## Next milestone

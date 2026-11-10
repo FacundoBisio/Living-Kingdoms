@@ -28,7 +28,7 @@ public final class DevelopmentGameTests {
     @GameTest(template="empty",timeoutTicks=400)
     public static void newEconomicModulesResolveNativeBlocksInAllRotations(GameTestHelper h) {
         var catalog=BuildingCatalog.load(h.getLevel(),ArchitectureStyle.PLAINS);
-        h.assertTrue(catalog.modules().size()==14,"All existing and new module identities remain loadable");
+        h.assertTrue(catalog.modules().size()==15,"All existing and new module identities remain loadable");
         int index=0;
         for(var kind:List.of(BuildingKind.WAREHOUSE,BuildingKind.LUMBERJACK_HUT,BuildingKind.MINE,BuildingKind.MARKET)) {
             var module=catalog.get(kind);

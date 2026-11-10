@@ -67,7 +67,8 @@ public final class ImmigrationService {
         int reputation=level.players().stream().filter(p -> inside(p,settlement)).mapToInt(p ->
                 QuestSavedData.get(server).reputation(p.getUUID(),settlement.id())).max().orElse(0);
         var factors=ImmigrationPolicy.Factors.neutral(reputation,settlement.level());
-        if(!debug && level.random.nextDouble()>=ImmigrationPolicy.chance(CitizenConfig.IMMIGRATION_CHANCE.get(),factors,modifier))
+        // A Tavern makes travellers more likely to stop by.
+        if(!debug && level.random.nextDouble()>=Math.min(1,ImmigrationPolicy.chance(CitizenConfig.IMMIGRATION_CHANCE.get(),factors,modifier)*dev.livingkingdoms.economy.TavernService.boost(server,settlement.id())))
             return Optional.empty();
         int low=Math.min(CitizenConfig.MIN_LEVEL.get(),CitizenConfig.MAX_LEVEL.get());
         int high=Math.max(CitizenConfig.MIN_LEVEL.get(),CitizenConfig.MAX_LEVEL.get());

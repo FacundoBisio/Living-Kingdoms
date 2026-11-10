@@ -46,13 +46,14 @@ public final class BuildingDevelopment {
         }
         ProfessionService.ensure(player.serverLevel(),SettlementSavedData.get(player.server).get(settlement).orElseThrow());KingdomEconomy.ensure(player.server,settlement);
         dev.livingkingdoms.chronicle.ChronicleService.buildingUpgraded(player.server,settlement,building,current+1);
+        BuildingVisuals.apply(player.serverLevel(),target,current+1);
         dev.livingkingdoms.chronicle.ChronicleAdvancements.grant(player,"first_upgrade");
         if(SettlementSavedData.get(player.server).get(settlement).orElseThrow().level()>=3) dev.livingkingdoms.chronicle.ChronicleAdvancements.grant(player,"development3");
         return true;
     }
     public static boolean upgradeable(BuildingKind kind) {
         return switch(kind) {
-            case CORE,TOWN_HALL,FARM,BARRACKS,WATCHTOWER,WAREHOUSE,LUMBERJACK_HUT,MINE,BLACKSMITH,MARKET,HOUSE,HOUSE_VARIANT,HOUSE_THIRD -> true;
+            case CORE,TOWN_HALL,FARM,BARRACKS,WATCHTOWER,WAREHOUSE,LUMBERJACK_HUT,MINE,BLACKSMITH,MARKET,TAVERN,HOUSE,HOUSE_VARIANT,HOUSE_THIRD -> true;
             default -> false;
         };
     }

@@ -1157,5 +1157,22 @@
   "resident.livingkingdoms.level_effect.unassigned": "Dale un trabajo para que empiece a subir de nivel.",
   "preview.livingkingdoms.escape": "Esc: salir de la vista previa",
   "reward.livingkingdoms.header_construction": "¡Construcción terminada!",
-  "decor.livingkingdoms.tier.outskirts": "Faroles iluminan los alrededores"
+  "decor.livingkingdoms.tier.outskirts": "Faroles iluminan los alrededores",
+  "block.livingkingdoms.building_ledger": "Libro del edificio",
+  "ledger.livingkingdoms.unavailable": "Este libro no pertenece a un edificio de un reino al que ayudás.",
+  "command.livingkingdoms.ledgers.done": "Se colocaron %s libros de edificio.",
+  "construction.livingkingdoms.building.tavern": "Taberna",
+  "management.livingkingdoms.benefit.tavern": "Los viajeros pasan más seguido (probabilidad ×2, más por nivel) y podés contratar uno en el momento por unas esmeraldas.",
+  "management.livingkingdoms.hire": "Contratar (%s◆)",
+  "management.livingkingdoms.hire_help": "Contratá a un viajero por %s esmeraldas. Se muda enseguida a una cama libre.",
+  "management.livingkingdoms.deposit_all": "Depositar todo",
+  "management.livingkingdoms.deposit_all_help": "Guarda en el Almacén del Reino todos los troncos, piedra, hierro y trigo que llevás. Lo que dejes en los barriles y cofres del depósito también se guarda cada 30 segundos.",
+  "management.livingkingdoms.make_archer": "Hacer arquero",
+  "management.livingkingdoms.make_patrol": "Hacer patrulla",
+  "management.livingkingdoms.archer_help": "Los arqueros reciben un arco y suben a las torres y a los puestos de la muralla; las patrullas recorren el reino con espada. El guardia tiene que estar cerca (cargado).",
+  "management.livingkingdoms.upgrade_missing": "Al Almacén del Reino le faltan materiales para esta mejora: mirá los costos abajo (necesario / tenés). Depositá en un Almacén del Reino o en el libro del Depósito.",
+  "management.livingkingdoms.upgrade_visual": "Cada mejora también cambia el edificio: nivel 2 ladrillos de piedra y abeto, nivel 3 pizarra profunda, roble oscuro y estandartes.",
+  "tavern.livingkingdoms.no_emeralds": "Necesitás %s esmeraldas para contratar a un viajero.",
+  "tavern.livingkingdoms.no_bed": "No hay camas libres: construí o mejorá una casa primero.",
+  "tavern.livingkingdoms.hired": "¡%1$s aceptó tu oferta (%2$s esmeraldas) y se muda al reino!"
 }

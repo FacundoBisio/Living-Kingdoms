@@ -34,6 +34,7 @@ public final class ConstructionConfig {
         defineBuilding(builder, BuildingKind.MINE, 3000, 48, 96, 6);
         defineBuilding(builder, BuildingKind.BLACKSMITH, 3600, 48, 96, 32);
         defineBuilding(builder, BuildingKind.MARKET, 3000, 80, 48, 4);
+        defineBuilding(builder, BuildingKind.TAVERN, 3000, 96, 48, 2);
         builder.pop();
     }
     private static void defineBuilding(ModConfigSpec.Builder b, BuildingKind kind, int ticks, int logs, int stone, int iron) {

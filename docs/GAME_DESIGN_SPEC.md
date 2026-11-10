@@ -240,6 +240,21 @@ Long loop (hours): refine a weapon to +5, win the Warlord trial, develop the Tow
   XP, fewer flowers, a rank-4 tier lights the outskirts, Warlord trials have a 25% legendary chest, building
   costs closer to the blocks used (new configs only), Esc leaves the construction preview.
 
+### 4.24 Living buildings (0.35)
+- **Building Ledger:** every kingdom building gets a ledger desk inside (farms: beside the door). Using it opens
+  management focused on that building: level, workers, costs and its own order. Placed on completion, when a
+  member talks to the Mayor (throttled) or with `/kingdom ledgers`. A broken desk is placed again.
+- **Visual upgrades:** level 2 refines materials (cobblestone → stone bricks, oak → spruce, white glass); level
+  3 goes stately (deepslate bricks, dark oak timber and roof, banners by the door). Only that building's
+  footprint and only those exact materials change; orientation is kept; containers, beds and doors are untouched.
+- **Tavern** (new building): ×2 immigration chance (×2.5, ×3 per level) and *Hire* a traveller for 8/6/4
+  emeralds from its ledger. Hiring still needs a free bed.
+- **Warehouse:** its ledger has *Deposit all* (every log, stone, iron and wheat you carry), it gets a Kingdom
+  Storage block, and anything left in its barrels and chests moves into Kingdom Storage every 30 seconds.
+- **Guard roles:** from the guards tab (or a tower ledger), *Make archer* issues a bow and the guard mans tower
+  tops and wall posts; *Make patrol* switches back to the sword. A player-given weapon is handed back first.
+- Failed upgrades now explain that Kingdom Storage lacks materials.
+
 ## 5. Roadmap (next steps, in priority order)
 
 Done in 0.22: kingdom rank with HUD bar, daily/weekly contracts with streak, rarity loot chests.
@@ -262,9 +277,9 @@ structures and vanilla-texture geometry.
 | Version | Feature | Why | Acceptance |
 |---|---|---|---|
 | 0.34 | Owner playtest + single-player polish pass end to end (found → City with walls) | Every system works together | Checklist passes on a real client; `/kingdom perf` stays under 1 ms/tick with 30 residents |
-| 0.35 | **Building heart blocks**: one admin block inside every building showing level, workers and orders (tower: patrol or archers on top; market: stall setup) | Every building is interactive | Placed by the template, survives rebuilds |
-| 0.35 | **Building upgrades with visual tiers** (camp → Town Hall; extra floors and better materials per level, costs rise) | Visible progress | Upgrade = new template stage, same footprint rules |
-| 0.35 | **Tavern** (immigrants arrive over time; hire for emeralds) and a functional **Warehouse** (real chests feeding Kingdom Storage) | Population growth and logistics | Immigration cadence visible in the UI |
+| ~~0.35~~ done | **Building heart blocks**: one admin block inside every building showing level, workers and orders (tower: patrol or archers on top; market: stall setup) | Every building is interactive | Placed by the template, survives rebuilds |
+| ~~0.35~~ done (materials; extra floors and camp → Town Hall still open) | **Building upgrades with visual tiers** | Visible progress | Upgrade = new template stage, same footprint rules |
+| ~~0.35~~ done | **Tavern** (immigrants arrive over time; hire for emeralds) and a functional **Warehouse** (real chests feeding Kingdom Storage) | Population growth and logistics | Immigration cadence visible in the UI |
 | 0.36 | More accepted main missions (hunts, upgrades), wall gatehouse and trap set-pieces | Clear goals | Quest checklists from real state |
 | 0.36 | Resident happiness and 3 traits (hard-working, lazy, brave) affecting work and small talk | Residents feel like people | One bar, three traits, bounded effects; shown in the life sheet |
 | 0.35 | Expeditions that discover ruins: a map item leads to a real dungeon with a boss and a trophy | Exploration pays more than mining | Structure placed once, cleaned up, trophy only from the boss |

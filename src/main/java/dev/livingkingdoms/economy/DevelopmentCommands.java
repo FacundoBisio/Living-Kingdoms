@@ -29,7 +29,7 @@ public final class DevelopmentCommands {
             return 1;
         });
         root.then(Commands.literal("plan").then(Commands.argument("building",StringArgumentType.word())
-                .suggests((context,builder)-> {for(var kind:new BuildingKind[]{BuildingKind.WAREHOUSE,BuildingKind.LUMBERJACK_HUT,BuildingKind.MINE,BuildingKind.BLACKSMITH,BuildingKind.MARKET}) builder.suggest(kind.name().toLowerCase(java.util.Locale.ROOT));return builder.buildFuture();})
+                .suggests((context,builder)-> {for(var kind:new BuildingKind[]{BuildingKind.WAREHOUSE,BuildingKind.LUMBERJACK_HUT,BuildingKind.MINE,BuildingKind.BLACKSMITH,BuildingKind.MARKET,BuildingKind.TAVERN}) builder.suggest(kind.name().toLowerCase(java.util.Locale.ROOT));return builder.buildFuture();})
                 .executes(context-> {
                     var player=context.getSource().getPlayerOrException();var s=local(player);if(s==null) return result(player,false);
                     BuildingKind kind;try {kind=BuildingKind.valueOf(StringArgumentType.getString(context,"building").toUpperCase(java.util.Locale.ROOT));}catch(IllegalArgumentException invalid) {return result(player,false);}

@@ -122,6 +122,8 @@ public final class VillageUiService {
         if (!dev.livingkingdoms.rpg.domain.TownDecor.pending(rank, dev.livingkingdoms.rpg.persistence.RpgSavedData.get(player.server).decor(settlement.get().id())).isEmpty()
                 && dev.livingkingdoms.onboarding.KingdomOnboardingService.canHelp(player, settlement.get()))
             dev.livingkingdoms.rpg.TownDecorService.beautify(player.serverLevel(), settlement.get().id(), rank);
+        if (dev.livingkingdoms.onboarding.KingdomOnboardingService.canHelp(player, settlement.get()))
+            dev.livingkingdoms.economy.BuildingHearts.ensureThrottled(player.serverLevel(), settlement.get());
         if (!KingdomOnboardingService.begin(player, settlement.get(), npc)) return false;
         Session session = new Session(UUID.randomUUID(), settlement.get().id(), player.level().dimension().location().toString(), null, npc.getUUID(), now(player));
         QuestJournalService.dismiss(player);SESSIONS.put(player, session);

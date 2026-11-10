@@ -147,6 +147,12 @@ Format: **What happened** → **Rule** → **Check**.
 37. **Residents shared a home's beds without an owner**, so housemates oscillated between beds and the camp
     (0.34 playtest).
     → Give each resident one bed (stable order by citizen id) and point the vanilla HOME memory at it.
+38. **New GameTests reused fixture coordinates of older tests** (242048 etc.), so two kingdoms overlapped when the
+    batches ran together (0.35).
+    → Before picking a fixture coordinate, `rg` every existing one and stay ≥ 1024 blocks away from all of them.
+
+39. **A hand-built roof had stair layers floating one block apart** and failed the structure QA connectivity check.
+    → Generated templates fill the attic under each roof layer; run the connectivity flood fill before exporting.
 
 ## Adding an entry
 

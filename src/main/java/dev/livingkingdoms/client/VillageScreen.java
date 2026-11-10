@@ -378,8 +378,8 @@ public final class VillageScreen extends KingdomScreen {
                 var preview=button("preview",Component.translatable("management.livingkingdoms.preview"),x+actionWidth+4,layout.footerTop(),actionWidth,()->send(UiPayloads.Action.PREVIEW,dev.livingkingdoms.ui.BuildingPreviewTargets.target(previewKind)));
                 preview.active=!pending && data.getBoolean("preview_allowed");preview.setTooltip(Tooltip.create(Component.translatable("management.livingkingdoms.preview_help")));
                 int pickerX=layout.detailX(), pickerWidth=(layout.detailWidth()-28)/2;
-                int capacity=dev.livingkingdoms.ui.PickerPages.capacity(layout.viewport());buildingPage%=dev.livingkingdoms.ui.PickerPages.count(9,layout.viewport());
-                var kinds=new String[]{"house","farm","barracks","watchtower","warehouse","lumberjack_hut","mine","blacksmith","market"};
+                int capacity=dev.livingkingdoms.ui.PickerPages.capacity(layout.viewport());buildingPage%=dev.livingkingdoms.ui.PickerPages.count(10,layout.viewport());
+                var kinds=new String[]{"house","farm","barracks","watchtower","warehouse","lumberjack_hut","mine","blacksmith","market","tavern"};
                 for(int i=0;i<capacity && buildingPage*capacity+i<kinds.length;i++) {
                     int index=buildingPage*capacity+i;String kind=kinds[index];
                     Component label=index<4?tr("plan_"+kind):Component.translatable("construction.livingkingdoms.building."+kind);
@@ -389,7 +389,7 @@ public final class VillageScreen extends KingdomScreen {
                     choice.active=!pending && (index!=2 && index!=3 || data.getBoolean(index==2?"barracks_plan":"watchtower_plan"));
                     choice.setTooltip(Tooltip.create(choice.active?label:tr("building_exists")));
                 }
-                pickerNavigation(false,9);
+                pickerNavigation(false,10);
                 return;
             }
         }

@@ -26,7 +26,7 @@ public final class ConstructionPreviewService {
     private ConstructionPreviewService() {}
     public static boolean supported(BuildingKind kind) {
         return switch (kind) {
-            case HOUSE,HOUSE_VARIANT,HOUSE_THIRD,FARM,BARRACKS,WATCHTOWER,WAREHOUSE,LUMBERJACK_HUT,MINE,BLACKSMITH,MARKET -> true;
+            case HOUSE,HOUSE_VARIANT,HOUSE_THIRD,FARM,BARRACKS,WATCHTOWER,WAREHOUSE,LUMBERJACK_HUT,MINE,BLACKSMITH,MARKET,TAVERN -> true;
             default -> false;
         };
     }

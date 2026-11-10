@@ -12,7 +12,7 @@ import java.util.function.Consumer;
 public final class ManagementPayloads {
     private ManagementPayloads() {}
     public static Consumer<CompoundTag> receiver=ignored->{};
-    public enum Action { UPGRADE, REPAIR, EQUIP, REPAIR_HELD, EXPAND, REFRESH, BACK, CLOSE, FORTIFY }
+    public enum Action { UPGRADE, REPAIR, EQUIP, REPAIR_HELD, EXPAND, REFRESH, BACK, CLOSE, FORTIFY, DEPOSIT_ALL, HIRE, ARCHER }
     public record Request(UUID session,long revision,UUID target,Action action) implements CustomPacketPayload {
         public static final Type<Request> TYPE=new Type<>(ResourceLocation.parse("livingkingdoms:management_action"));
         public static final StreamCodec<RegistryFriendlyByteBuf,Request> CODEC=StreamCodec.of(
@@ -26,7 +26,7 @@ public final class ManagementPayloads {
         @Override public Type<Snapshot> type() {return TYPE;}
     }
     public static void register(RegisterPayloadHandlersEvent event) {
-        var registrar=event.registrar("2");
+        var registrar=event.registrar("3");
         registrar.playToClient(Snapshot.TYPE,Snapshot.CODEC,(p,c)->receiver.accept(p.data));
         registrar.playToServer(Request.TYPE,Request.CODEC,(p,c)->{if(c.player() instanceof ServerPlayer player) ManagementService.handle(player,p);});
     }
