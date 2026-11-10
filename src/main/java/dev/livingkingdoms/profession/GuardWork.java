@@ -79,17 +79,33 @@ public final class GuardWork {
     }
     public static boolean hostile(LivingEntity other) {
         if(!other.isAlive()) return false;
+        // Trial enemies and anything a kingdom member just hit are fair game for the garrison.
+        if(other.getPersistentData().hasUUID(dev.livingkingdoms.rpg.ChallengeService.RUN_TAG)) return true;
+        Long marked=MARKED.get(other);
+        if(marked!=null) { if(other.tickCount<=marked) return true; MARKED.remove(other); }
         var faction=FactionEntityResolver.combatFaction(other);
         if(faction.isPresent()) return GuardPolicy.hostile(faction.orElseThrow());
         // Metadata wins, even if its roster is stale. Unrelated monsters only attack when native aggression targets a citizen.
         if(EncounterMember.read(other).isPresent() || NpcIdentity.read(other).isPresent()) return false;
+        // Ordinary monsters inside the kingdom are engaged on sight (creepers only once they threaten someone).
+        if(other instanceof Monster && !(other instanceof net.minecraft.world.entity.monster.Creeper)) return true;
         return other instanceof Monster mob && mob.getTarget() instanceof Villager citizen && CitizenSavedData.get(((ServerLevel)other.level()).getServer()).byEntity(citizen.getUUID()).isPresent();
     }
     public static void beforeDamage(LivingDamageEvent.Pre event) {
         if(event.getEntity().level() instanceof ServerLevel && event.getSource().getEntity() instanceof Villager guard && assigned(guard))
             BEFORE_DAMAGE.computeIfAbsent(event.getEntity(),e -> new ArrayDeque<>()).push(event.getEntity().getHealth());
     }
+    private static final Map<LivingEntity,Long> MARKED=new WeakHashMap<>();
+    /** A member striking a mob inside their kingdom marks it for the guards for 30 seconds. */
+    private static void mark(LivingDamageEvent.Post event) {
+        if(!(event.getSource().getEntity() instanceof net.minecraft.server.level.ServerPlayer player) || !(event.getEntity() instanceof Mob mob)
+                || mob instanceof Villager || mob instanceof net.minecraft.world.entity.animal.Animal || mob instanceof net.minecraft.world.entity.animal.IronGolem
+                || NpcIdentity.read(mob).isPresent() || MARKED.size()>=512) return;
+        var s=SettlementSavedData.get(player.server).alliedAt(player.level().dimension().location().toString(),mob.getBlockX(),mob.getBlockZ()).orElse(null);
+        if(s!=null && dev.livingkingdoms.onboarding.KingdomOnboardingService.canHelp(player,s)) MARKED.put(mob,(long)mob.tickCount+600);
+    }
     public static void onDamage(LivingDamageEvent.Post event) {
+        mark(event);
         Float before=null;
         if(event.getSource().getEntity() instanceof Villager) {
             var pending=BEFORE_DAMAGE.get(event.getEntity());

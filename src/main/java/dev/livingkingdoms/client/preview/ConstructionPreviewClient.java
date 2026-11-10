@@ -93,6 +93,12 @@ public final class ConstructionPreviewClient {
         var mc = Minecraft.getInstance();
         if (data.hasUUID("session") && (mc.player == null || mc.level == null || !mc.player.isAlive()
                 || !data.getString("dimension").equals(mc.level.dimension().location().toString()) || --remaining <= 0)) clear();
+        // Escape (the pause menu) also leaves the preview, so it never gets stuck on screen.
+        if (data.hasUUID("session") && mc.screen instanceof net.minecraft.client.gui.screens.PauseScreen) {
+            PacketDistributor.sendToServer(new PreviewPayloads.Request(data.getUUID("session"),PreviewPayloads.Action.CANCEL,
+                    BlockPos.of(data.getLong("origin")),Rotation.valueOf(data.getString("rotation"))));
+            clear(); mc.setScreen(null); return;
+        }
         for (var binding : KEYS.entrySet()) while (binding.getValue().consumeClick()) {
             if (!data.hasUUID("session") || mc.screen != null || mc.player == null) continue;
             var action = binding.getKey();
@@ -161,6 +167,7 @@ public final class ConstructionPreviewClient {
         for (var action : PreviewPayloads.Action.values()) lines.add(Component.translatable("preview.livingkingdoms.control",KEYS.get(action).getTranslatedKeyMessage(),
                 Component.translatable("key.livingkingdoms.preview."+action.name().toLowerCase(Locale.ROOT))));
         lines.add(Component.translatable("preview.livingkingdoms.entry"));
+        lines.add(Component.translatable("preview.livingkingdoms.escape").withStyle(net.minecraft.ChatFormatting.YELLOW));
         if (data.getBoolean("simplified")) lines.add(Component.translatable("preview.livingkingdoms.simplified"));
         int width = Math.min(320,graphics.guiWidth()-16); var wrapped = lines.stream().flatMap(line -> font.split(line,width).stream()).toList();
         int y = Math.max(8,graphics.guiHeight()-wrapped.size()*10-48);

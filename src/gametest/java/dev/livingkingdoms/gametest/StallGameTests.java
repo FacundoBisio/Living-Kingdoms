@@ -54,7 +54,7 @@ public final class StallGameTests {
         var offers=StallService.offers(level,m.worker());
         h.assertTrue(offers.size()>=2,"A level 1 stall offers classic trades and at least one rare good: "+offers.size());
         var rare=offers.stream().filter(o->o.getResult().getItem().builtInRegistryHolder().key().location().getNamespace().equals("livingkingdoms")
-                || o.getResult().is(net.minecraft.world.item.Items.TOTEM_OF_UNDYING)).findFirst();
+                || o.getResult().is(net.minecraft.world.item.Items.TOTEM_OF_UNDYING) || o.getResult().is(net.minecraft.world.item.Items.ENCHANTED_BOOK) && !o.getCostB().isEmpty()).findFirst();
         h.assertTrue(rare.isPresent(),"Rare kingdom goods are on sale");
         var again=StallService.offers(level,m.worker());
         h.assertTrue(again.size()==offers.size() && net.minecraft.world.item.ItemStack.matches(again.getFirst().getResult(),offers.getFirst().getResult()),

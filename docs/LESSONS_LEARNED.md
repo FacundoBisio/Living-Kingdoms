@@ -137,6 +137,16 @@ Format: **What happened** → **Rule** → **Check**.
 34. **A GameTest's "unloaded" remote kingdom sat 120 blocks from another test's fixture** (952048+5000 vs 957168),
     so it failed whenever batching ran both together (0.31).
     → Pick "far away" offsets that clear every fixture coordinate plus its 72-block radius and region ticket.
+35. **The HUD counted only assistant Builders**, so a site with one lead Builder said "0 builders" (0.34 playtest).
+    → Count every worker a player sees: lead + helpers.
+
+36. **Unaccepted defense offers turned into EXPIRED rows** that could not be removed, and fighting without
+    accepting gave no credit (0.34 playtest).
+    → Participants are credited automatically; offers nobody took are deleted, never parked in a terminal state.
+
+37. **Residents shared a home's beds without an owner**, so housemates oscillated between beds and the camp
+    (0.34 playtest).
+    → Give each resident one bed (stable order by citizen id) and point the vanilla HOME memory at it.
 
 ## Adding an entry
 

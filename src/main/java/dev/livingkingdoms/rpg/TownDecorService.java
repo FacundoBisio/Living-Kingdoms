@@ -54,6 +54,7 @@ public final class TownDecorService {
                 case VILLAGE_HOMES -> homeGardens(level, site);
                 case TOWN_HOMES -> homeChimneys(level, site);
                 case CITY_HOMES -> homeBanners(level, site);
+                case OUTSKIRTS -> outskirts(level, site);
             };
             // A tier counts as applied even when the terrain allowed few pieces, so it never re-floods later.
             data.markDecor(settlementId, tier.bit());
@@ -157,7 +158,7 @@ public final class TownDecorService {
     private static final Block[] FLOWERS = {Blocks.POPPY, Blocks.DANDELION, Blocks.CORNFLOWER, Blocks.OXEYE_DAISY, Blocks.ALLIUM, Blocks.AZURE_BLUET, Blocks.RED_TULIP, Blocks.LILY_OF_THE_VALLEY};
     private static int flowers(ServerLevel level, Site site) {
         int placed = 0; var random = level.getRandom();
-        for (int i = 0; i < site.paths.size() && placed < 36; i += 2) {
+        for (int i = 0; i < site.paths.size() && placed < 12; i += 5) {
             var at = beside(level, site, site.paths.get(i), 2);
             if (at == null || !level.getBlockState(at.below()).is(BlockTags.DIRT)) continue;
             if (set(level, at, FLOWERS[random.nextInt(FLOWERS.length)].defaultBlockState())) placed++;
@@ -274,6 +275,25 @@ public final class TownDecorService {
             return 1;
         }
         return 0;
+    }
+
+    /** Lantern posts every ~10 blocks on two rings between the town and the border (no lights in the centre). */
+    private static int outskirts(ServerLevel level, Site site) {
+        int placed = 0, r = site.settlement.territory().radius();
+        for (double ring : new double[]{.6, .85}) {
+            int radius = (int) (r * ring), steps = Math.max(8, (int) (2 * Math.PI * radius / 10));
+            for (int i = 0; i < steps && placed < 48; i++) {
+                double a = 2 * Math.PI * i / steps + ring;
+                var column = site.center.offset((int) Math.round(Math.cos(a) * radius), 0, (int) Math.round(Math.sin(a) * radius));
+                if (!level.hasChunkAt(column)) continue;
+                var top = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, column);
+                if (!site.free(top) || !empty(level, top) || !empty(level, top.above()) || !empty(level, top.above(2))
+                        || !level.getBlockState(top.below()).isSolidRender(level, top.below()) || !level.getFluidState(top.below()).isEmpty()) continue;
+                if (set(level, top, Blocks.SPRUCE_FENCE.defaultBlockState()) && set(level, top.above(), Blocks.SPRUCE_FENCE.defaultBlockState())
+                        && set(level, top.above(2), Blocks.LANTERN.defaultBlockState())) placed++;
+            }
+        }
+        return placed;
     }
 
     /** Surface standing spot at a column near a home (air for two blocks, solid floor), or null. */

@@ -58,7 +58,7 @@ public final class KingdomHudService {
                             if(origin.distSqr(player.blockPosition())<=24*24 && entry.project().state()==dev.livingkingdoms.construction.domain.ConstructionState.BUILDING) {
                                 var site=new CompoundTag(); site.putString("building",entry.project().building().name().toLowerCase(java.util.Locale.ROOT));
                                 site.putInt("percent",(int)Math.round(entry.project().progress(player.server.overworld().getGameTime())*100));
-                                site.putInt("helpers",dev.livingkingdoms.construction.ConstructionService.assistants(entry.project().id()));
+                                site.putInt("helpers",dev.livingkingdoms.construction.ConstructionService.assistants(entry.project().id())+(entry.project().builderId()!=null?1:0));
                                 site.putBoolean("blocked",dev.livingkingdoms.construction.ConstructionService.reason(entry.project().id()).isPresent());
                                 settlement.put("site",site);
                             }

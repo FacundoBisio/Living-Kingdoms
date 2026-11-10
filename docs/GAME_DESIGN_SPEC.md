@@ -227,6 +227,19 @@ Long loop (hours): refine a weapon to +5, win the Warlord trial, develop the Tow
   with vanilla map colours, buildings by type and level, construction sites with progress, residents with their
   job and what they are doing, walls, the player and a fuzzy treasure area. Hover for details.
 
+### 4.23 Playtest round 3 (0.34)
+- **Resident conversation screen:** right-click a resident to open their own screen: portrait, small talk, job
+  level with an XP bar and what the next level improves, bond hearts, today's wish with a *Give* button (from
+  any inventory slot), and buttons to assign a job, send on an expedition or open the roster.
+- **Mayor:** never takes a house bed; once the Town Hall exists, walks into it and stays there.
+- **Beds:** one bed per resident inside their own home.
+- **Guards:** attack trial enemies, any monster inside the kingdom, and whatever a member hit in the last 30 s.
+- **Defense alerts:** fighting counts without accepting; unaccepted offers disappear when the threat ends.
+- **Builders** move around the site while working; completion shows a construction banner.
+- **Tuning:** treasure farther from the centre, trial enemies spawn 24–32 blocks out, expeditions give 8 kingdom
+  XP, fewer flowers, a rank-4 tier lights the outskirts, Warlord trials have a 25% legendary chest, building
+  costs closer to the blocks used (new configs only), Esc leaves the construction preview.
+
 ## 5. Roadmap (next steps, in priority order)
 
 Done in 0.22: kingdom rank with HUD bar, daily/weekly contracts with streak, rarity loot chests.
@@ -249,7 +262,11 @@ structures and vanilla-texture geometry.
 | Version | Feature | Why | Acceptance |
 |---|---|---|---|
 | 0.34 | Owner playtest + single-player polish pass end to end (found → City with walls) | Every system works together | Checklist passes on a real client; `/kingdom perf` stays under 1 ms/tick with 30 residents |
-| 0.35 | Resident happiness and 3 traits (hard-working, lazy, brave) affecting work and small talk | Residents feel like people | One bar, three traits, bounded effects; shown in the life sheet |
+| 0.35 | **Building heart blocks**: one admin block inside every building showing level, workers and orders (tower: patrol or archers on top; market: stall setup) | Every building is interactive | Placed by the template, survives rebuilds |
+| 0.35 | **Building upgrades with visual tiers** (camp → Town Hall; extra floors and better materials per level, costs rise) | Visible progress | Upgrade = new template stage, same footprint rules |
+| 0.35 | **Tavern** (immigrants arrive over time; hire for emeralds) and a functional **Warehouse** (real chests feeding Kingdom Storage) | Population growth and logistics | Immigration cadence visible in the UI |
+| 0.36 | More accepted main missions (hunts, upgrades), wall gatehouse and trap set-pieces | Clear goals | Quest checklists from real state |
+| 0.36 | Resident happiness and 3 traits (hard-working, lazy, brave) affecting work and small talk | Residents feel like people | One bar, three traits, bounded effects; shown in the life sheet |
 | 0.35 | Expeditions that discover ruins: a map item leads to a real dungeon with a boss and a trophy | Exploration pays more than mining | Structure placed once, cleaned up, trophy only from the boss |
 | 0.36 | Production chains (bakery: wheat → bread; carpentry: logs → furniture that raises happiness) | Every building matters | Uses Kingdom Storage, no free items |
 | 0.36 | Diplomacy with NPC kingdoms: envoys with requests, trade treaties, caravans between kingdoms | The world is alive | Reputation per kingdom, reversible, no forced war |

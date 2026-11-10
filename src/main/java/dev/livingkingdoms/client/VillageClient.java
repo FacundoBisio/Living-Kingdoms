@@ -75,6 +75,13 @@ public final class VillageClient {
             } else if(kind.equals("stock")) {
                 if(client.screen instanceof StockScreen stock && stock.sameSession(data)) stock.update(data);
                 else client.setScreen(new StockScreen(data));
+            } else if (kind.equals("citizens") && client.screen instanceof ResidentScreen resident && resident.sameSession(data)
+                    && data.hasUUID("focus")) {
+                resident.update(data);
+            } else if (kind.equals("citizens") && data.contains("talk",10) && data.hasUUID("focus")
+                    && !(client.screen instanceof VillageScreen roster && roster.sameSession(data))) {
+                // Talking to a resident: their own conversation screen (the roster opens from its buttons).
+                client.setScreen(new ResidentScreen(data));
             } else if (client.screen instanceof VillageScreen screen && screen.sameSession(payload.data())) {
                 screen.update(payload.data());
             } else if (kind.equals("board") || kind.equals("dialogue") || kind.equals("construction")

@@ -207,7 +207,10 @@ public final class BuilderWork {
             // placement area before retrying, even if work was credited from a nearby point.
             // The site is evacuated before placement, so finishing no longer needs an exact standing spot.
             double range=BuilderConfig.WORK_RANGE.get();
-            if(v.distanceToSqr(at.getX()+.5,at.getY(),at.getZ()+.5)>range*range) {
+            // Working anywhere in or right beside the footprint counts, so Builders move around the site.
+            var site=entry.plan().buildings().getFirst().bounds();
+            boolean onSite=ConstructionService.onSite(entry,v);
+            if(!onSite && v.distanceToSqr(at.getX()+.5,at.getY(),at.getZ()+.5)>range*range) {
                 boolean stalled=at.equals(previousTarget) && previousPosition!=null && previousPosition.distanceToSqr(v.position())<.25;
                 previousTarget=at; previousPosition=v.position(); v.getNavigation().setCanFloat(true);
                 boolean moved=v.getNavigation().moveTo(at.getX()+.5,at.getY(),at.getZ()+.5,.65);
@@ -215,11 +218,16 @@ public final class BuilderWork {
                 if(failures>=5) v.getNavigation().stop();
                 data.replace(p,p.work(moved && failures<5?WorkState.WORKING:WorkState.BLOCKED,failures>=5?now+100:next,0,failures)); return false;
             }
-            previousPosition=null; previousTarget=null; v.getNavigation().stop();
-            v.getLookControl().setLookAt(at.getX()+.5,at.getY()+1,at.getZ()+.5);
+            previousPosition=null; previousTarget=null;
+            v.getLookControl().setLookAt((site.minX()+site.maxX())/2.0+.5,at.getY()+1.5,(site.minZ()+site.maxZ())/2.0+.5);
             if(!data.replace(p,p.work(WorkState.WORKING,next,0,0))) return false;
             boolean worked=helper?ConstructionService.assist(v,entry):ConstructionService.contribute(v);
-            if(worked) v.swing(InteractionHand.MAIN_HAND);
+            if(worked) {
+                v.swing(InteractionHand.MAIN_HAND);
+                                var random=v.getRandom();
+                // Small steps around the work point (always within work range) so they look busy, never stranded.
+                v.getNavigation().moveTo(at.getX()+.5+random.nextInt(5)-2,at.getY(),at.getZ()+.5+random.nextInt(5)-2,.5);
+            }
             return worked;
         }
     }

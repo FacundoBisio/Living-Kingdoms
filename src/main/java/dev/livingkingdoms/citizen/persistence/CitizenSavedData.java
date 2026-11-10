@@ -250,10 +250,15 @@ public final class CitizenSavedData extends SavedData {
         }
         // Residents who can work are housed first; the Mayor (who can stay at the Town Hall) gets a bed last and
         // gives theirs up when a worker would otherwise be homeless (0.31 playtest fix).
+        // The Mayor lives in the Town Hall (or the camp) and never takes a house bed.
+        for (Citizen mayor : citizens(settlement)) if (mayor.role() == dev.livingkingdoms.citizen.domain.CitizenRole.MAYOR && mayor.homeId() != null
+                && available.stream().anyMatch(h -> h.id().equals(mayor.homeId()))) {
+            used.merge(mayor.homeId(), -1, Integer::sum);
+            citizens.put(mayor.id(), mayor.withHome(null)); setDirty();
+        }
         var order = new ArrayList<>(citizens(settlement));
-        order.sort(Comparator.comparing((Citizen c) -> c.role() == dev.livingkingdoms.citizen.domain.CitizenRole.MAYOR));
         for (Citizen citizen : order) {
-            if (citizen.state() != CitizenState.ACTIVE || citizen.homeId() != null) continue;
+            if (citizen.state() != CitizenState.ACTIVE || citizen.homeId() != null || citizen.role() == dev.livingkingdoms.citizen.domain.CitizenRole.MAYOR) continue;
             boolean placed = false;
             for (Housing house : available) {
                 int count = used.getOrDefault(house.id(), 0);

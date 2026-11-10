@@ -15,9 +15,9 @@ class KingdomGrowthTest {
     @Test void decorTiersUnlockByRankAndApplyOnce() {
         assertTrue(TownDecor.pending(1, 0).isEmpty(), "A fresh hamlet has nothing to decorate yet");
         assertEquals(List.of(TownDecor.LANTERNS), TownDecor.tiersAt(2));
-        assertEquals(List.of(TownDecor.LANTERNS, TownDecor.FLOWERS, TownDecor.BANNERS, TownDecor.VILLAGE_HOMES), TownDecor.pending(4, 0));
+        assertEquals(List.of(TownDecor.LANTERNS, TownDecor.FLOWERS, TownDecor.BANNERS, TownDecor.VILLAGE_HOMES, TownDecor.OUTSKIRTS), TownDecor.pending(4, 0));
         int applied = TownDecor.LANTERNS.bit() | TownDecor.FLOWERS.bit();
-        assertEquals(List.of(TownDecor.BANNERS, TownDecor.VILLAGE_HOMES), TownDecor.pending(4, applied), "Applied tiers are never repeated");
+        assertEquals(List.of(TownDecor.BANNERS, TownDecor.VILLAGE_HOMES, TownDecor.OUTSKIRTS), TownDecor.pending(4, applied), "Applied tiers are never repeated");
         assertEquals(List.of(TownDecor.values()), TownDecor.pending(20, 0));
         assertEquals(List.of(TownDecor.CITY_HOMES), TownDecor.tiersAt(9), "Reaching City upgrades every home");
         var bits = new HashSet<Integer>();

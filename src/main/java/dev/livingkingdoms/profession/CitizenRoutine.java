@@ -70,7 +70,19 @@ public final class CitizenRoutine {
                     var state=level.getBlockState(pos);if(state.getBlock() instanceof BedBlock && state.getValue(BedBlock.PART)==BedPart.HEAD) beds.add(pos);
                 }
             }
+            // One bed per resident: housemates (sorted by id) take the home's beds in order, so nobody
+            // hesitates between two beds or wanders to the camp's (0.34 playtest fix).
+            if(beds.size()>1) {
+                beds.sort(Comparator.<BlockPos>comparingInt(BlockPos::getX).thenComparingInt(BlockPos::getZ));
+                var mates=CitizenSavedData.get(level.getServer()).citizens(home.settlementId()).stream()
+                        .filter(c->home.id().equals(c.homeId()) && c.state()==dev.livingkingdoms.citizen.domain.CitizenState.ACTIVE).map(Citizen::id).sorted().toList();
+                var self=CitizenSavedData.get(level.getServer()).byEntity(worker.getUUID()).map(Citizen::id).orElse(null);
+                int index=Math.max(0,mates.indexOf(self));
+                Collections.rotate(beds,-(index%beds.size()));
+            }
             cached=new Beds(home.id(),List.copyOf(beds),now+(beds.isEmpty()?200:2400));BEDS.put(worker,cached);
+            // Vanilla sleep behaviours follow the HOME memory: point it at this resident's own bed.
+            if(!beds.isEmpty()) worker.getBrain().setMemory(MemoryModuleType.HOME,net.minecraft.core.GlobalPos.of(level.dimension(),beds.getFirst()));
         }
         for(var pos:cached.positions()) {
             if(!WorkSites.loaded(level,pos)) continue;var state=level.getBlockState(pos);

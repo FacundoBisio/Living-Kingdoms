@@ -272,7 +272,8 @@ public final class ConstructionService {
         dev.livingkingdoms.quest.persistence.QuestSavedData.get(server).resolveDevelopment(settlement.id(),now);
         for(ServerPlayer player:level.players()) if(canContribute(player,settlement)) {
             if(!debug && entry.project().building()==BuildingKind.WAREHOUSE) dev.livingkingdoms.chronicle.ChronicleAdvancements.grant(player,"first_warehouse");
-            player.displayClientMessage(Component.translatable("construction.livingkingdoms.completed_in",Component.translatable("construction.livingkingdoms.building."+entry.project().building().name().toLowerCase(Locale.ROOT)),settlement.name()),true);
+            dev.livingkingdoms.rpg.RewardCeremony.celebrate(player,"construction",Component.translatable("construction.livingkingdoms.building."+entry.project().building().name().toLowerCase(Locale.ROOT)),
+                    0,0,0,List.of(),false);
         }
         assignReady(server,settlement.id());
         return true;
@@ -325,6 +326,11 @@ public final class ConstructionService {
                 .min(Comparator.comparingDouble((BlockPos pos) -> pos.distSqr(entrance)).thenComparingLong(BlockPos::asLong)).orElse(entrance);
         if(WORK_POINTS.size()>=128) WORK_POINTS.remove(WORK_POINTS.keySet().iterator().next());
         WORK_POINTS.put(entry.project().id(),new WorkPoint(entry.plan(),point)); return point;
+    }
+    /** In or right beside the project's footprint: Builders may work from anywhere on the site. */
+    public static boolean onSite(ConstructionSavedData.Entry entry,net.minecraft.world.entity.Entity e) {
+        var b=entry.plan().buildings().getFirst().bounds(); int y=entry.plan().buildings().getFirst().origin().getY();
+        return e.getBlockX()>=b.minX()-1 && e.getBlockX()<=b.maxX()+1 && e.getBlockZ()>=b.minZ()-1 && e.getBlockZ()<=b.maxZ()+1 && Math.abs(e.getBlockY()-y)<=7;
     }
     public static boolean contribute(Villager builder) {
         if(!(builder.level() instanceof ServerLevel level) || !level.getServer().isSameThread()) return false;
@@ -380,7 +386,7 @@ public final class ConstructionService {
         var server=level.getServer(); var current=ConstructionSavedData.get(server).get(entry.project().id()).orElse(null);
         if(current==null || current.project().state()!=ConstructionState.BUILDING || !current.project().builderRequired()) return false;
         var at=workPoint(current); int range=BuilderConfig.WORK_RANGE.get()+2;
-        if(helper.distanceToSqr(at.getX()+.5,at.getY(),at.getZ()+.5)>range*range || !chunksLoaded(level,current)) return false;
+        if(!onSite(current,helper) && helper.distanceToSqr(at.getX()+.5,at.getY(),at.getZ()+.5)>range*range || !chunksLoaded(level,current)) return false;
         if(clearObstacles(level,current,helper)) return true;
         var p=current.project();
         long units=Math.max(1,Math.round(BuilderConfig.WORK_INTERVAL.get()*BuilderPolicy.speedMultiplier(job.level().value(),BuilderConfig.LEVEL_CAP.get(),BuilderConfig.MAX_SPEED_BONUS.get())
@@ -536,7 +542,7 @@ public final class ConstructionService {
                 && workplace.settlementId().equals(p.settlementId()) && workplace.supports(ProfessionType.BUILDER)
                 && BuilderWork.homeReady(v) && !BuilderWork.inDanger(v)
                 && !v.isNoAi() && !v.isSleeping() && !v.isTrading() && !v.isPassenger() && !v.isLeashed()
-                && v.distanceToSqr(at.getX()+.5,at.getY(),at.getZ()+.5)<=range*range
+                && (onSite(entry,v) || v.distanceToSqr(at.getX()+.5,at.getY(),at.getZ()+.5)<=range*range)
                 && chunksLoaded(level,entry);
     }
     public static boolean isLoaded(MinecraftServer server,ConstructionSavedData.Entry entry) {

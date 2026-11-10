@@ -388,8 +388,17 @@ public final class QuestSavedData extends SavedData {
         for (QuestReference reference : Set.copyOf(references)) {
             QuestInstance quest = quest(reference.player, reference.quest).orElse(null);
             if (quest == null || !quest.source().settlementId().equals(settlement)) continue;
+            // Fighting counts even without accepting first: a participant's open offer is accepted for them.
+            if (victory && quest.state() == QuestState.AVAILABLE && participants.contains(reference.player)
+                    && acceptExpanded(reference.player, reference.quest)) quest = quest(reference.player, reference.quest).orElse(quest);
             if (victory && quest.state() == QuestState.ACTIVE && participants.contains(reference.player)) {
                 markObjective(reference.player, reference.quest);
+            } else if (quest.state() == QuestState.AVAILABLE) {
+                // An offer nobody accepted simply disappears instead of lingering as an undeletable "expired" row.
+                expandedPlayers.get(reference.player).quests.remove(quest.id());
+                clearTracking(reference.player, quest.id());
+                unindex(reference.player, quest);
+                setDirty();
             } else {
                 terminateDefense(reference.player, quest, victory ? QuestState.EXPIRED : QuestState.FAILED);
             }

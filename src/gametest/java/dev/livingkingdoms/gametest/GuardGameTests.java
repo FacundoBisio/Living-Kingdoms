@@ -119,7 +119,7 @@ public final class GuardGameTests {
         VillageUiService.handle(f.player(),new UiPayloads.Request(token,new UUID(0,0),UiPayloads.Action.CONSTRUCTION));
         h.assertTrue(VillageUiService.handle(f.player(),new UiPayloads.Request(token,new UUID(0,0),UiPayloads.Action.PLAN_BARRACKS)),"Plan Barracks from ordinary UI");
         var project=ConstructionService.current(server,f.s().id()).orElseThrow().project(); h.assertTrue(project.building()==BuildingKind.BARRACKS && project.durationTicks()>0 && !project.required().isEmpty(),"Configurable material and time requirements");
-        f.player().getInventory().items.set(0,new ItemStack(Items.OAK_LOG,64)); f.player().getInventory().items.set(1,new ItemStack(Items.STONE,64)); f.player().getInventory().items.set(2,new ItemStack(Items.IRON_INGOT,64));
+        for(int i=0;i<2;i++) { f.player().getInventory().items.set(i*3,new ItemStack(Items.OAK_LOG,64)); f.player().getInventory().items.set(i*3+1,new ItemStack(Items.STONE,64)); f.player().getInventory().items.set(i*3+2,new ItemStack(Items.IRON_INGOT,64)); }
         h.assertTrue(ConstructionService.deposit(f.player(),f.s().id(),project.id()),"Existing material delivery funds construction");
         h.assertTrue(!ConstructionService.resolve(server,project.id(),f.player()),"Native gameplay waits for build time");
         h.assertTrue(ConstructionService.resolve(server,project.id(),f.player(),true) && !ConstructionService.resolve(server,project.id(),f.player(),true),"One protected native placement");

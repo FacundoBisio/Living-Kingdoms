@@ -104,7 +104,7 @@ public final class ExpeditionService {
             RewardCeremony.celebrate(player, "expedition", Component.translatable("expedition.livingkingdoms.returned", name,
                     Component.translatable("expedition.livingkingdoms.kind." + expedition.kind().id())), 0, 0, 0, loot, rescued);
             if (rescued) player.sendSystemMessage(Component.translatable("expedition.livingkingdoms.rescued", name).withStyle(ChatFormatting.LIGHT_PURPLE));
-            KingdomProgressService.award(player, expedition.settlement(), 20);
+            KingdomProgressService.award(player, expedition.settlement(), 8);
         } else {
             var stacks = new ArrayList<CompoundTag>();
             for (var stack : loot) if (!stack.isEmpty()) stacks.add((CompoundTag) stack.save(server.registryAccess()));

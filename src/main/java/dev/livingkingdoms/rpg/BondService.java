@@ -86,7 +86,13 @@ public final class BondService {
         }
     }
 
-    public static boolean talk(ServerPlayer player, Villager villager, Citizen citizen) {
+    public static boolean talk(ServerPlayer player, Villager villager, Citizen citizen) { return talk(player, villager, citizen, false); }
+    /** Delivers today's wish from anywhere in the inventory (the resident screen's Give button). */
+    public static boolean give(ServerPlayer player, Villager villager, Citizen citizen) {
+        int before = RpgSavedData.get(player.server).bond(citizen.id()).value();
+        return talk(player, villager, citizen, true) && RpgSavedData.get(player.server).bond(citizen.id()).value() >= before + dev.livingkingdoms.rpg.domain.Bond.REQUEST;
+    }
+    private static boolean talk(ServerPlayer player, Villager villager, Citizen citizen, boolean anySlot) {
         var settlement = SettlementSavedData.get(player.server).get(citizen.settlementId()).orElse(null);
         if (settlement == null || !settlement.faction().isAllied() || !KingdomOnboardingService.canHelp(player, settlement)) return false;
         if (ExpeditionService.away(villager)) return false;
@@ -95,6 +101,8 @@ public final class BondService {
         var request = PersonalRequest.of(citizen.id(), day, profession(player.server, citizen));
         var wanted = item(request).orElse(Items.BREAD);
         var held = player.getMainHandItem();
+        if (anySlot && !(held.is(wanted) && held.getCount() >= request.count()))
+            for (var stack : player.getInventory().items) if (stack.is(wanted) && stack.getCount() >= request.count()) { held = stack; break; }
         var name = Component.literal(citizen.name()).withStyle(ChatFormatting.GOLD);
         var rewards = new ArrayList<ItemStack>();
         boolean delivered = false;

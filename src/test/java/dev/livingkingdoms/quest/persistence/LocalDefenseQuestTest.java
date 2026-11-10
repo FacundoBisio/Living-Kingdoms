@@ -121,7 +121,7 @@ class LocalDefenseQuestTest {
         assertTrue(data.acceptExpanded(player, accepted.id()));
         data.resolveDefenseParty(party, settlement, Set.of());
         assertEquals(QuestState.EXPIRED, data.quest(player, accepted.id()).orElseThrow().state());
-        assertEquals(QuestState.EXPIRED, data.quest(observer, available.id()).orElseThrow().state());
+        assertTrue(data.quest(observer, available.id()).isEmpty(), "Unaccepted offers vanish instead of lingering as expired");
         assertFalse(data.completeExpanded(player, accepted.id()));
         assertFalse(data.hasDefenseQuest(party));
         assertEquals(0, data.reputation(player, settlement));
@@ -147,12 +147,13 @@ class LocalDefenseQuestTest {
         assertTrue(DefenseQuestService.canClaim(ready, won, player));
         assertFalse(DefenseQuestService.canClaim(ready, won, second));
         assertEquals(QuestState.EXPIRED, data.quest(second, secondQuest.id()).orElseThrow().state());
-        assertEquals(QuestState.EXPIRED, data.quest(observer, unaccepted.id()).orElseThrow().state());
+        assertTrue(data.quest(observer, unaccepted.id()).orElseThrow().objectiveSatisfied(), "A participant who fought without accepting still gets credit");
         assertTrue(data.hasDefenseQuest(party));
         assertTrue(data.completeExpanded(player, first.id()));
         assertEquals(first.rewards().reputation(), data.reputation(player, settlement));
         assertEquals(0, data.reputation(second, settlement));
         assertEquals(0, data.reputation(observer, settlement));
+        assertTrue(data.completeExpanded(observer, unaccepted.id()), "The observer claims their own credit");
         assertFalse(data.hasDefenseQuest(party));
     }
 
@@ -226,7 +227,7 @@ class LocalDefenseQuestTest {
         data = reload(data);
         data.failDefenseParty(party, settlement);
         assertEquals(QuestState.FAILED, data.quest(player, first.id()).orElseThrow().state());
-        assertEquals(QuestState.FAILED, data.quest(second, unaccepted.id()).orElseThrow().state());
+        assertTrue(data.quest(second, unaccepted.id()).isEmpty(), "Open offers vanish on failure");
         data.resolveParty(party, Set.of(player));
         data.resolveDefenseParty(party, settlement, Set.of(player));
         assertFalse(data.completeExpanded(player, first.id()));

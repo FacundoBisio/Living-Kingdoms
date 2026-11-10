@@ -10,7 +10,9 @@ import java.util.List;
 public enum TownDecor {
     LANTERNS(2), FLOWERS(3), BANNERS(4), FOUNTAIN(5), BENCHES(6), BRAZIERS(7), HEDGES(8), STATUE(10),
     // 0.33 home upgrades per kingdom stage (appended: bits of existing tiers never move).
-    VILLAGE_HOMES(3), TOWN_HOMES(6), CITY_HOMES(9);
+    VILLAGE_HOMES(3), TOWN_HOMES(6), CITY_HOMES(9),
+    // 0.34: lantern posts around the outskirts, so the land around the kingdom is lit too.
+    OUTSKIRTS(4);
 
     private final int rank;
     TownDecor(int rank) { this.rank = rank; }

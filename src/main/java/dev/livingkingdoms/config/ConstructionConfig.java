@@ -23,16 +23,17 @@ public final class ConstructionConfig {
                 .define("foundingHouseFirst", true);
         TEST_DURATION = builder.comment("Development duration override in ticks; 0 uses gameplay durations. Existing projects retain their saved duration.")
                 .defineInRange("testingDurationTicks", 0, 0, 1728000);
-        defineBuilding(builder, BuildingKind.TOWN_HALL, 3600, 64, 32, 4);
-        defineBuilding(builder, BuildingKind.HOUSE, 1800, 32, 16, 0);
-        defineBuilding(builder, BuildingKind.FARM, 2400, 32, 16, 2);
-        defineBuilding(builder, BuildingKind.BARRACKS, 3600, 48, 32, 8);
-        defineBuilding(builder, BuildingKind.WATCHTOWER, 3600, 48, 32, 4);
-        defineBuilding(builder, BuildingKind.WAREHOUSE, 3000, 48, 32, 4);
-        defineBuilding(builder, BuildingKind.LUMBERJACK_HUT, 2400, 32, 16, 2);
-        defineBuilding(builder, BuildingKind.MINE, 3000, 32, 48, 4);
-        defineBuilding(builder, BuildingKind.BLACKSMITH, 3600, 32, 48, 32);
-        defineBuilding(builder, BuildingKind.MARKET, 3000, 48, 16, 4);
+        // 0.34: closer to the blocks the templates actually use (logs feed planks, stone feeds bricks).
+        defineBuilding(builder, BuildingKind.TOWN_HALL, 3600, 128, 96, 8);
+        defineBuilding(builder, BuildingKind.HOUSE, 1800, 48, 32, 0);
+        defineBuilding(builder, BuildingKind.FARM, 2400, 32, 24, 2);
+        defineBuilding(builder, BuildingKind.BARRACKS, 3600, 96, 64, 12);
+        defineBuilding(builder, BuildingKind.WATCHTOWER, 3600, 64, 96, 6);
+        defineBuilding(builder, BuildingKind.WAREHOUSE, 3000, 96, 48, 6);
+        defineBuilding(builder, BuildingKind.LUMBERJACK_HUT, 2400, 48, 24, 2);
+        defineBuilding(builder, BuildingKind.MINE, 3000, 48, 96, 6);
+        defineBuilding(builder, BuildingKind.BLACKSMITH, 3600, 48, 96, 32);
+        defineBuilding(builder, BuildingKind.MARKET, 3000, 80, 48, 4);
         builder.pop();
     }
     private static void defineBuilding(ModConfigSpec.Builder b, BuildingKind kind, int ticks, int logs, int stone, int iron) {

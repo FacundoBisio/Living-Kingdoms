@@ -249,14 +249,22 @@ public final class VillageUiService {
                         default->dev.livingkingdoms.profession.domain.ProfessionType.BLACKSMITH;
                     })
                     : dev.livingkingdoms.profession.ProfessionService.remove(player,settlement.id(),request.quest());
-            sendCitizens(player,session,settlement,result?"ui.livingkingdoms.citizens.changed":"ui.livingkingdoms.citizens.rejected"); return result;
+            sendCitizens(player,session,settlement,result?"ui.livingkingdoms.citizens.changed":"ui.livingkingdoms.citizens.rejected",request.quest(),null); return result;
+        }
+        if(session.citizens && request.action()==UiPayloads.Action.GIVE_WISH) {
+            var resident=CitizenSavedData.get(player.server).citizen(request.quest()).filter(c->c.settlementId().equals(settlement.id())).orElse(null);
+            boolean given=resident!=null && player.serverLevel().getEntity(resident.entityId()) instanceof Villager shown && player.distanceToSqr(shown)<=100
+                    && dev.livingkingdoms.rpg.BondService.give(player,shown,resident);
+            var reply=new CompoundTag();reply.putString("key",given?"resident.livingkingdoms.thanks":"resident.livingkingdoms.no_item");
+            reply.putString("player",player.getGameProfile().getName());reply.putString("kingdom",VillageNames.display(settlement));
+            sendCitizens(player,session,settlement,null,request.quest(),reply);return given;
         }
         if(session.citizens && (request.action()==UiPayloads.Action.EXPEDITION_FORAGE || request.action()==UiPayloads.Action.EXPEDITION_MINE
                 || request.action()==UiPayloads.Action.EXPEDITION_EXPLORE)) {
             var kind=switch(request.action()) { case EXPEDITION_FORAGE -> dev.livingkingdoms.rpg.domain.Expedition.Kind.FORAGE;
                 case EXPEDITION_MINE -> dev.livingkingdoms.rpg.domain.Expedition.Kind.MINE; default -> dev.livingkingdoms.rpg.domain.Expedition.Kind.EXPLORE; };
             boolean result=dev.livingkingdoms.rpg.ExpeditionService.start(player,settlement.id(),request.quest(),kind);
-            sendCitizens(player,session,settlement,result?"ui.livingkingdoms.expedition.sent":"ui.livingkingdoms.expedition.rejected");
+            sendCitizens(player,session,settlement,result?"ui.livingkingdoms.expedition.sent":"ui.livingkingdoms.expedition.rejected",request.quest(),null);
             return result;
         }
         if(session.citizens && (request.action()==UiPayloads.Action.RALLY_ALL || request.action()==UiPayloads.Action.RALLY_ONE || request.action()==UiPayloads.Action.RALLY_CANCEL)) {
@@ -554,7 +562,15 @@ public final class VillageUiService {
                         && dev.livingkingdoms.profession.ProfessionService.canAssignOperational(player.serverLevel(),citizen,p,buildings,jobs,type));
             var rpg=dev.livingkingdoms.rpg.persistence.RpgSavedData.get(player.server); var bond=rpg.bond(citizen.id());
             v.putInt("bond",bond.value()); v.putString("bond_level",bond.level().id());
+            var type=p.active()?p.type():dev.livingkingdoms.profession.domain.ProfessionType.UNASSIGNED;
+            int step=switch(type) { case GUARD -> dev.livingkingdoms.config.GuardConfig.XP_STEP.get(); case BUILDER -> dev.livingkingdoms.config.BuilderConfig.XP_STEP.get(); default -> dev.livingkingdoms.config.ProfessionConfig.XP_STEP.get(); };
+            int cap=switch(type) { case GUARD -> dev.livingkingdoms.config.GuardConfig.LEVEL_CAP.get(); case BUILDER -> dev.livingkingdoms.config.BuilderConfig.LEVEL_CAP.get(); default -> dev.livingkingdoms.config.ProfessionConfig.LEVEL_CAP.get(); };
+            int lv=p.level().value(); v.putInt("level_cap",cap);
+            v.putLong("xp_floor",(long)step*(lv-1)*lv/2); v.putLong("xp_next",(long)step*lv*(lv+1)/2);
+            v.putInt("entity",player.serverLevel().getEntity(citizen.entityId()) instanceof Villager shown?shown.getId():-1);
             var wish=dev.livingkingdoms.rpg.BondService.request(player.server,citizen);
+            var wishItem=dev.livingkingdoms.rpg.BondService.item(wish).orElse(net.minecraft.world.item.Items.BREAD);
+            v.putBoolean("wish_have",player.getInventory().countItem(wishItem)>=wish.count());
             v.putString("wish_item",wish.item()); v.putInt("wish_count",wish.count()); v.putBoolean("wish_done",!bond.canFulfill(dev.livingkingdoms.rpg.RpgClock.today()));
             rpg.expedition(citizen.id()).ifPresent(x -> { v.putString("away_kind",x.kind().id()); v.putLong("away_seconds",x.remaining(player.server.overworld().getGameTime())/20);
                 v.putLong("away_total",x.kind().duration()/20); });
@@ -580,7 +596,11 @@ public final class VillageUiService {
         if (rejected) tag.putString("notice", "ui.livingkingdoms.action_rejected");
         ListTag entries = new ListTag();
         QuestSavedData data = QuestSavedData.get(player.server);
-        for (QuestInstance quest : data.quests(player.getUUID(), settlement.id())) entries.add(questView(player, quest));
+        for (QuestInstance quest : data.quests(player.getUUID(), settlement.id())) {
+            // Finished or lapsed defense alerts are not actionable; never list them (also hides rows stuck before 0.34).
+            if (quest.template() == QuestTemplate.LOCAL_DEFENSE && (quest.state() == QuestState.EXPIRED || quest.state() == QuestState.FAILED)) continue;
+            entries.add(questView(player, quest));
+        }
         if (data.mainSettlement(player.getUUID()).isEmpty() || data.mainSettlement(player.getUUID()).filter(settlement.id()::equals).isPresent()) {
             var completed = data.completedMain(player.getUUID(), settlement.id());
             var offered = data.quests(player.getUUID(), settlement.id()).stream().map(QuestInstance::template).collect(java.util.stream.Collectors.toSet());

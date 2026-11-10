@@ -231,7 +231,7 @@ public final class ChallengeService {
         var random = level.getRandom();
         for (int attempt = 0; attempt < 8; attempt++) {
             double angle = (Math.PI * 2 * index / Math.max(1, count)) + random.nextDouble() * 0.6 + attempt * 0.4;
-            int radius = 10 + random.nextInt(7);
+            int radius = 24 + random.nextInt(9); // far enough to see them coming
             int x = run.center.getX() + (int) Math.round(Math.cos(angle) * radius), z = run.center.getZ() + (int) Math.round(Math.sin(angle) * radius);
             if (!level.hasChunkAt(new BlockPos(x, run.center.getY(), z))) continue;
             var ground = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, new BlockPos(x, 0, z));
@@ -305,8 +305,11 @@ public final class ChallengeService {
         if (!trophy.isEmpty()) items.add(trophy);
         var minimum = switch (run.tier) { case SKIRMISH -> dev.livingkingdoms.rpg.domain.LootRarity.COMMON;
             case SIEGE -> dev.livingkingdoms.rpg.domain.LootRarity.RARE; case WARLORD -> dev.livingkingdoms.rpg.domain.LootRarity.EPIC; };
-        items.add(LootChests.chest(dev.livingkingdoms.rpg.domain.LootRarity.roll(new java.util.Random(player.getRandom().nextLong()),
-                KingdomProgressService.luck(server, run.settlement), minimum)));
+        // Skirmish usually pays common (small chance of better), Siege rare, Warlord epic with a real legendary shot.
+        var rolled = dev.livingkingdoms.rpg.domain.LootRarity.roll(new java.util.Random(player.getRandom().nextLong()),
+                KingdomProgressService.luck(server, run.settlement), minimum);
+        if (run.tier == dev.livingkingdoms.rpg.domain.ChallengeTier.WARLORD && player.getRandom().nextInt(4) == 0) rolled = dev.livingkingdoms.rpg.domain.LootRarity.LEGENDARY;
+        items.add(LootChests.chest(rolled));
         RewardCeremony.celebrate(player, "challenge", Component.translatable("challenge.livingkingdoms.victory",
                 Component.translatable("challenge.livingkingdoms.tier." + run.tier.id())), run.tier.emeralds(), 0,
                 40 * run.tier.rank(), items, true);

@@ -158,7 +158,7 @@ public final class EventService {
             case TREASURE -> {
                 var random = level.getRandom(); int radius = Math.max(16, settlement.territory().radius() - 8);
                 for (int attempt = 0; attempt < 16 && state.treasure == null; attempt++) {
-                    double angle = random.nextDouble() * Math.PI * 2; int distance = 16 + random.nextInt(Math.max(1, radius - 16));
+                    double angle = random.nextDouble() * Math.PI * 2; int near = Math.min(radius - 4, Math.max(28, radius * 3 / 5)); int distance = near + random.nextInt(Math.max(1, radius - near));
                     var column = center.offset((int) (Math.cos(angle) * distance), 0, (int) (Math.sin(angle) * distance));
                     if (!level.hasChunkAt(column)) continue;
                     var at = surface(level, column);

@@ -56,8 +56,9 @@ public final class CitizenGameTests {
                 && data.byEntity(a).orElseThrow().role()==CitizenRole.UNASSIGNED,"Mayor identity remains special");
         data.synchronizeHousing(settlement,housingLayout(settlement,2),building -> 2);
         CitizenService.refreshHomes(level,settlement);
-        helper.assertTrue(data.summary(settlement.id()).total()==4 && data.summary(settlement.id()).occupied()==3
-                && data.citizens(settlement.id()).stream().allMatch(c -> c.homeId()!=null),"Automatic assignments count all actual citizens and preserve capacity");
+        // 0.34: the Mayor lives at the Town Hall and never takes a house bed.
+        helper.assertTrue(data.summary(settlement.id()).total()==4 && data.summary(settlement.id()).occupied()==2
+                && data.citizens(settlement.id()).stream().allMatch(c -> c.homeId()!=null || c.role()==CitizenRole.MAYOR),"Automatic assignments count all actual citizens and preserve capacity");
         Citizen before = data.byEntity(a).orElseThrow();
         var resident = (Villager)level.getEntity(a);
         var reloaded = EntityType.VILLAGER.create(level); reloaded.load(resident.saveWithoutId(new CompoundTag()));
@@ -73,7 +74,7 @@ public final class CitizenGameTests {
         helper.assertTrue(data.byEntity(b).orElseThrow().state()==CitizenState.DEAD
                 && data.byEntity(b).orElseThrow().homeId()==null && data.population(settlement.id())==2
                 && CitizenService.population(level.getServer(),settlement)==2
-                && data.summary(settlement.id()).free()==2,"Confirmed entity death preserves identity and frees its housing slot once");
+                && data.summary(settlement.id()).free()==3,"Confirmed entity death (Mayor unhoused since 0.34) preserves identity and frees its housing slot once");
         var reopened = CitizenSavedData.load(data.save(new CompoundTag(),level.registryAccess()),level.registryAccess());
         helper.assertTrue(reopened.byEntity(a).orElseThrow().equals(before)
                 && reopened.byEntity(b).orElseThrow().state()==CitizenState.DEAD

@@ -86,9 +86,12 @@ public final class DefenseWatchtowerGameTests {
     }
 
     private static void fund(Fixture f) {
-        f.player().getInventory().items.set(0,new ItemStack(Items.OAK_LOG,64));
-        f.player().getInventory().items.set(1,new ItemStack(Items.STONE,64));
-        f.player().getInventory().items.set(2,new ItemStack(Items.IRON_INGOT,64));
+        // Two stacks each: 0.34 costs are closer to the blocks a building really uses.
+        for(int i=0;i<2;i++) {
+            f.player().getInventory().items.set(i*3,new ItemStack(Items.OAK_LOG,64));
+            f.player().getInventory().items.set(i*3+1,new ItemStack(Items.STONE,64));
+            f.player().getInventory().items.set(i*3+2,new ItemStack(Items.IRON_INGOT,64));
+        }
     }
     private static FunctionalBuilding tower(Fixture f) {
         return ProfessionSavedData.get(f.player().server).buildings(f.settlement().id()).stream().filter(b -> b.kind()==BuildingKind.WATCHTOWER).findFirst().orElseThrow();

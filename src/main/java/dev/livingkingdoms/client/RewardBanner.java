@@ -94,9 +94,9 @@ public final class RewardBanner {
             g.fill(x + Math.max(2, sweep), y + 2, x + Math.min(width - 2, sweep + 24), y + 4, (a << 24) | 0xFFF3C2);
         }
         g.renderItem(new ItemStack(switch (entry.kind()) { case "chest" -> Items.CHEST; case "rank" -> Items.BELL;
-            case "contract" -> Items.WRITABLE_BOOK; case "expedition" -> Items.COMPASS; case "event" -> Items.FIREWORK_ROCKET;
+            case "contract" -> Items.WRITABLE_BOOK; case "expedition" -> Items.COMPASS; case "event" -> Items.FIREWORK_ROCKET; case "construction" -> Items.BRICKS;
             default -> entry.epic() ? Items.NETHER_STAR : Items.EMERALD; }), x + 7, y + 5);
-        var header = Component.translatable(switch (entry.kind()) { case "chest", "rank", "contract", "expedition", "event" -> "reward.livingkingdoms.header_" + entry.kind();
+        var header = Component.translatable(switch (entry.kind()) { case "chest", "rank", "contract", "expedition", "event", "construction" -> "reward.livingkingdoms.header_" + entry.kind();
             default -> entry.epic() ? "reward.livingkingdoms.header_epic" : "reward.livingkingdoms.header"; });
         int text = Math.max(4, a) << 24;
         g.drawString(font, header, x + 28, y + 6, text | entry.color(), true);
