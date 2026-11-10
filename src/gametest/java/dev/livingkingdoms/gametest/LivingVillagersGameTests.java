@@ -84,7 +84,7 @@ public final class LivingVillagersGameTests {
         var module=WorkSites.template(level,building);var station=module.worldPosition(new BlockPos(2,1,module.size().getZ()-3),building.origin(),building.rotation());level.setBlock(station,Blocks.AIR.defaultBlockState(),18);
         h.assertTrue(!EconomicWork.tick(w.entity()) && jobs.profession(p.citizenId()).orElseThrow().workState()==WorkState.BLOCKED,"Missing physical station blocks work");
         h.assertTrue(KingdomEconomy.ensure(level.getServer(),f.settlement().id()).produced().isEmpty(),"Failed attempts leave stock counters untouched");
-        var remote=f.center().offset(5000,0,5000);var s=Settlement.established(UUID.randomUUID(),new Territory(level.dimension().location().toString(),remote.getX(),remote.getY(),remote.getZ(),48),1,SettlementOrigin.CONVERTED,UUID.randomUUID());
+        var remote=f.center().offset(-5000,0,-5000); /* clear of other fixtures: 957168 sits 120 blocks from +5000 */ var s=Settlement.established(UUID.randomUUID(),new Territory(level.dimension().location().toString(),remote.getX(),remote.getY(),remote.getZ(),48),1,SettlementOrigin.CONVERTED,UUID.randomUUID());
         var catalog=BuildingCatalog.load(level,ArchitectureStyle.PLAINS);var house=description(catalog.get(BuildingKind.HOUSE),remote.offset(12,-1,0));var mine=description(catalog.get(BuildingKind.MINE),remote.offset(-16,-1,0));
         var layout=new SettlementLayoutMetadata(ArchitectureStyle.PLAINS,List.of(house,mine),List.of(remote.below()),List.of());SettlementSavedData.get(level.getServer()).add(s,layout);
         var people=CitizenSavedData.get(level.getServer());people.synchronizeHousing(s,layout,b->2);var ghost=EntityType.VILLAGER.create(level);place(ghost,f.center());

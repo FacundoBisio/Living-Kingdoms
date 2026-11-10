@@ -48,6 +48,10 @@ public final class KingdomHudPresentation {
                 }
                 if (local.getInt("contracts_ready") > 0) kingdom.add(new Row(Icon.CHECK, tr("contracts_ready", local.getInt("contracts_ready")), Tone.SUCCESS));
                 if (local.contains("wall_building")) kingdom.add(new Row(Icon.SHIELD, tr("wall_building"), Tone.MUTED));
+                if (local.getInt("expeditions") > 0) {
+                    long next = Math.max(0, local.getLong("expedition_next"));
+                    kingdom.add(new Row(Icon.LOCATION, tr("expeditions", local.getInt("expeditions"), String.format(java.util.Locale.ROOT, "%d:%02d", next / 60, next % 60)), Tone.NORMAL));
+                }
                 if (local.getInt("wall_breaches") > 0) kingdom.add(new Row(Icon.SHIELD, tr("wall_breaches", local.getInt("wall_breaches")), Tone.WARNING));
                 if (local.getInt("alarm") > 0) kingdom.add(new Row(Icon.SHIELD, tr("alarm", local.getInt("alarm") / 60, String.format(java.util.Locale.ROOT, "%02d", local.getInt("alarm") % 60)), Tone.WARNING));
                 kingdom.add(new Row(Icon.REPUTATION, tr("reputation_value", local.getInt("reputation")), Tone.NORMAL));

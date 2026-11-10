@@ -22,6 +22,7 @@ import net.minecraft.world.level.storage.LevelResource;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -247,16 +248,30 @@ public final class CitizenSavedData extends SavedData {
         for (Citizen citizen : citizens(settlement)) {
             if (citizen.state() == CitizenState.ACTIVE && citizen.homeId() != null) used.merge(citizen.homeId(), 1, Integer::sum);
         }
-        for (Citizen citizen : citizens(settlement)) {
+        // Residents who can work are housed first; the Mayor (who can stay at the Town Hall) gets a bed last and
+        // gives theirs up when a worker would otherwise be homeless (0.31 playtest fix).
+        var order = new ArrayList<>(citizens(settlement));
+        order.sort(Comparator.comparing((Citizen c) -> c.role() == dev.livingkingdoms.citizen.domain.CitizenRole.MAYOR));
+        for (Citizen citizen : order) {
             if (citizen.state() != CitizenState.ACTIVE || citizen.homeId() != null) continue;
+            boolean placed = false;
             for (Housing house : available) {
                 int count = used.getOrDefault(house.id(), 0);
                 if (count < house.capacity()) {
                     citizens.put(citizen.id(), citizen.withHome(house.id()));
                     used.put(house.id(), count + 1);
-                    setDirty();
+                    setDirty(); placed = true;
                     break;
                 }
+            }
+            if (placed || citizen.role() == dev.livingkingdoms.citizen.domain.CitizenRole.MAYOR) continue;
+            for (Citizen mayor : citizens(settlement)) {
+                if (mayor.role() != dev.livingkingdoms.citizen.domain.CitizenRole.MAYOR || mayor.homeId() == null
+                        || available.stream().noneMatch(h -> h.id().equals(mayor.homeId()))) continue;
+                citizens.put(citizen.id(), citizens.get(citizen.id()).withHome(mayor.homeId()));
+                citizens.put(mayor.id(), mayor.withHome(null));
+                setDirty();
+                break;
             }
         }
     }

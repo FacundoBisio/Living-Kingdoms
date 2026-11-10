@@ -65,6 +65,12 @@ public final class KingdomHudService {
                         });
                         dev.livingkingdoms.rpg.persistence.RpgSavedData.get(player.server).wall(s.id()).filter(w -> !w.complete()).ifPresent(w ->
                                 settlement.putInt("wall_building",w.tier()));
+                        long now=player.server.overworld().getGameTime();
+                        dev.livingkingdoms.rpg.persistence.RpgSavedData.get(player.server).expeditions().stream().filter(x -> x.settlement().equals(s.id()))
+                                .min(java.util.Comparator.comparingLong(x -> x.remaining(now))).ifPresent(x -> {
+                                    settlement.putInt("expeditions",(int)dev.livingkingdoms.rpg.persistence.RpgSavedData.get(player.server).expeditionsIn(s.id()));
+                                    settlement.putLong("expedition_next",x.remaining(now)/20);
+                                });
                         int breaches=dev.livingkingdoms.rpg.WallService.breaches(s.id());if(breaches>0) settlement.putInt("wall_breaches",breaches);
                         long alarm=dev.livingkingdoms.rpg.AlarmService.remaining(player.server,s.id());if(alarm>0) settlement.putInt("alarm",(int)(alarm/20));
                     }

@@ -78,16 +78,19 @@ final class CitizenHumanoidRenderer extends MobRenderer<Villager, CitizenHumanoi
         int secondary = Math.min(CitizenVisualConfig.SECONDARY_DISTANCE.get(), nameDistance);
         int activity = Math.min(CitizenVisualConfig.ACTIVITY_DISTANCE.get(), nameDistance);
         boolean showActivity = presentation.activity() != null && activity > 0 && distanceSqr <= (double) activity * activity;
+        boolean showSecondary = secondary > 0 && distanceSqr <= (double) secondary * secondary;
+        int lines = 1 + (showSecondary ? 1 : 0) + (showActivity ? 1 : 0);
         pose.pushPose();
-        // A third line needs extra clearance so the stacked tag stays above the head.
-        pose.translate(0, npc.getBbHeight() + (showActivity ? .6 : .35), 0);
+        // The lowest line sits clearly above the head (and above the Mayor's crown); extra lines stack upward.
+        boolean crowned = presentation.data() != null && presentation.data().profession() == ProfessionType.MAYOR;
+        pose.translate(0, npc.getBbHeight() + .55 + (crowned ? .3 : 0) + (lines - 1) * .25, 0);
         pose.mulPose(entityRenderDispatcher.cameraOrientation()); pose.scale(.025F, -.025F, .025F);
         int background = (int) (Minecraft.getInstance().options.getBackgroundOpacity(.25F) * 255) << 24;
         // Like vanilla name tags: a faint see-through pass keeps names readable behind blocks and other
         // entities, then the normal pass draws them crisp when in view.
         boolean discrete = !npc.isDiscrete();
         line(presentation.name(), 0, -1, pose, buffers, background, light, discrete);
-        if (secondary > 0 && distanceSqr <= (double) secondary * secondary)
+        if (showSecondary)
             line(presentation.secondary(), 10, 0xFFE2C07A, pose, buffers, background, light, discrete);
         if (showActivity) line(presentation.activity(), 20, 0xFFB8B8B8, pose, buffers, background, light, discrete);
         pose.popPose();

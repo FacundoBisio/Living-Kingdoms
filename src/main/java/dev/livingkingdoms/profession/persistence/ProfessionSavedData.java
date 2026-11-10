@@ -53,6 +53,20 @@ public final class ProfessionSavedData extends SavedData {
     public List<FunctionalBuilding> buildings(UUID settlement) { authority(); return settlementBuildings.getOrDefault(settlement,Set.of()).stream().map(buildings::get).toList(); }
     public List<Profession> professions(UUID settlement) { authority(); return settlementWorkers.getOrDefault(settlement,Set.of()).stream().map(professions::get).toList(); }
     public int workers(UUID workplace) { authority(); return workplaceWorkers.getOrDefault(workplace,Set.of()).size(); }
+    /**
+     * Whether {@code b} can take one more worker of {@code type}. The Town Hall's single guard post is separate from
+     * its builder slots, so the starting Guard never blocks Builders (0.31 playtest fix).
+     */
+    public boolean hasRoom(FunctionalBuilding b,ProfessionType type) {
+        authority(); int used=0;
+        boolean hall=b.kind()==dev.livingkingdoms.structure.BuildingKind.CORE || b.kind()==dev.livingkingdoms.structure.BuildingKind.TOWN_HALL;
+        if(hall && type==ProfessionType.GUARD) return true;
+        for(var id:workplaceWorkers.getOrDefault(b.id(),Set.of())) {
+            var p=professions.get(id);
+            if(p!=null && !(hall && p.type()==ProfessionType.GUARD)) used++;
+        }
+        return used<b.workplaceSlots();
+    }
     public FoodStock food(UUID settlement,int capacity) { authority(); return food.getOrDefault(settlement,new FoodStock(0,capacity,0)); }
     public void ensureFood(UUID settlement,int capacity) {
         authority(); var old=food.get(settlement); var next=old==null?new FoodStock(0,capacity,0):old.capacity(capacity);
@@ -154,9 +168,10 @@ public final class ProfessionSavedData extends SavedData {
     private boolean assign(Citizen citizen,UUID workplace,long now,ProfessionType type) {
         authority(); initialize(citizen); var old=profession(citizen.id()).orElseThrow(); var b=buildings.get(workplace);
         if(now<0 || citizen.state()!=CitizenState.ACTIVE || citizen.homeId()==null || citizen.role()==CitizenRole.MAYOR
-                || (type==ProfessionType.GUARD || type==ProfessionType.BUILDER || type.economic()) && old.type()!=ProfessionType.UNASSIGNED || old.type()==ProfessionType.MAYOR || old.active() && old.type()!=ProfessionType.UNASSIGNED
+                // A retired (inactive) job of any type leaves the resident free for a new one (0.31 playtest fix).
+                || old.type()==ProfessionType.MAYOR || old.active() && old.type()!=ProfessionType.UNASSIGNED
                 || b==null || !b.active() || !b.supports(type) || !b.settlementId().equals(citizen.settlementId())
-                || workers(workplace)>=b.workplaceSlots()
+                || !hasRoom(b,type)
                 // The Town Hall guard post holds a single Guard; Barracks provide real guard capacity.
                 || type==ProfessionType.GUARD && (b.kind()==dev.livingkingdoms.structure.BuildingKind.CORE || b.kind()==dev.livingkingdoms.structure.BuildingKind.TOWN_HALL)
                     && professions(citizen.settlementId()).stream().anyMatch(p -> p.active() && p.type()==ProfessionType.GUARD && workplace.equals(p.workplaceId()))) return false;
@@ -233,7 +248,7 @@ public final class ProfessionSavedData extends SavedData {
             if(p.active() && p.workplaceId()!=null) {
                 var b=data.buildings.get(p.workplaceId());
                 if(b==null || !b.active() || !b.settlementId().equals(p.settlementId()) || !careerType(p.type())
-                        || !b.supports(p.type()) || data.workers(b.id())>=b.workplaceSlots()) throw new IllegalArgumentException("Invalid workplace assignment");
+                        || !b.supports(p.type()) || !data.hasRoom(b,p.type())) throw new IllegalArgumentException("Invalid workplace assignment");
             }
             data.put(p);
             if(version>=2) { long revision=number(e,"employment_revision"); if(revision<0) throw new IllegalArgumentException("Invalid employment revision"); data.employmentRevisions.put(p.citizenId(),revision); }

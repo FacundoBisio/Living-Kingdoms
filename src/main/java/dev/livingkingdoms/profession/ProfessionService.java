@@ -45,7 +45,7 @@ public final class ProfessionService {
             var old=data.profession(citizen.id()).orElse(null);
             if(old==null || old.active() || old.type()!=ProfessionType.UNASSIGNED) continue;
             if(!(level.getEntity(citizen.entityId()) instanceof Villager villager) || villager.isBaby() || !CitizenService.canApply(citizen,villager)) continue;
-            for(var b:data.buildings(settlement.id())) if(b.active() && b.supports(ProfessionType.GUARD) && !playerPost(b,ProfessionType.GUARD) && data.workers(b.id())<b.workplaceSlots()
+            for(var b:data.buildings(settlement.id())) if(b.active() && b.supports(ProfessionType.GUARD) && !playerPost(b,ProfessionType.GUARD) && data.hasRoom(b,ProfessionType.GUARD)
                     && data.assignGuard(citizen,b.id(),now)) { GuardWork.control(villager); return true; }
         }
         return false;
@@ -88,14 +88,14 @@ public final class ProfessionService {
         var data=ProfessionSavedData.get(player.server);
         if(citizen.homeId()==null && type!=ProfessionType.BUILDER && type.operational()) {
             var old=data.profession(citizenId).orElseThrow();
-            if(old.type()!=ProfessionType.UNASSIGNED || old.active() || citizen.state()!=CitizenState.ACTIVE || citizen.role()==CitizenRole.MAYOR
-                    || data.buildings(settlementId).stream().noneMatch(b->b.active() && b.supports(type) && data.workers(b.id())<b.workplaceSlots())) return false;
+            if(old.type()==ProfessionType.MAYOR || old.active() || citizen.state()!=CitizenState.ACTIVE || citizen.role()==CitizenRole.MAYOR
+                    || data.buildings(settlementId).stream().noneMatch(b->b.active() && b.supports(type) && data.hasRoom(b,type))) return false;
             citizen=ConvertedBuilderHomes.ensure(player.serverLevel(),citizen).orElse(null);if(citizen==null) return false;
         }
         if(type==ProfessionType.BUILDER) {
             var old=data.profession(citizenId).orElseThrow();
-            if(old.type()!=ProfessionType.UNASSIGNED || old.active() || citizen.state()!=CitizenState.ACTIVE || citizen.role()==CitizenRole.MAYOR
-                    || data.buildings(settlementId).stream().noneMatch(b -> b.active() && b.supports(ProfessionType.BUILDER) && data.workers(b.id())<b.workplaceSlots())) return false;
+            if(old.type()==ProfessionType.MAYOR || old.active() || citizen.state()!=CitizenState.ACTIVE || citizen.role()==CitizenRole.MAYOR
+                    || data.buildings(settlementId).stream().noneMatch(b -> b.active() && b.supports(ProfessionType.BUILDER) && data.hasRoom(b,ProfessionType.BUILDER))) return false;
             if(citizen.homeId()==null) citizen=ConvertedBuilderHomes.ensure(player.serverLevel(),citizen).orElse(null);
             if(citizen==null || ConvertedBuilderHomes.status(player.serverLevel(),citizen)==ConvertedBuilderHomes.Status.INVALID) return false;
         }
@@ -140,16 +140,16 @@ public final class ProfessionService {
     }
     public static boolean canAssign(Citizen citizen,Profession p,List<FunctionalBuilding> buildings,ProfessionSavedData data,ProfessionType type) {
         return citizen.state()==CitizenState.ACTIVE && citizen.homeId()!=null && citizen.role()!=CitizenRole.MAYOR
-                && (type!=ProfessionType.GUARD && type!=ProfessionType.BUILDER && !type.economic() || p.type()==ProfessionType.UNASSIGNED)
+                && p.type()!=ProfessionType.MAYOR
                 && !(p.active() && p.type()!=ProfessionType.UNASSIGNED) && buildings.stream().anyMatch(b ->
-                b.active() && b.supports(type) && playerPost(b,type) && b.settlementId().equals(citizen.settlementId()) && data.workers(b.id())<b.workplaceSlots());
+                b.active() && b.supports(type) && playerPost(b,type) && b.settlementId().equals(citizen.settlementId()) && data.hasRoom(b,type));
     }
     public static boolean canAssignBuilder(ServerLevel level,Citizen citizen,Profession p,List<FunctionalBuilding> buildings,ProfessionSavedData data) {
         if(citizen.homeId()!=null) return ConvertedBuilderHomes.status(level,citizen)!=ConvertedBuilderHomes.Status.INVALID
                 && canAssign(citizen,p,buildings,data,ProfessionType.BUILDER);
-        return citizen.state()==CitizenState.ACTIVE && citizen.role()!=CitizenRole.MAYOR && p.type()==ProfessionType.UNASSIGNED && !p.active()
+        return citizen.state()==CitizenState.ACTIVE && citizen.role()!=CitizenRole.MAYOR && p.type()!=ProfessionType.MAYOR && !p.active()
                 && p.citizenId().equals(citizen.id()) && p.settlementId().equals(citizen.settlementId())
-                && buildings.stream().anyMatch(b -> b.active() && b.supports(ProfessionType.BUILDER) && b.settlementId().equals(citizen.settlementId()) && data.workers(b.id())<b.workplaceSlots())
+                && buildings.stream().anyMatch(b -> b.active() && b.supports(ProfessionType.BUILDER) && b.settlementId().equals(citizen.settlementId()) && data.hasRoom(b,ProfessionType.BUILDER))
                 && ConvertedBuilderHomes.eligible(level,citizen);
     }
     public static boolean canAssignOperational(ServerLevel level,Citizen citizen,Profession p,List<FunctionalBuilding> buildings,ProfessionSavedData data,ProfessionType type) {
@@ -157,8 +157,8 @@ public final class ProfessionService {
         if(level.getEntity(citizen.entityId()) instanceof Villager v && v.isBaby()) return false;
         if(type==ProfessionType.BUILDER) return canAssignBuilder(level,citizen,p,buildings,data);
         if(citizen.homeId()!=null) return ConvertedBuilderHomes.status(level,citizen)!=ConvertedBuilderHomes.Status.INVALID && canAssign(citizen,p,buildings,data,type);
-        return citizen.state()==CitizenState.ACTIVE && citizen.role()!=CitizenRole.MAYOR && p.type()==ProfessionType.UNASSIGNED && !p.active()
-                && buildings.stream().anyMatch(b->b.active() && b.supports(type) && playerPost(b,type) && b.settlementId().equals(citizen.settlementId()) && data.workers(b.id())<b.workplaceSlots())
+        return citizen.state()==CitizenState.ACTIVE && citizen.role()!=CitizenRole.MAYOR && p.type()!=ProfessionType.MAYOR && !p.active()
+                && buildings.stream().anyMatch(b->b.active() && b.supports(type) && playerPost(b,type) && b.settlementId().equals(citizen.settlementId()) && data.hasRoom(b,type))
                 && ConvertedBuilderHomes.eligible(level,citizen);
     }
     private static Settlement authorized(ServerPlayer player,UUID id) {

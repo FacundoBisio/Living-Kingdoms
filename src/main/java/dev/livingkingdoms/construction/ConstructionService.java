@@ -439,7 +439,11 @@ public final class ConstructionService {
             // Drops land at the work point, outside the footprint, so they never block the next stage.
             var at=safePoint(level,entry);
             net.minecraft.world.level.block.Block.dropResources(state,level,at,null,builder,net.minecraft.world.item.ItemStack.EMPTY);
-            level.destroyBlock(pos,false,builder); iterator.remove(); budget--; worked=true;
+            // Restore what the plan expects there (usually the ground) instead of leaving a hole in the floor.
+            var expected=ConstructionStages.expected(entry,entry.project().visualStage(),pos).filter(e->!e.isAir() && !e.hasBlockEntity() && e.getFluidState().isEmpty()).orElse(null);
+            level.destroyBlock(pos,false,builder);
+            if(expected!=null) level.setBlock(pos,expected,net.minecraft.world.level.block.Block.UPDATE_ALL);
+            iterator.remove(); budget--; worked=true;
         }
         if(list.isEmpty()) { OBSTACLES.remove(entry.project().id()); REASONS.remove(entry.project().id()); SITE_RETRY.remove(entry.project().id()); }
         else highlight(level,list);

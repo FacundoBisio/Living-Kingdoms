@@ -45,7 +45,7 @@ public final class ExpeditionService {
         var citizen = CitizenSavedData.get(server).citizen(citizenId).orElse(null);
         if (citizen == null || citizen.role() == CitizenRole.MAYOR || citizen.state() != CitizenState.ACTIVE) return false;
         var job = ProfessionSavedData.get(server).profession(citizenId).orElse(null);
-        return (job == null || !job.active() && job.type() == ProfessionType.UNASSIGNED)
+        return (job == null || !job.active() && job.type() != ProfessionType.MAYOR)
                 && RpgSavedData.get(server).expedition(citizenId).isEmpty();
     }
 

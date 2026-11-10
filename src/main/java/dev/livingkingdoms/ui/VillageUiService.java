@@ -91,6 +91,23 @@ public final class VillageUiService {
         return true;
     }
 
+    /**
+     * Talking to a resident opens the roster focused on them, with a random line of small talk: the player can read
+     * their job and life, give them a job when they are free, or send them on an expedition.
+     */
+    public static boolean openResident(ServerPlayer player, Villager npc, dev.livingkingdoms.citizen.domain.Citizen citizen) {
+        if (!player.server.isSameThread() || !player.isAlive() || player.isSpectator() || player.distanceToSqr(npc) > 64) return false;
+        var settlement = SettlementSavedData.get(player.server).get(citizen.settlementId()).orElse(null);
+        if (settlement == null || !settlement.faction().isAllied() || !inside(player, settlement) || !KingdomOnboardingService.canHelp(player, settlement)) return false;
+        var session = new Session(UUID.randomUUID(), settlement.id(), player.level().dimension().location().toString(), null, null, now(player), null, false, false, true, true);
+        var job = dev.livingkingdoms.profession.persistence.ProfessionSavedData.get(player.server).profession(citizen.id())
+                .filter(p -> p.active()).map(p -> p.type()).orElse(dev.livingkingdoms.profession.domain.ProfessionType.UNASSIGNED);
+        var talk = dev.livingkingdoms.rpg.ResidentChatter.line(player.serverLevel(), settlement.id(), job, player.getGameProfile().getName(), VillageNames.display(settlement), player.getRandom());
+        QuestJournalService.dismiss(player); SESSIONS.put(player, session);
+        sendCitizens(player, session, settlement, null, citizen.id(), talk);
+        return true;
+    }
+
     public static boolean openDialogue(ServerPlayer player, Villager npc) {
         var identity = NpcIdentity.read(npc).filter(id -> id.role() == NpcRole.MAYOR);
         if (identity.isEmpty() || !npc.isAlive() || player.distanceToSqr(npc) > 64 || player.isSpectator() || !player.isAlive()) return false;
@@ -501,8 +518,11 @@ public final class VillageUiService {
         StockUiState.write(player,settlement.id(),tag);PacketDistributor.sendToPlayer(player,new UiPayloads.Snapshot(tag));
     }
 
-    private static void sendCitizens(ServerPlayer player,Session session,Settlement settlement,String notice) {
+    private static void sendCitizens(ServerPlayer player,Session session,Settlement settlement,String notice) { sendCitizens(player,session,settlement,notice,null,null); }
+    private static void sendCitizens(ServerPlayer player,Session session,Settlement settlement,String notice,UUID focus,CompoundTag talk) {
         CompoundTag tag=base(player,session,settlement,"citizens"); if(notice!=null) tag.putString("notice",notice);
+        if(focus!=null) tag.putUUID("focus",focus);
+        if(talk!=null) tag.put("talk",talk);
         tag.putString("return_action",session.marker!=null?"CONSTRUCTION":session.board!=null?"BOARD":"INFO");
         var people=CitizenSavedData.get(player.server); var jobs=dev.livingkingdoms.profession.persistence.ProfessionSavedData.get(player.server);
         var buildings=jobs.buildings(settlement.id()); var list=new ListTag();
@@ -517,13 +537,14 @@ public final class VillageUiService {
         for(var citizen:roster.stream().limit(256).toList()) {
             revisions.put(citizen.id(),jobs.employmentRevision(citizen.id()));
             var p=jobs.profession(citizen.id()).orElseThrow(); var v=new CompoundTag(); v.putUUID("id",citizen.id()); v.putString("name",citizen.name()); v.putInt("level",citizen.level().value());
-            v.putString("profession",p.type().name().toLowerCase(java.util.Locale.ROOT)); v.putInt("profession_level",p.level().value()); v.putLong("xp",p.experience());
+            // A retired job (inactive) shows as free: the resident can take any job again.
+            v.putString("profession",(p.active() || p.type()==dev.livingkingdoms.profession.domain.ProfessionType.MAYOR?p.type():dev.livingkingdoms.profession.domain.ProfessionType.UNASSIGNED).name().toLowerCase(java.util.Locale.ROOT)); v.putInt("profession_level",p.level().value()); v.putLong("xp",p.experience());
             v.putString("status",citizen.state().name().toLowerCase(java.util.Locale.ROOT)); v.putString("work_state",p.workState().name().toLowerCase(java.util.Locale.ROOT)); v.putBoolean("active",p.active());
             if(citizen.homeId()!=null) people.housing(citizen.homeId()).ifPresent(h -> {v.putBoolean("home",true);v.putInt("home_x",h.position().getX());v.putInt("home_z",h.position().getZ());});
             if(p.workplaceId()!=null) jobs.building(p.workplaceId()).ifPresent(b -> {v.putBoolean("workplace",true);v.putString("workplace_kind",b.kind().name().toLowerCase(java.util.Locale.ROOT));v.putInt("work_x",b.origin().getX());v.putInt("work_z",b.origin().getZ());v.putInt("workers",jobs.workers(b.id()));v.putInt("slots",b.workplaceSlots());});
             v.putBoolean("assign",settlement.lifecycle()==dev.livingkingdoms.settlement.domain.SettlementLifecycle.ESTABLISHED
                     && dev.livingkingdoms.profession.ProfessionService.canAssignOperational(player.serverLevel(),citizen,p,buildings,jobs,dev.livingkingdoms.profession.domain.ProfessionType.FARMER));
-            v.putBoolean("remove",citizen.state()==dev.livingkingdoms.citizen.domain.CitizenState.ACTIVE && p.type().operational());
+            v.putBoolean("remove",citizen.state()==dev.livingkingdoms.citizen.domain.CitizenState.ACTIVE && p.active() && p.type().operational());
             v.putBoolean("assign_guard",settlement.lifecycle()==dev.livingkingdoms.settlement.domain.SettlementLifecycle.ESTABLISHED
                     && dev.livingkingdoms.profession.ProfessionService.canAssignOperational(player.serverLevel(),citizen,p,buildings,jobs,dev.livingkingdoms.profession.domain.ProfessionType.GUARD));
             v.putBoolean("assign_builder",settlement.lifecycle()==dev.livingkingdoms.settlement.domain.SettlementLifecycle.ESTABLISHED
@@ -535,7 +556,8 @@ public final class VillageUiService {
             v.putInt("bond",bond.value()); v.putString("bond_level",bond.level().id());
             var wish=dev.livingkingdoms.rpg.BondService.request(player.server,citizen);
             v.putString("wish_item",wish.item()); v.putInt("wish_count",wish.count()); v.putBoolean("wish_done",!bond.canFulfill(dev.livingkingdoms.rpg.RpgClock.today()));
-            rpg.expedition(citizen.id()).ifPresent(x -> { v.putString("away_kind",x.kind().id()); v.putLong("away_seconds",x.remaining(player.server.overworld().getGameTime())/20); });
+            rpg.expedition(citizen.id()).ifPresent(x -> { v.putString("away_kind",x.kind().id()); v.putLong("away_seconds",x.remaining(player.server.overworld().getGameTime())/20);
+                v.putLong("away_total",x.kind().duration()/20); });
             v.putBoolean("can_expedition",dev.livingkingdoms.rpg.ExpeditionService.eligible(player.server,citizen.id())
                     && rpg.expeditionsIn(settlement.id())<dev.livingkingdoms.rpg.domain.Expedition.MAX_PER_SETTLEMENT);
             if(p.type()==dev.livingkingdoms.profession.domain.ProfessionType.BUILDER)

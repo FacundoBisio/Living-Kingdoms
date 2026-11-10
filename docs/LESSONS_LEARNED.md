@@ -120,6 +120,23 @@ Format: **What happened** → **Rule** → **Check**.
 
 29. **A test looked for the caravan with `getTags()`** while the service marks it in persistent data (0.30).
     → Query the same marker the service writes; prefer a public helper over re-deriving the marker in tests.
+30. **A retired job keeps its type** (inactive BUILDER), and assignment checked `type == UNASSIGNED`, so a free
+    resident could never be hired again and showed a "Remove" button instead (0.31 playtest).
+    → "Free" means `!active()`; never gate hiring on the stored type. The UI shows inactive jobs as unassigned.
+
+31. **Grass turns to dirt under a fresh floor**, so construction flagged the ground as an obstacle and Builders
+    "cleared" it into an air hole in the finished house (0.31 playtest).
+    → Natural ground blocks are interchangeable for site checks; clearing restores the planned block, not air.
+
+32. **Citizen name tags used a fixed offset** while the label grew to three lines and the Mayor got a crown, so
+    the text overlapped the head (0.31 playtest).
+    → Anchor the lowest line above the head (+ headgear) and stack the other lines upward.
+33. **The Mayor took one of the first house's two beds**, so the third founder stayed homeless and could not be
+    hired as a Builder or Farmer (0.31 playtest, found by a GameTest reproducing the report).
+    → Workers are housed first; the Mayor takes a spare bed or gives theirs up. Reproduce reports in a GameTest first.
+34. **A GameTest's "unloaded" remote kingdom sat 120 blocks from another test's fixture** (952048+5000 vs 957168),
+    so it failed whenever batching ran both together (0.31).
+    → Pick "far away" offsets that clear every fixture coordinate plus its 72-block radius and region ticket.
 
 ## Adding an entry
 

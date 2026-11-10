@@ -374,6 +374,8 @@ Local results and known runtime limits: [Milestone 0](docs/validation.md), [Mile
 - **Techniques (0.30):** each worker teaches a permanent perk the first time they become Loyal; see them in Contracts.
 - **Defense (0.30):** Management → *Walls* raises palisade, stone and fortress walls from Kingdom Storage; give a Guard a bow or crossbow to man towers and wall posts; ring a bell in town for the alarm; craft Spike Traps. Operators: `/kingdom wall`, `/kingdom alarm`. Decorations, techniques and walls use `livingkingdoms_rpg.dat` schema 3 (older schemas migrate).
 
+- **Residents (0.31):** right-click a resident to chat and open their sheet: see their job and life, hire them if they are free, or send them on an expedition. The roster's *Away* tab shows who is travelling and when they return.
+
 Trials and rallies are transient: nothing is written to the world save, and trial enemies left by a crash are removed when their chunk loads.
 
 ## Next milestone

@@ -70,7 +70,11 @@ public final class BondService {
         // Sneak + tool is the equip gesture; merchants open the market on a plain click.
         if (player.isShiftKeyDown() && dev.livingkingdoms.npc.CitizenEquipment.giftable(player.getMainHandItem())) return;
         if (merchant != player.isShiftKeyDown()) return;
-        if (talk(player, villager, citizen)) { event.setCanceled(true); event.setCancellationResult(InteractionResult.SUCCESS); }
+        if (talk(player, villager, citizen)) {
+            event.setCanceled(true); event.setCancellationResult(InteractionResult.SUCCESS);
+            // Talking opens the resident's life sheet (merchants: sneak-click, a plain click still trades).
+            dev.livingkingdoms.ui.VillageUiService.openResident(player, villager, citizen);
+        }
     }
 
     public static void onSpecific(PlayerInteractEvent.EntityInteractSpecific event) {

@@ -199,6 +199,15 @@ Long loop (hours): refine a weapon to +5, win the Warlord trial, develop the Tow
   rotating rays and the list of unlocks. The HUD shows events, construction sites, contracts ready to claim,
   rising walls, breaches and the alarm countdown.
 
+### 4.20 Residents up close (0.31)
+- Right-clicking a resident (sneak-click for Merchants) still counts as the daily talk, then opens the roster
+  focused on them with a random line of small talk (job, weather, night, festival or danger aware, plus odd
+  everyday thoughts). From there the player reads their job, home, bond and wish, hires a free resident or
+  sends them on an expedition.
+- The roster has an *Away* tab listing residents on expeditions with a live "back in m:ss" clock; the HUD shows
+  how many are away and when the next one returns.
+- Any resident whose job is inactive (retired by the game or removed) is free: they can take any job or travel.
+
 ## 5. Roadmap (next steps, in priority order)
 
 Done in 0.22: kingdom rank with HUD bar, daily/weekly contracts with streak, rarity loot chests.

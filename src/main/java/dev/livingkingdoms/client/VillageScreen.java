@@ -53,6 +53,11 @@ public final class VillageScreen extends KingdomScreen {
     private boolean history;
     private CompoundTag cachedData;
     private int cachedSection = -1;
+    private boolean cachedAway;
+    /** Citizens view: show only residents away on expeditions. */
+    private boolean awayOnly;
+    /** Scroll the roster to the focused resident once after a talk snapshot. */
+    private boolean scrollToSelected;
     private boolean cachedHistory;
     private List<CompoundTag> cachedRows = List.of();
     private final VillageTextCache textCache = new VillageTextCache();
@@ -85,6 +90,8 @@ public final class VillageScreen extends KingdomScreen {
         if(!data.getBoolean("plan")) buildingPicker = false;
         if(!data.getBoolean("can_help")) { buildingPicker=false; professionPicker=false; }
         if (pendingQuest != null) selected = pendingQuest;
+        if (citizens() && data.hasUUID("focus")) { selected = data.getUUID("focus"); awayOnly = false; scrollToSelected = true; professionPicker = false; expeditionPicker = false; }
+        if (!citizens()) awayOnly = false;
         if(citizens() && selectedQuest()!=null && selectedQuest().getBoolean("remove")) professionPicker=false;
         // Keep the accepted request visible when it moves from Requests to Active.
         int nextSection = QuestBoardState.afterAction(data, selected, pendingAction, section);
@@ -258,6 +265,10 @@ public final class VillageScreen extends KingdomScreen {
         if (selected == null || quests.stream().noneMatch(q -> q.getUUID("id").equals(selected))) selected=quests.isEmpty()?null:
                 (construction()?quests.stream().filter(q -> !q.getString("state").equals("COMPLETED")).findFirst().orElse(quests.getLast()):quests.getFirst()).getUUID("id");
         int rows=listRows();
+        if(scrollToSelected) {
+            scrollToSelected=false;
+            for(int i=0;i<quests.size();i++) if(quests.get(i).getUUID("id").equals(selected)) { offset=i-rows/2; break; }
+        }
         offset=Math.clamp(offset,0,Math.max(0,quests.size()-rows));
         for(int i=offset;i<Math.min(quests.size(),offset+rows);i++) {
             CompoundTag q=quests.get(i);
@@ -295,6 +306,14 @@ public final class VillageScreen extends KingdomScreen {
             button(tr("leave"),x+(w+4)*2,layout.footerTop(),w,this::onClose); return;
         }
         if(citizens()) {
+            var all=data.getList("citizens",10);int away=0;
+            for(int i=0;i<all.size();i++) if(all.getCompound(i).contains("away_kind")) away++;
+            int citizenTab=(listWidth-14)/2;
+            button("citizens_all",tr("citizens.tab_all",data.getInt("roster_total")),left+8,top+32,citizenTab,
+                    ()->{awayOnly=false;offset=0;detailScroll=0;rebuildWidgets();}).selected(!awayOnly);
+            var awayTab=button("citizens_away",tr("citizens.tab_away",away,dev.livingkingdoms.rpg.domain.Expedition.MAX_PER_SETTLEMENT),left+10+citizenTab,top+32,citizenTab,
+                    ()->{awayOnly=true;offset=0;detailScroll=0;expeditionPicker=false;professionPicker=false;rebuildWidgets();});
+            awayTab.selected(awayOnly); awayTab.setTooltip(Tooltip.create(tr("citizens.tab_away_help")));
             int stockWidth=Math.min(110,panelWidth/3);
             button("stock_open",Component.translatable("ui.livingkingdoms.stock.title"),left+panelWidth-stockWidth-10,top+32,stockWidth,()->send(UiPayloads.Action.STOCK,null)).active=!pending;
             int rallyWidth=Math.min(96,(panelWidth-stockWidth-30)/3);
@@ -488,15 +507,15 @@ public final class VillageScreen extends KingdomScreen {
         };
     }
     private List<CompoundTag> visibleQuests() {
-        if (cachedData != data || cachedSection != section || cachedHistory != history) {
-            cachedRows = computeVisibleQuests(); cachedData = data; cachedSection = section; cachedHistory = history;
+        if (cachedData != data || cachedSection != section || cachedHistory != history || cachedAway != awayOnly) {
+            cachedRows = computeVisibleQuests(); cachedData = data; cachedSection = section; cachedHistory = history; cachedAway = awayOnly;
         }
         return cachedRows;
     }
     private List<CompoundTag> computeVisibleQuests() {
         if(citizens()) {
             var list=data.getList("citizens",10); var people=new java.util.ArrayList<CompoundTag>();
-            for(int i=0;i<list.size();i++) people.add(list.getCompound(i)); return people;
+            for(int i=0;i<list.size();i++) if(!awayOnly || list.getCompound(i).contains("away_kind")) people.add(list.getCompound(i)); return people;
         }
         if(immigration()) {
             var list=data.getList("candidates",10); var candidates=new java.util.ArrayList<CompoundTag>();
@@ -521,7 +540,9 @@ public final class VillageScreen extends KingdomScreen {
     public void reloadUi() { textCache.clear(); citizenDetailCache.clear(); rebuildWidgets(); }
     private Component questTitle(CompoundTag q) { return q.getString("template").equals("local_defense")?tr("defense.title",q.getString("settlement")):(immigration() || citizens())?Component.literal(q.getString("name")):Component.translatable(construction()?"construction.livingkingdoms.building."+q.getString("building"):
             "quest.livingkingdoms."+q.getString("template")+".title"); }
-    private Component state(CompoundTag q) { return citizens()?tr("citizens.summary",profession(q),q.getInt("profession_level")):immigration()?tr("citizen_level",q.getInt("level")):Component.translatable((construction()?"construction.livingkingdoms.state.":"quest.livingkingdoms.state.")+
+    private static String clock(long seconds) { seconds=Math.max(0,seconds); return seconds/60+":"+String.format(java.util.Locale.ROOT,"%02d",seconds%60); }
+    private Component state(CompoundTag q) { return citizens() && q.contains("away_kind")?tr("expedition.row",Component.translatable("expedition.livingkingdoms.kind."+q.getString("away_kind")),clock(q.getLong("away_seconds"))):
+            citizens()?tr("citizens.summary",profession(q),q.getInt("profession_level")):immigration()?tr("citizen_level",q.getInt("level")):Component.translatable((construction()?"construction.livingkingdoms.state.":"quest.livingkingdoms.state.")+
             q.getString("state").toLowerCase(java.util.Locale.ROOT)); }
     private static int questColor(CompoundTag quest) {
         return switch (QuestBoardPresentation.status(quest)) {
@@ -798,7 +819,7 @@ public final class VillageScreen extends KingdomScreen {
             var wish=net.minecraft.core.registries.BuiltInRegistries.ITEM.get(net.minecraft.resources.ResourceLocation.parse(p.getString("wish_item")));
             details.add(p.getBoolean("wish_done")?tr("bond.wish_done"):tr("bond.wish",p.getInt("wish_count"),wish.getDescription()));
         }
-        if(p.contains("away_kind")) details.add(tr("expedition.away",Component.translatable("expedition.livingkingdoms.kind."+p.getString("away_kind")),(p.getLong("away_seconds")+59)/60));
+        if(p.contains("away_kind")) details.add(tr("expedition.away_clock",Component.translatable("expedition.livingkingdoms.kind."+p.getString("away_kind")),clock(p.getLong("away_seconds")),clock(p.getLong("away_total"))));
         details.add(tr("citizens.status",Component.translatable("citizen.livingkingdoms.state."+p.getString("status")),
                 Component.translatable("work.livingkingdoms."+p.getString("work_state")),tr(p.getBoolean("active")?"citizens.active":"citizens.inactive")));
         var result=List.copyOf(details);citizenDetailCache.put(id,result);return result;
@@ -824,7 +845,6 @@ public final class VillageScreen extends KingdomScreen {
 
     private void renderCitizens(GuiGraphics g) {
         int stockWidth=Math.min(110,panelWidth/3),rallyWidth=Math.min(96,(panelWidth-stockWidth-30)/3);
-        g.drawString(font,ellipsize(tr("citizens.count",data.getInt("roster_total")),panelWidth-stockWidth-rallyWidth*2-36),left+10,top+38,INK,false);
         int divider=left+listWidth;
         g.fill(divider,top+56,divider+1,layout.contentBottom(),WOOD);
         g.fill(divider+4,top+56,left+panelWidth-5,layout.contentBottom(),PAPER);
@@ -849,6 +869,18 @@ public final class VillageScreen extends KingdomScreen {
         g.enableScissor(x,layout.contentTop(),x+w,layout.contentBottom());
         if(data.contains("notice")) y=paragraph(g,Component.translatable(data.getString("notice")),x,y,w,
                 data.getString("notice").endsWith("rejected")?ERROR:SUCCESS);
+        if(person==null) y=paragraph(g,tr("citizens.empty"),x,y,w,INK);
+        else {
+            if(data.contains("talk",10) && data.hasUUID("focus") && person.getUUID("id").equals(data.getUUID("focus"))) {
+                var talk=data.getCompound("talk");
+                var line=Component.literal("\u201C").append(Component.translatable(talk.getString("key"),talk.getString("player"),talk.getString("kingdom"))).append("\u201D");
+                y=sectionHeader(g,Component.literal(person.getString("name")),x,y,w);
+                y=paragraph(g,line.withStyle(net.minecraft.ChatFormatting.ITALIC),x,y,w,0xFF5B3A1E)+4;
+            }
+            for(Component detail:citizenDetails(person)) y=paragraph(g,detail,x,y,w,INK);
+            if(!person.getBoolean("assign") && !person.getBoolean("assign_guard") && !person.getBoolean("assign_builder") && !person.getBoolean("assign_lumberjack")
+                    && !person.getBoolean("assign_miner") && !person.getBoolean("assign_blacksmith") && !person.getBoolean("assign_merchant") && !person.getBoolean("remove")) y=paragraph(g,tr("citizens.requirement"),x,y,w,MUTED);
+        }
         y=sectionHeader(g,tr("citizens.roster"),x,y,w);
         y=paragraph(g,rosterSummary(),x,y,w,INK);
         if(data.getBoolean("rally_active")) y=paragraph(g,tr("rally.active"),x,y,w,SUCCESS);
@@ -858,12 +890,6 @@ public final class VillageScreen extends KingdomScreen {
         var stock=data.getCompound("stock");
         y=paragraph(g,tr("citizens.materials",stock.getInt("WOOD"),stock.getInt("STONE"),stock.getInt("IRON"),stock.getInt("EQUIPMENT")),x,y,w,MUTED);
         y=paragraph(g,tr("security",data.getInt("security")),x,y,w,INK);
-        if(person==null) y=paragraph(g,tr("citizens.empty"),x,y,w,INK);
-        else {
-            for(Component detail:citizenDetails(person)) y=paragraph(g,detail,x,y,w,INK);
-            if(!person.getBoolean("assign") && !person.getBoolean("assign_guard") && !person.getBoolean("assign_builder") && !person.getBoolean("assign_lumberjack")
-                    && !person.getBoolean("assign_miner") && !person.getBoolean("assign_blacksmith") && !person.getBoolean("assign_merchant") && !person.getBoolean("remove")) y=paragraph(g,tr("citizens.requirement"),x,y,w,MUTED);
-        }
         if(data.getInt("roster_total")>people.size()) y=paragraph(g,tr("citizens.truncated",people.size(),data.getInt("roster_total")),x,y,w,MUTED);
         y=paragraph(g,tr("citizens.shared"),x,y,w,MUTED);
         detailHeight=y-start; g.disableScissor(); detailScroll=Math.clamp(detailScroll,0,maxDetailScroll());

@@ -93,7 +93,9 @@ public final class ConstructionStages {
                 // layers, small plants) never invalidate a site: the stage simply writes over them.
                 boolean progressed = level.getBlockEntity(pos) == null && current.equals(target.get(pos));
                 boolean noise = level.getBlockEntity(pos) == null && tolerable(current);
-                if (!sharedPath && !progressed && !noise) { ownsPrevious = false; if (obstacles.size() < 64) obstacles.add(pos.immutable()); }
+                // Grass turning to dirt under a fresh floor, a trampled path or tilled soil is still the same ground.
+                boolean ground = level.getBlockEntity(pos) == null && groundSwap(previous.get(pos), current);
+                if (!sharedPath && !progressed && !noise && !ground) { ownsPrevious = false; if (obstacles.size() < 64) obstacles.add(pos.immutable()); }
             }
         }
         if (!ownsPrevious) {
@@ -135,6 +137,19 @@ public final class ConstructionStages {
             transaction.close();
             return new Transaction(level, Result.BLOCKED, failure);
         }
+    }
+
+    /** Natural ground blocks that weather into each other (grass, dirt, paths, farmland, mud, snow). */
+    public static boolean ground(BlockState state) {
+        return state != null && (state.is(net.minecraft.tags.BlockTags.DIRT) || state.is(Blocks.DIRT_PATH) || state.is(Blocks.FARMLAND)
+                || state.is(Blocks.SNOW_BLOCK) || state.is(Blocks.SAND) || state.is(Blocks.GRAVEL));
+    }
+    public static boolean groundSwap(BlockState expected, BlockState current) { return ground(expected) && ground(current); }
+
+    /** The block a site position should hold at {@code stage} (-1 = before construction), if it is part of the plan. */
+    public static Optional<BlockState> expected(ConstructionSavedData.Entry entry, int stage, BlockPos pos) {
+        if (stage < -1 || stage > 4) return Optional.empty();
+        return Optional.ofNullable(cached(entry).states().get(stage + 1).get(pos));
     }
 
     /** Replaceable, fluid-free states (air, grass, ferns, snow layers, dead bushes) that a stage may overwrite. */
@@ -181,7 +196,7 @@ public final class ConstructionStages {
             if (placed >= want || written.size() >= budget) break;
             var current = level.getBlockState(pos); var wanted = target.get(pos);
             if (current.equals(wanted)) continue;
-            if (level.getBlockEntity(pos) != null || !(current.equals(previous.get(pos)) || tolerable(current))) continue;
+            if (level.getBlockEntity(pos) != null || !(current.equals(previous.get(pos)) || tolerable(current) || groundSwap(previous.get(pos), current))) continue;
             if (!wanted.isAir() && nearby.stream().anyMatch(e -> e.getBoundingBox().intersects(new AABB(pos)))) continue;
             if (level.setBlock(pos, wanted, FLAGS)) { written.add(pos); placed++; }
         }
