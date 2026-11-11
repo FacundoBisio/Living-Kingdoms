@@ -303,6 +303,11 @@ public final class VillageScreen extends KingdomScreen {
                     () -> { if(q!=null) send(q.getBoolean("tracked")?UiPayloads.Action.UNTRACK:UiPayloads.Action.TRACK,q.getUUID("id")); });
             track.active=!pending && q!=null && q.getBoolean("track");
             track.selected(q!=null && q.getBoolean("tracked"));
+            if(q!=null && q.getString("template").equals("local_defense") && q.getString("state").equals("ACTIVE") && !q.getBoolean("claim")) {
+                var call=button("summon_party",tr("defense.summon"),x+(w+4)*2,layout.footerTop(),w,()->send(UiPayloads.Action.SUMMON_PARTY,q.getUUID("id")));
+                call.active=!pending && !data.getBoolean("remote"); call.setTooltip(Tooltip.create(tr("defense.summon_help")));
+                return;
+            }
             button(tr("leave"),x+(w+4)*2,layout.footerTop(),w,this::onClose); return;
         }
         if(citizens()) {
@@ -365,7 +370,10 @@ public final class VillageScreen extends KingdomScreen {
         if(construction() && data.getString("lifecycle").equals("ESTABLISHED")) {
             int actionWidth=(available-4)/2;
             if(!buildingPicker) {
-                button("manage",Component.translatable("management.livingkingdoms.buildings"),left+8,top+32,listWidth-14,()->send(UiPayloads.Action.MANAGE,null)).active=!pending && data.getBoolean("can_help");
+                int manageWidth=(listWidth-18)/2;
+                button("manage",Component.translatable("management.livingkingdoms.buildings"),left+8,top+32,manageWidth,()->send(UiPayloads.Action.MANAGE,null)).active=!pending && data.getBoolean("can_help");
+                var walls=button("manage_walls",Component.translatable("management.livingkingdoms.walls"),left+12+manageWidth,top+32,manageWidth,()->send(UiPayloads.Action.MANAGE_WALLS,null));
+                walls.active=!pending && data.getBoolean("can_help"); walls.setTooltip(Tooltip.create(Component.translatable("management.livingkingdoms.walls_help")));
                 int pickerWidth=Math.min(128,available);
                 var choose=button("building_picker",tr("choose_building"),left+panelWidth-pickerWidth-10,top+32,pickerWidth,
                         ()->{buildingPicker=true;detailScroll=0;rebuildWidgets();});

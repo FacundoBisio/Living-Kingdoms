@@ -197,6 +197,7 @@ public final class VillageUiService {
             return false;
         }
         if(request.action()==UiPayloads.Action.MANAGE) {return ManagementService.open(player,settlement.id());}
+        if(request.action()==UiPayloads.Action.MANAGE_WALLS) {return ManagementService.open(player,settlement.id(),ManagementService.WALLS);}
         if(request.action()==UiPayloads.Action.PREVIEW) {
             if(!session.construction || session.npc==null || session.shortcut || session.marker!=null || session.board!=null) return false;
             var kind=BuildingPreviewTargets.building(request.quest());
@@ -349,8 +350,13 @@ public final class VillageUiService {
             boolean result = switch (request.action()) {
                 case ACCEPT, CLAIM -> ExpandedQuestService.act(player, session.board, request.quest(), request.action() == UiPayloads.Action.ACCEPT ? "accept" : "claim", false);
                 case REFRESH, BOARD -> true;
+                case SUMMON_PARTY -> dev.livingkingdoms.defense.DefenseService.summon(player.serverLevel(), settlement.id()) > 0;
                 default -> false;
             };
+            // Accepting a defense brings the patrol to the kingdom's edge, so the task can actually be finished.
+            if (result && request.action() == UiPayloads.Action.ACCEPT && QuestSavedData.get(player.server).quest(player.getUUID(), request.quest())
+                    .filter(q -> q.template() == QuestTemplate.LOCAL_DEFENSE).isPresent())
+                dev.livingkingdoms.defense.DefenseService.summon(player.serverLevel(), settlement.id());
             sendBoard(player, session, settlement, !result);
             return result;
         }

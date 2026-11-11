@@ -255,6 +255,18 @@ Long loop (hours): refine a weapon to +5, win the Warlord trial, develop the Tow
   tops and wall posts; *Make patrol* switches back to the sword. A player-given weapon is handed back first.
 - Failed upgrades now explain that Kingdom Storage lacks materials.
 
+### 4.25 Fortress kingdom (0.36)
+- **No raids on a camp:** threats only target ESTABLISHED kingdoms, so the first steps (house, Town Hall) are
+  learned before defending. Peaceful difficulty ends any running threat instead of leaving "under attack".
+- **Calling the patrol:** accepting a defense alert brings the linked patrol's loaded members to the
+  kingdom's edge; an active alert has an *Call patrol* button. If no member is loaded anywhere the alert ends.
+- **Walls tab** in Management (also *Walls* in the construction view): raise/upgrade tiers, choose **1–4 main
+  gates** (3-wide openings with a lintel, evenly spaced from the south, rebuilt instantly), **corner towers**
+  (four 3×3 towers on the diagonals, 6 tall, archer posts on top; 160 stone + 32 wood) and **gatehouses** (flanking
+  towers, double lintel and banners on every gate; stone tier, 48 stone + 4 iron per gate). A new wall tier
+  re-dresses towers and gatehouses. Layout is stored with the wall (older files default to two gates).
+- **Mayor:** sits about two thirds into the Town Hall, off the door line, facing the door.
+
 ## 5. Roadmap (next steps, in priority order)
 
 Done in 0.22: kingdom rank with HUD bar, daily/weekly contracts with streak, rarity loot chests.

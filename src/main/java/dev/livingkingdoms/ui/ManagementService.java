@@ -53,6 +53,9 @@ public final class ManagementService {
             case DEPOSIT_ALL -> dev.livingkingdoms.economy.WarehouseService.depositAll(player,session.kingdom)>0;
             case HIRE -> dev.livingkingdoms.economy.TavernService.hire(player,session.kingdom,request.target());
             case ARCHER -> toggleArcher(player,session.kingdom,request.target());
+            case WALL_GATES -> dev.livingkingdoms.rpg.WallService.cycleGates(player,session.kingdom);
+            case WALL_TOWERS -> dev.livingkingdoms.rpg.WallService.orderTowers(player,session.kingdom);
+            case WALL_GATEHOUSES -> dev.livingkingdoms.rpg.WallService.orderGatehouses(player,session.kingdom);
             default -> false;
         };
         String notice=result?"management.livingkingdoms.success":"management.livingkingdoms.rejected";
@@ -91,7 +94,21 @@ public final class ManagementService {
         if(wallTier<dev.livingkingdoms.rpg.domain.Fortification.MAX_TIER) {var wallCosts=new ListTag();
             for(var entry:dev.livingkingdoms.rpg.WallService.nextCost(player.server,realm).entrySet()) {var cost=new CompoundTag();cost.putString("resource",entry.getKey().key());cost.putInt("amount",entry.getValue());cost.putInt("available",account.balance(entry.getKey()));wallCosts.add(cost);}
             wall.put("costs",wallCosts);}
-        wall.putInt("breaches",dev.livingkingdoms.rpg.WallService.breaches(realm.id()));tag.put("wall",wall);if(notice!=null) tag.putString("notice",notice);return tag;
+        wall.putInt("breaches",dev.livingkingdoms.rpg.WallService.breaches(realm.id()));
+        var design=dev.livingkingdoms.rpg.persistence.RpgSavedData.get(player.server).design(realm.id());
+        wall.putInt("gates",design.gates());wall.putBoolean("towers",design.towers());wall.putBoolean("gatehouses",design.gatehouses());
+        dev.livingkingdoms.rpg.persistence.RpgSavedData.get(player.server).wall(realm.id()).ifPresent(w->{wall.putBoolean("complete",w.complete());wall.putInt("radius",w.radius());});
+        for(var order:new String[]{"gates","towers","gatehouses"}) dev.livingkingdoms.rpg.WallService.designBlocked(player.server,realm.id(),order).ifPresent(r->wall.putString("blocked_"+order,r));
+        wall.put("tower_costs",costList(dev.livingkingdoms.rpg.WallService.towerCost(),account));
+        wall.put("gatehouse_costs",costList(dev.livingkingdoms.rpg.WallService.gatehouseCost(design.gates()),account));
+        tag.put("wall",wall);if(session.focus!=null && session.focus.equals(WALLS)) tag.putInt("tab",3);if(notice!=null) tag.putString("notice",notice);return tag;
+    }
+    /** Focus value that opens the Walls tab. */
+    public static final UUID WALLS=new UUID(0,3);
+    private static ListTag costList(Map<StockResource,Integer> cost,dev.livingkingdoms.economy.StockAccount account) {
+        var list=new ListTag();
+        for(var e:cost.entrySet()) {var c=new CompoundTag();c.putString("resource",e.getKey().key());c.putInt("amount",e.getValue());c.putInt("available",account.balance(e.getKey()));list.add(c);}
+        return list;
     }
     /** Switches a guard between sword (patrol) and bow (archer on towers and wall posts). */
     private static boolean toggleArcher(ServerPlayer player,UUID kingdom,UUID citizenId) {

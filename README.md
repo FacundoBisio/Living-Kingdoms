@@ -381,6 +381,8 @@ Local results and known runtime limits: [Milestone 0](docs/validation.md), [Mile
 
 - **Buildings (0.35):** every building has a *Building Ledger* desk inside: use it to see the building, upgrade it (the building visibly improves) and give its orders. New **Tavern** to hire travellers; the **Warehouse** stores what you leave in its barrels; guards can be switched between patrol and archer. Operators: `/kingdom ledgers`.
 
+- **Fortress (0.36):** Management → *Walls* (or *Walls* in the construction view) sets 1–4 main gates, builds corner towers and gatehouses. Accepting a defense alert calls the patrol to your borders. Camps are no longer raided.
+
 Trials and rallies are transient: nothing is written to the world save, and trial enemies left by a crash are removed when their chunk loads.
 
 ## Next milestone

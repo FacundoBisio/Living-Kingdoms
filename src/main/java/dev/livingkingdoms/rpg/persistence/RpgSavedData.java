@@ -39,6 +39,7 @@ public final class RpgSavedData extends SavedData {
     private final Map<UUID, Integer> decor = new LinkedHashMap<>();
     private final Map<UUID, java.util.Set<dev.livingkingdoms.rpg.domain.Technique>> techniques = new LinkedHashMap<>();
     private final Map<UUID, dev.livingkingdoms.rpg.domain.Fortification> walls = new LinkedHashMap<>();
+    private final Map<UUID, dev.livingkingdoms.rpg.domain.WallDesign> designs = new LinkedHashMap<>();
 
     public int decor(UUID settlement) { return decor.getOrDefault(settlement, 0); }
     public void markDecor(UUID settlement, int bits) {
@@ -56,6 +57,12 @@ public final class RpgSavedData extends SavedData {
         setDirty(); return true;
     }
     public java.util.Optional<dev.livingkingdoms.rpg.domain.Fortification> wall(UUID settlement) { return java.util.Optional.ofNullable(walls.get(settlement)); }
+    public dev.livingkingdoms.rpg.domain.WallDesign design(UUID settlement) { return designs.getOrDefault(settlement, dev.livingkingdoms.rpg.domain.WallDesign.DEFAULT); }
+    public void putDesign(UUID settlement, dev.livingkingdoms.rpg.domain.WallDesign design) {
+        if (design.equals(designs.get(settlement))) return;
+        if (!designs.containsKey(settlement) && designs.size() >= MAX_KINGDOMS) return;
+        designs.put(settlement, design); setDirty();
+    }
     public java.util.List<UUID> walledSettlements() { return java.util.List.copyOf(walls.keySet()); }
     public boolean putWall(UUID settlement, dev.livingkingdoms.rpg.domain.Fortification wall) {
         if (!walls.containsKey(settlement) && walls.size() >= MAX_KINGDOMS) return false;
@@ -199,6 +206,8 @@ public final class RpgSavedData extends SavedData {
                 if (!e.hasUUID("settlement")) throw new IllegalArgumentException("Invalid wall");
                 var wall = new dev.livingkingdoms.rpg.domain.Fortification(e.getInt("tier"), e.getInt("radius"), e.getInt("built"), e.getBoolean("complete"));
                 if (data.walls.put(e.getUUID("settlement"), wall) != null) throw new IllegalArgumentException("Duplicate wall");
+                // 0.36 layout fields are optional: older files keep the default two gates, no towers.
+                if (e.contains("gates")) data.designs.put(e.getUUID("settlement"), new dev.livingkingdoms.rpg.domain.WallDesign(e.getInt("gates"), e.getBoolean("towers"), e.getBoolean("gatehouses")));
             }
         }
         if (data.kingdomXp.size() > MAX_KINGDOMS || data.boards.size() > MAX_PLAYERS || data.bonds.size() > MAX_BONDS
@@ -242,7 +251,10 @@ public final class RpgSavedData extends SavedData {
         tag.put("techniques", techniqueList);
         var wallList = new ListTag();
         walls.forEach((id, w) -> { var e = new CompoundTag(); e.putUUID("settlement", id); e.putInt("tier", w.tier()); e.putInt("radius", w.radius());
-            e.putInt("built", w.built()); e.putBoolean("complete", w.complete()); wallList.add(e); });
+            e.putInt("built", w.built()); e.putBoolean("complete", w.complete());
+            var d = designs.get(id);
+            if (d != null) { e.putInt("gates", d.gates()); e.putBoolean("towers", d.towers()); e.putBoolean("gatehouses", d.gatehouses()); }
+            wallList.add(e); });
         tag.put("walls", wallList);
         return tag;
     }

@@ -5,6 +5,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.locale.Language;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 import net.neoforged.neoforge.network.PacketDistributor;
@@ -39,24 +40,16 @@ public final class ManagementScreen extends KingdomScreen {
         String filter=mode==0?"building":"guard";
         rows=(mode==2?data.getCompound("history").getList("entries",10):data.getList("entries",10)).stream().filter(CompoundTag.class::isInstance).map(CompoundTag.class::cast)
                 .filter(row->mode==2 || row.getString("kind").equals(filter)).toList();
+        if(data.contains("tab") && !focused) { focused=true; mode=data.getInt("tab"); rows=List.of(); }
         if(data.hasUUID("focus") && !focused) {
             focused=true;
             for(int i=0;i<rows.size();i++) if(rows.get(i).hasUUID("id") && rows.get(i).getUUID("id").equals(data.getUUID("focus"))) { selected=i; offset=Math.max(0,i-1); }
         }
         selected=Math.clamp(selected,0,Math.max(0,rows.size()-1));offset=Math.clamp(offset,0,Math.max(0,rows.size()-layout.rows()));
-        for(int m=0;m<3;m++) {final int choice=m;button("tab"+m,tr(new String[]{"buildings","guards","history"}[m]),layout.left()+8+m*40,layout.top()+32,36,()->{mode=choice;selected=offset=page=0;rebuildWidgets();}).glyph(new String[]{"B","G","H"}[m]).selected(mode==m);}
+        if(mode==3) rows=List.of();
+        for(int m=0;m<4;m++) {final int choice=m;var tab=button("tab"+m,tr(new String[]{"buildings","guards","history","walls"}[m]),layout.left()+8+m*32,layout.top()+32,30,()->{mode=choice;selected=offset=page=0;rebuildWidgets();});
+            tab.glyph(new String[]{"B","G","H","W"}[m]).selected(mode==m);tab.setTooltip(Tooltip.create(tr(new String[]{"buildings","guards","history","walls"}[m])));}
         button("expand",tr("expand"),layout.left()+layout.width()-112,layout.top()+32,102,()->send(ManagementPayloads.Action.EXPAND)).active=!pending && data.getBoolean("expand");
-        var wall=data.getCompound("wall");int wallTier=wall.getInt("tier");
-        var fortify=button("fortify",tr(wallTier>=3?"fortify_max":"fortify",Component.translatable("wall.livingkingdoms.tier."+Math.min(3,wallTier+1))),
-                Math.max(layout.left()+128,layout.left()+layout.width()-216),layout.top()+32,Math.min(100,layout.width()-244),()->send(ManagementPayloads.Action.FORTIFY)).glyph("W");
-        fortify.active=!pending && !wall.contains("blocked") && wallTier<3;
-        var wallTip=Component.empty().append(tr("fortify_help"));
-        if(wallTier>0) wallTip.append("\n").append(tr("fortify_current",Component.translatable("wall.livingkingdoms.tier."+wallTier)));
-        for(var cost:wall.getList("costs",10)) {var c=(CompoundTag)cost;wallTip.append("\n").append(tr("cost_line",Component.translatable(c.getString("resource")),c.getInt("amount"),c.getInt("available"))
-                .withStyle(c.getInt("available")>=c.getInt("amount")?net.minecraft.ChatFormatting.GREEN:net.minecraft.ChatFormatting.RED));}
-        if(wall.contains("blocked")) wallTip.append("\n").append(Component.translatable(wall.getString("blocked")).withStyle(net.minecraft.ChatFormatting.GOLD));
-        if(wall.getInt("breaches")>0) wallTip.append("\n").append(tr("fortify_breaches",wall.getInt("breaches")).withStyle(net.minecraft.ChatFormatting.RED));
-        fortify.setTooltip(Tooltip.create(wallTip));
         for(int i=offset;i<Math.min(rows.size(),offset+layout.rows());i++) {final int index=i;var row=rows.get(i);
             var label=mode==0?Component.translatable(row.getString("name")):Component.literal(mode==2?row.getString("subject"):row.getString("name"));
             button("row"+i,label,layout.left()+8,layout.contentTop()+(i-offset)*34,layout.listWidth()-14,()->{selected=index;page=0;rebuildWidgets();}).selected(i==selected);
@@ -66,6 +59,7 @@ public final class ManagementScreen extends KingdomScreen {
         button("refresh",Component.translatable("ui.livingkingdoms.refresh"),layout.left()+52,layout.footerTop(),layout.listWidth()-58,()->send(ManagementPayloads.Action.REFRESH)).glyph("R").active=!pending;
         var row=selectedRow();preparePages(row);
         int w=(layout.detailWidth()-12)/4,x=layout.detailX();
+        if(mode==3) { wallButtons(x,w); return; }
         var action=button("primary",tr(mode==1?"equip":"upgrade"),x,layout.footerTop(),w,()->send(mode==1?ManagementPayloads.Action.EQUIP:ManagementPayloads.Action.UPGRADE));
         action.active=!pending && row!=null && mode!=2 && row.getBoolean(mode==1?"equip":"upgrade");
         var repair=button("repair",tr(mode==1?"repair_held":"repair"),x+w+4,layout.footerTop(),w,()->send(mode==1?ManagementPayloads.Action.REPAIR_HELD:ManagementPayloads.Action.REPAIR));
@@ -87,13 +81,41 @@ public final class ManagementScreen extends KingdomScreen {
         button("page_next",Component.translatable("ui.livingkingdoms.next"),layout.left()+layout.width()-30,layout.contentBottom()-20,20,()->{page++;rebuildWidgets();}).glyph(">").active=page+1<pages.size();
     }
     private CompoundTag selectedRow() {return rows.isEmpty()?null:rows.get(selected);}
+    /** Walls tab: raise/upgrade the ring, choose 1–4 gates, corner towers and gatehouses. */
+    private void wallButtons(int x,int w) {
+        var wall=data.getCompound("wall");int tier=wall.getInt("tier");
+        var fortify=button("fortify",tr(tier>=3?"fortify_max":"fortify",Component.translatable("wall.livingkingdoms.tier."+Math.min(3,tier+1))),x,layout.footerTop(),w,()->send(ManagementPayloads.Action.FORTIFY));
+        fortify.active=!pending && !wall.contains("blocked") && tier<3; if(fortify.active) fortify.primary();
+        fortify.setTooltip(Tooltip.create(costTip(tr("fortify_help"),wall.getList("costs",10),wall.getString("blocked"))));
+        var gates=button("wall_gates",tr("wall_gates",wall.getInt("gates")),x+w+4,layout.footerTop(),w,()->send(ManagementPayloads.Action.WALL_GATES));
+        gates.active=!pending && !wall.contains("blocked_gates"); gates.setTooltip(Tooltip.create(costTip(tr("wall_gates_help"),new ListTag(),wall.getString("blocked_gates"))));
+        var towers=button("wall_towers",tr(wall.getBoolean("towers")?"wall_towers_done":"wall_towers"),x+(w+4)*2,layout.footerTop(),w,()->send(ManagementPayloads.Action.WALL_TOWERS));
+        towers.active=!pending && !wall.contains("blocked_towers"); towers.setTooltip(Tooltip.create(costTip(tr("wall_towers_help"),wall.getList("tower_costs",10),wall.getString("blocked_towers"))));
+        var gatehouse=button("wall_gatehouses",tr(wall.getBoolean("gatehouses")?"wall_gatehouses_done":"wall_gatehouses"),x+(w+4)*3,layout.footerTop(),w,()->send(ManagementPayloads.Action.WALL_GATEHOUSES));
+        gatehouse.active=!pending && !wall.contains("blocked_gatehouses"); gatehouse.setTooltip(Tooltip.create(costTip(tr("wall_gatehouses_help"),wall.getList("gatehouse_costs",10),wall.getString("blocked_gatehouses"))));
+    }
+    private Component costTip(Component head,ListTag costs,String blocked) {
+        var tip=Component.empty().append(head);
+        for(var cost:costs) {var c=(CompoundTag)cost;tip.append("\n").append(tr("cost_line",Component.translatable(c.getString("resource")),c.getInt("amount"),c.getInt("available"))
+                .withStyle(c.getInt("available")>=c.getInt("amount")?net.minecraft.ChatFormatting.GREEN:net.minecraft.ChatFormatting.RED));}
+        if(!blocked.isEmpty()) tip.append("\n").append(Component.translatable(blocked).withStyle(net.minecraft.ChatFormatting.GOLD));
+        return tip;
+    }
     private void preparePages(CompoundTag row) {
         int width=layout.detailWidth(),lines=Math.max(1,(layout.viewport()-32)/11);
         if(cachedData!=data || cachedMode!=mode || cachedSelected!=selected || cachedWidth!=width || cachedLines!=lines || cachedLanguage!=language) {
             var wrapped=new ArrayList<FormattedCharSequence>();
             wrapped.addAll(font.split(Component.literal(data.getString("kingdom_name")).withStyle(net.minecraft.ChatFormatting.BOLD),width));
             if(data.contains("notice")) wrapped.addAll(font.split(Component.translatable(data.getString("notice")),width));
-            if(row==null) wrapped.addAll(font.split(tr("empty"),width));
+            if(mode==3) {
+                var wall=data.getCompound("wall");int tier=wall.getInt("tier");
+                wrapped.addAll(font.split(tr("walls_title").withStyle(net.minecraft.ChatFormatting.BOLD),width));
+                wrapped.addAll(font.split(tier==0?tr("walls_none"):tr("walls_state",Component.translatable("wall.livingkingdoms.tier."+tier),
+                        tr(wall.getBoolean("complete")?"walls_complete":"walls_rising")),width));
+                wrapped.addAll(font.split(tr("walls_layout",wall.getInt("gates"),tr(wall.getBoolean("towers")?"yes":"no"),tr(wall.getBoolean("gatehouses")?"yes":"no")),width));
+                if(wall.getInt("breaches")>0) wrapped.addAll(font.split(tr("fortify_breaches",wall.getInt("breaches")),width));
+                wrapped.addAll(font.split(tr("walls_help"),width));
+            } else if(row==null) wrapped.addAll(font.split(tr("empty"),width));
             else if(mode==2) {
                 wrapped.addAll(font.split(KingdomAlerts.describe(row.getString("kind"),row.getString("subject")),width));
                 wrapped.addAll(font.split(tr("time",row.getLong("tick")),width));
@@ -109,7 +131,7 @@ public final class ManagementScreen extends KingdomScreen {
                     if(row.getBoolean("repair_pending")) wrapped.addAll(font.split(tr("repair_pending"),width));
                 } else wrapped.addAll(font.split(tr("equipment",row.getInt("equipment")),width));
             }
-            wrapped.addAll(font.split(tr("expand_help"),width));pages=DialoguePages.of(wrapped,lines);
+            if(mode!=3) wrapped.addAll(font.split(tr("expand_help"),width));pages=DialoguePages.of(wrapped,lines);
             cachedData=data;cachedMode=mode;cachedSelected=selected;cachedWidth=width;cachedLines=lines;cachedLanguage=language;
         }
         page=Math.clamp(page,0,pages.size()-1);caption=Component.translatable("onboarding.livingkingdoms.page",page+1,pages.size());

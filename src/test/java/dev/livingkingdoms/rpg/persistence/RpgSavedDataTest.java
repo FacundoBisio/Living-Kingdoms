@@ -121,12 +121,15 @@ class RpgSavedDataTest {
         assertTrue(data.learn(player, dev.livingkingdoms.rpg.domain.Technique.HAGGLING));
         var wall = dev.livingkingdoms.rpg.domain.Fortification.none(40).upgrade().progress(17);
         assertTrue(data.putWall(settlement, wall));
+        data.putDesign(settlement, new dev.livingkingdoms.rpg.domain.WallDesign(4, true, false));
         storage.save();
         IOUtilities.waitUntilIOWorkerComplete();
         var reopened = RpgSavedData.getOrCreate(storage(), directory);
         assertEquals(dev.livingkingdoms.rpg.domain.TownDecor.LANTERNS.bit() | dev.livingkingdoms.rpg.domain.TownDecor.FOUNTAIN.bit(), reopened.decor(settlement));
         assertEquals(java.util.Set.of(dev.livingkingdoms.rpg.domain.Technique.DRILL, dev.livingkingdoms.rpg.domain.Technique.HAGGLING), reopened.techniques(player));
         assertEquals(wall, reopened.wall(settlement).orElseThrow());
+        assertEquals(new dev.livingkingdoms.rpg.domain.WallDesign(4, true, false), reopened.design(settlement), "Wall layout survives a reload");
+        assertEquals(dev.livingkingdoms.rpg.domain.WallDesign.DEFAULT, reopened.design(UUID.randomUUID()));
         assertEquals(List.of(settlement), reopened.walledSettlements());
         assertTrue(reopened.techniques(UUID.randomUUID()).isEmpty() && reopened.decor(UUID.randomUUID()) == 0);
     }

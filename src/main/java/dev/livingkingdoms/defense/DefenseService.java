@@ -86,7 +86,9 @@ public final class DefenseService {
         if (party.state() != PartyState.ALIVE || !GuardPolicy.hostile(party.faction())
                 || !party.origin().dimension().equals(level.dimension().location().toString())
                 || !EncounterSavedData.get(server).get(party.id()).filter(party::equals).isPresent()) return Optional.empty();
+        // A founding camp is not attacked: threats start once the Town Hall makes it a real kingdom.
         var allied = NearestAlliedSettlementService.findNearest(level, position, DefenseConfig.MAX_DETECTION_RANGE.get())
+                .filter(s -> s.lifecycle() == dev.livingkingdoms.settlement.domain.SettlementLifecycle.ESTABLISHED)
                 .filter(s -> GuardPolicy.within(position.getX() + .5, position.getZ() + .5,
                         s.territory().x() + .5, s.territory().z() + .5, detectionRange(server, s)));
         if (allied.isEmpty()) return Optional.empty();
@@ -108,7 +110,7 @@ public final class DefenseService {
 
     public static Optional<SettlementThreatEvent> beginApproach(ServerLevel level,Settlement settlement,HostileParty party) {
         var server=level.getServer(); var data=DefenseSavedData.get(server);
-        if(!settlement.faction().isAllied() || party.state()!=PartyState.ALIVE || !GuardPolicy.hostile(party.faction())
+        if(!settlement.faction().isAllied() || settlement.lifecycle()!=dev.livingkingdoms.settlement.domain.SettlementLifecycle.ESTABLISHED || party.state()!=PartyState.ALIVE || !GuardPolicy.hostile(party.faction())
                 || !party.origin().dimension().equals(settlement.territory().dimension())
                 || !party.origin().dimension().equals(level.dimension().location().toString())
                 || EncounterSavedData.get(server).get(party.id()).filter(party::equals).isEmpty()) return Optional.empty();
@@ -158,6 +160,8 @@ public final class DefenseService {
             fail(server, event, ThreatOutcome.SETTLEMENT_MISSING); return;
         }
         if (now >= event.expiresAt()) { fail(server, event, ThreatOutcome.TIMEOUT); return; }
+        // Peaceful difficulty removes hostile mobs: the threat is over, never left "under attack".
+        if (server.getWorldData().getDifficulty() == net.minecraft.world.Difficulty.PEACEFUL) { fail(server, event, ThreatOutcome.PARTY_MISSING); return; }
         var encounters = EncounterSavedData.get(server);
         var party = encounters.get(event.partyId());
         if (party.isEmpty() || party.get().faction() != event.faction()
@@ -190,6 +194,39 @@ public final class DefenseService {
             }
             if (player != null) awardPending(player);
         }
+    }
+
+    /**
+     * Brings the linked party to the kingdom's edge so a defense can be finished: every loaded member is moved to
+     * loaded, dry ground just outside the territory along its own bearing. If no member is loaded anywhere the
+     * party has scattered and the threat ends. Returns how many members came.
+     */
+    public static int summon(ServerLevel level, UUID settlementId) {
+        var server = level.getServer();
+        var event = current(server, settlementId).filter(SettlementThreatEvent::threatened).orElse(null);
+        var settlement = SettlementSavedData.get(server).get(settlementId).orElse(null);
+        if (event == null || settlement == null) return 0;
+        var party = EncounterSavedData.get(server).get(event.partyId()).orElse(null);
+        if (party == null) { fail(server, event, ThreatOutcome.PARTY_MISSING); return 0; }
+        var t = settlement.territory(); int moved = 0, loaded = 0;
+        for (var id : party.remainingMembers()) {
+            if (!(level.getEntity(id) instanceof net.minecraft.world.entity.Mob mob) || !mob.isAlive()) continue;
+            loaded++;
+            double angle = Math.atan2(mob.getZ() - t.z(), mob.getX() - t.x());
+            for (int extra = 6; extra <= 18; extra += 4) {
+                int x = t.x() + (int) Math.round(Math.cos(angle) * (t.radius() + extra)), z = t.z() + (int) Math.round(Math.sin(angle) * (t.radius() + extra));
+                var column = new BlockPos(x, t.y(), z);
+                if (!level.hasChunkAt(column)) continue;
+                var ground = level.getHeightmapPos(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, column);
+                if (!level.getFluidState(ground.below()).isEmpty()) continue;
+                mob.teleportTo(ground.getX() + .5, ground.getY(), ground.getZ() + .5);
+                ThreatApproachWork.install(mob); moved++;
+                break;
+            }
+        }
+        if (loaded == 0) { fail(server, event, ThreatOutcome.PARTY_MISSING); return 0; }
+        if (moved > 0) DefenseSavedData.get(server).spot(event.id());
+        return moved;
     }
 
     public static boolean fail(MinecraftServer server, SettlementThreatEvent event, ThreatOutcome outcome) {

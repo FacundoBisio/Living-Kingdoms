@@ -7,6 +7,7 @@ import dev.livingkingdoms.economy.StockResource;
 import dev.livingkingdoms.onboarding.KingdomOnboardingService;
 import dev.livingkingdoms.profession.GuardWork;
 import dev.livingkingdoms.rpg.domain.Fortification;
+import dev.livingkingdoms.rpg.domain.WallDesign;
 import dev.livingkingdoms.rpg.persistence.RpgSavedData;
 import dev.livingkingdoms.settlement.domain.Settlement;
 import dev.livingkingdoms.settlement.domain.SettlementLifecycle;
@@ -162,7 +163,7 @@ public final class WallService {
         int[] offset = ring.get(wall.built());
         var column = new BlockPos(t.x() + offset[0], t.y(), t.z() + offset[1]);
         if (!level.hasChunkAt(column)) return false;
-        column(level, settlement, wall.tier(), wall.built(), offset, column);
+        column(level, settlement, wall.tier(), wall.built(), offset, column, RpgSavedData.get(level.getServer()).design(id).gate(ring, wall.built()));
         var next = wall.progress(1);
         if (next.built() >= ring.size()) { data.putWall(id, next); finish(level, settlement, next); }
         else data.putWall(id, next);
@@ -171,6 +172,10 @@ public final class WallService {
 
     private static void finish(ServerLevel level, Settlement settlement, Fortification wall) {
         RpgSavedData.get(level.getServer()).putWall(settlement.id(), wall.finished());
+        // A new tier also re-dresses the towers and gatehouses in the new material.
+        var design = RpgSavedData.get(level.getServer()).design(settlement.id());
+        if (design.towers()) towers(level, settlement.id());
+        if (design.gatehouses()) gatehouses(level, settlement.id());
         POSTS.remove(settlement.id());
         var t = settlement.territory();
         var center = new BlockPos(t.x(), t.y(), t.z());
@@ -227,11 +232,20 @@ public final class WallService {
     }
 
     static void column(ServerLevel level, Settlement settlement, int tier, int index, int[] offset, BlockPos column) {
+        column(level, settlement, tier, index, offset, column, false);
+    }
+    static void column(ServerLevel level, Settlement settlement, int tier, int index, int[] offset, BlockPos column, boolean mainGate) {
         if (insideBuilding(level, settlement, column)) return;
         int y = base(level, column);
         var floor = new BlockPos(column.getX(), y - 1, column.getZ());
         if (!level.getBlockState(floor).getFluidState().isEmpty()) return;
         var at = floor.above();
+        if (mainGate) {
+            // A main gate: a three-high opening under a lintel, wide enough for carts and horses.
+            for (int dy = 0; dy <= 2; dy++) clear(level, at.above(dy));
+            put(level, at.above(3), body(tier));
+            return;
+        }
         if (gate(level, settlement, floor)) {
             var facing = Direction.getNearest(offset[0], 0, offset[1]);
             if (!(level.getBlockState(at).getBlock() instanceof DoorBlock) && writable(level, at) && writable(level, at.above())) {
@@ -251,6 +265,13 @@ public final class WallService {
         if (index % 4 == 0) level.playSound(null, at, tier == 1 ? SoundEvents.WOOD_PLACE : SoundEvents.STONE_PLACE, SoundSource.BLOCKS, .7F, 1F);
     }
 
+    /** Removes our own wall pieces (never anything else) from a position. */
+    private static void clear(ServerLevel level, BlockPos pos) {
+        var state = level.getBlockState(pos);
+        if (state.getBlock() instanceof DoorBlock) { level.removeBlock(pos, false); return; }
+        if (wallBlock(state)) level.removeBlock(pos, false);
+    }
+
     private static void put(ServerLevel level, BlockPos pos, BlockState state) {
         if (!writable(level, pos)) return;
         if (level.getBlockState(pos).is(state.getBlock())) return;
@@ -268,7 +289,8 @@ public final class WallService {
         var t = settlement.territory();
         var posts = new ArrayList<BlockPos>();
         int limit = wall.complete() ? ring.size() : Math.min(ring.size(), wall.built());
-        for (int i = 0; i < limit && posts.size() < 32; i += Fortification.POST_SPACING) {
+        posts.addAll(towerPosts(level, settlement, wall));
+        for (int i = 0; i < limit && posts.size() < 36; i += Fortification.POST_SPACING) {
             var column = new BlockPos(t.x() + ring.get(i)[0], t.y(), t.z() + ring.get(i)[1]);
             if (!level.hasChunkAt(column)) continue;
             int top = level.getHeight(Heightmap.Types.MOTION_BLOCKING, column.getX(), column.getZ());
@@ -345,4 +367,156 @@ public final class WallService {
     }
 
     public static void clear() { BREACHES.clear(); POSTS.clear(); }
+
+    // ---- 0.36: gates, corner towers and gatehouses -------------------------------------------------------
+
+    public static final int TOWER_HEIGHT = 6;
+    public static Map<StockResource, Integer> towerCost() { return Map.of(StockResource.STONE, 160, StockResource.WOOD, 32); }
+    public static Map<StockResource, Integer> gatehouseCost(int gates) { return Map.of(StockResource.STONE, 48 * gates, StockResource.IRON, 4 * gates); }
+
+    /** Why a design order cannot run now, or empty. */
+    public static Optional<String> designBlocked(MinecraftServer server, UUID id, String order) {
+        var wall = RpgSavedData.get(server).wall(id).orElse(null);
+        if (wall == null || wall.tier() == 0) return Optional.of("wall.livingkingdoms.need_wall");
+        if (!wall.complete()) return Optional.of("wall.livingkingdoms.building");
+        if (DefenseService.status(server, id) == SettlementSafety.THREATENED) return Optional.of("wall.livingkingdoms.threatened");
+        var design = RpgSavedData.get(server).design(id);
+        return switch (order) {
+            case "towers" -> design.towers() ? Optional.of("wall.livingkingdoms.towers_done") : Optional.empty();
+            case "gatehouses" -> design.gatehouses() ? Optional.of("wall.livingkingdoms.gatehouses_done")
+                    : wall.tier() < 2 ? Optional.of("wall.livingkingdoms.need_stone") : Optional.empty();
+            default -> Optional.empty();
+        };
+    }
+
+    /** Cycles the number of main gates (1–4) and rebuilds the ring's gates right away. Free. */
+    public static boolean cycleGates(ServerPlayer player, UUID id) {
+        var settlement = SettlementSavedData.get(player.server).get(id).orElse(null);
+        if (settlement == null || !KingdomEconomy.authorized(player, id) || designBlocked(player.server, id, "gates").isPresent()) return false;
+        var data = RpgSavedData.get(player.server);
+        data.putDesign(id, data.design(id).nextGates());
+        rebuild(player.serverLevel(), id);
+        player.displayClientMessage(Component.translatable("wall.livingkingdoms.gates_set", data.design(id).gates()), true);
+        return true;
+    }
+
+    public static boolean orderTowers(ServerPlayer player, UUID id) {
+        if (designBlocked(player.server, id, "towers").isPresent() || !pay(player, id, towerCost())) return false;
+        var data = RpgSavedData.get(player.server);
+        data.putDesign(id, data.design(id).withTowers());
+        int placed = towers(player.serverLevel(), id);
+        player.sendSystemMessage(Component.translatable("wall.livingkingdoms.towers_built", placed).withStyle(ChatFormatting.GOLD));
+        return true;
+    }
+
+    public static boolean orderGatehouses(ServerPlayer player, UUID id) {
+        int gates = RpgSavedData.get(player.server).design(id).gates();
+        if (designBlocked(player.server, id, "gatehouses").isPresent() || !pay(player, id, gatehouseCost(gates))) return false;
+        var data = RpgSavedData.get(player.server);
+        data.putDesign(id, data.design(id).withGatehouses());
+        gatehouses(player.serverLevel(), id);
+        player.sendSystemMessage(Component.translatable("wall.livingkingdoms.gatehouses_built", gates).withStyle(ChatFormatting.GOLD));
+        return true;
+    }
+
+    private static boolean pay(ServerPlayer player, UUID id, Map<StockResource, Integer> cost) {
+        if (!KingdomEconomy.authorized(player, id)) return false;
+        var payment = KingdomEconomy.plan(player.server, id, cost, Map.of(), false).orElse(null);
+        if (payment == null || !KingdomEconomy.valid(player.server, payment) || !KingdomEconomy.commit(player.server, payment)) {
+            player.displayClientMessage(Component.translatable("wall.livingkingdoms.no_stock"), true); return false;
+        }
+        return true;
+    }
+
+    /** Re-applies the whole finished ring (gates opened or closed to match the design), then towers/gatehouses. */
+    public static void rebuild(ServerLevel level, UUID id) {
+        var wall = RpgSavedData.get(level.getServer()).wall(id).orElse(null);
+        var settlement = SettlementSavedData.get(level.getServer()).get(id).orElse(null);
+        if (wall == null || settlement == null || wall.tier() == 0) return;
+        var ring = ring(wall.radius()); var design = RpgSavedData.get(level.getServer()).design(id); var t = settlement.territory();
+        int limit = wall.complete() ? ring.size() : Math.min(wall.built(), ring.size());
+        for (int i = 0; i < limit; i++) {
+            var o = ring.get(i); var col = new BlockPos(t.x() + o[0], t.y(), t.z() + o[1]);
+            if (level.hasChunkAt(col)) column(level, settlement, wall.tier(), i, o, col, design.gate(ring, i));
+        }
+        if (design.towers()) towers(level, id);
+        if (design.gatehouses()) gatehouses(level, id);
+        POSTS.remove(id);
+    }
+
+    /** Four 3×3 towers on the diagonals, six blocks tall with crenellations; their tops are archer posts. */
+    static int towers(ServerLevel level, UUID id) {
+        var wall = RpgSavedData.get(level.getServer()).wall(id).orElse(null);
+        var settlement = SettlementSavedData.get(level.getServer()).get(id).orElse(null);
+        if (wall == null || settlement == null) return 0;
+        var ring = ring(wall.radius()); var t = settlement.territory(); int built = 0;
+        for (double angle : WallDesign.towerAngles()) {
+            var o = ring.get(WallDesign.nearest(ring, angle));
+            var center = new BlockPos(t.x() + o[0], t.y(), t.z() + o[1]);
+            if (!level.hasChunkAt(center) || insideBuilding(level, settlement, center)) continue;
+            int floorY = base(level, center);
+            for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) {
+                var col = center.offset(dx, 0, dz);
+                if (!level.hasChunkAt(col) || insideBuilding(level, settlement, col) || gate(level, settlement, new BlockPos(col.getX(), base(level, col) - 1, col.getZ()))) continue;
+                int y = Math.min(base(level, col), floorY + 2);
+                for (int yy = y; yy < floorY + TOWER_HEIGHT; yy++) put(level, new BlockPos(col.getX(), yy, col.getZ()), body(wall.tier()));
+                if (dx != 0 && dz != 0) put(level, new BlockPos(col.getX(), floorY + TOWER_HEIGHT, col.getZ()), cap(wall.tier()));
+            }
+            var lamp = new BlockPos(center.getX() + 1, floorY + TOWER_HEIGHT + 1, center.getZ() + 1);
+            if (level.getBlockState(lamp).isAir() && wallBlock(level.getBlockState(lamp.below()))) level.setBlock(lamp, Blocks.LANTERN.defaultBlockState(), Block.UPDATE_ALL);
+            level.sendParticles(ParticleTypes.CLOUD, center.getX() + .5, floorY + 3, center.getZ() + .5, 30, 1.2, 2, 1.2, 0);
+            built++;
+        }
+        POSTS.remove(id);
+        return built;
+    }
+
+    /** Raises flanking towers beside every main gate, a double lintel and kingdom banners facing outward. */
+    static void gatehouses(ServerLevel level, UUID id) {
+        var wall = RpgSavedData.get(level.getServer()).wall(id).orElse(null);
+        var settlement = SettlementSavedData.get(level.getServer()).get(id).orElse(null);
+        if (wall == null || settlement == null) return;
+        var ring = ring(wall.radius()); var t = settlement.territory(); var design = RpgSavedData.get(level.getServer()).design(id);
+        for (double angle : design.gateAngles()) {
+            int g = WallDesign.nearest(ring, angle);
+            var o = ring.get(g); var gateCol = new BlockPos(t.x() + o[0], t.y(), t.z() + o[1]);
+            if (!level.hasChunkAt(gateCol)) continue;
+            int floorY = base(level, gateCol);
+            var outward = Direction.getNearest(o[0], 0, o[1]);
+            for (int d = -1; d <= 1; d++) {
+                var c = ring.get(Math.floorMod(g + d, ring.size()));
+                var col = new BlockPos(t.x() + c[0], floorY + 3, t.z() + c[1]);
+                put(level, col, body(wall.tier())); put(level, col.above(), body(wall.tier()));
+            }
+            for (int side : new int[]{-2, 2, -3, 3}) {
+                var c = ring.get(Math.floorMod(g + side, ring.size()));
+                var col = new BlockPos(t.x() + c[0], t.y(), t.z() + c[1]);
+                if (!level.hasChunkAt(col) || insideBuilding(level, settlement, col)) continue;
+                int y = base(level, col);
+                for (int yy = y; yy < floorY + 6; yy++) put(level, new BlockPos(col.getX(), yy, col.getZ()), body(wall.tier()));
+                put(level, new BlockPos(col.getX(), floorY + 6, col.getZ()), cap(wall.tier()));
+                if (Math.abs(side) == 2) {
+                    var face = new BlockPos(col.getX(), floorY + 4, col.getZ()).relative(outward);
+                    if (level.getBlockState(face).isAir())
+                        level.setBlock(face, Blocks.BLUE_WALL_BANNER.defaultBlockState().setValue(net.minecraft.world.level.block.WallBannerBlock.FACING, outward), Block.UPDATE_ALL);
+                }
+            }
+        }
+        POSTS.remove(id);
+    }
+
+    /** Archer standing spots on the corner towers (when built). */
+    static List<BlockPos> towerPosts(ServerLevel level, Settlement settlement, Fortification wall) {
+        if (!RpgSavedData.get(level.getServer()).design(settlement.id()).towers()) return List.of();
+        var ring = ring(wall.radius()); var t = settlement.territory(); var out = new ArrayList<BlockPos>();
+        for (double angle : WallDesign.towerAngles()) {
+            var o = ring.get(WallDesign.nearest(ring, angle));
+            var col = new BlockPos(t.x() + o[0], t.y(), t.z() + o[1]);
+            if (!level.hasChunkAt(col)) continue;
+            int top = level.getHeight(Heightmap.Types.MOTION_BLOCKING, col.getX(), col.getZ());
+            var stand = new BlockPos(col.getX(), top, col.getZ());
+            if (wallBlock(level.getBlockState(stand.below())) && level.getBlockState(stand).isAir()) out.add(stand);
+        }
+        return out;
+    }
 }

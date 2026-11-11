@@ -153,6 +153,12 @@ Format: **What happened** → **Rule** → **Check**.
 
 39. **A hand-built roof had stair layers floating one block apart** and failed the structure QA connectivity check.
     → Generated templates fill the attic under each roof layer; run the connectivity flood fill before exporting.
+40. **Raids targeted founding camps**, so new players saw "under attack" before they had learned to build, and
+    switching to Peaceful left the alert stuck (0.36 playtest).
+    → Gate threats on the ESTABLISHED lifecycle; any condition that removes the party must end the event.
+
+41. **The Mayor's seat was three blocks from the doorstep**, i.e. inside the doorway, blocking everyone (0.36).
+    → Seats and posts are measured from the building's depth, never a fixed step from the entrance.
 
 ## Adding an entry
 

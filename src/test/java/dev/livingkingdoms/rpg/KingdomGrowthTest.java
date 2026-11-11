@@ -77,4 +77,21 @@ class KingdomGrowthTest {
             }
         }
     }
+
+    @Test void wallDesignSpacesGatesAndCycles() {
+        var ring = WallService.ring(40);
+        for (int gates = 1; gates <= 4; gates++) {
+            var design = new dev.livingkingdoms.rpg.domain.WallDesign(gates, false, false);
+            int open = 0;
+            for (int i = 0; i < ring.size(); i++) if (design.gate(ring, i)) open++;
+            assertEquals(gates * 3, open, "Each main gate is three columns wide");
+        }
+        var d = dev.livingkingdoms.rpg.domain.WallDesign.DEFAULT;
+        assertEquals(2, d.gates());
+        assertEquals(3, d.nextGates().gates());
+        assertEquals(1, d.nextGates().nextGates().nextGates().gates(), "Cycles 2→3→4→1");
+        int south = dev.livingkingdoms.rpg.domain.WallDesign.nearest(ring, Math.PI / 2);
+        assertTrue(ring.get(south)[1] > 35, "The first gate faces south (+Z)");
+        assertThrows(IllegalArgumentException.class, () -> new dev.livingkingdoms.rpg.domain.WallDesign(5, false, false));
+    }
 }
