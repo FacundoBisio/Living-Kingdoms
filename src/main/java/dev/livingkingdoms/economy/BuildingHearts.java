@@ -48,6 +48,7 @@ public final class BuildingHearts {
         if (now < CHECKED.getOrDefault(settlement.id(), 0L)) return;
         if (CHECKED.size() > 512) CHECKED.clear();
         CHECKED.put(settlement.id(), now + 12000);
+        FoundersLodge.convert(level, settlement);
         ensure(level, settlement);
     }
 
@@ -56,7 +57,7 @@ public final class BuildingHearts {
         if (!settlement.faction().isAllied() || !settlement.territory().dimension().equals(level.dimension().location().toString())) return 0;
         int placed = 0;
         for (var b : ProfessionSavedData.get(level.getServer()).buildings(settlement.id())) {
-            if (!b.active() || b.template().getPath().contains("converted") || b.kind() == BuildingKind.FOUNDING_CAMP) continue;
+            if (!b.active() || b.template().getPath().contains("converted") || b.kind() == BuildingKind.FOUNDING_CAMP && !FoundersLodge.converted(level.getServer(), settlement.id())) continue;
             if (!level.hasChunkAt(b.origin()) || !level.hasChunkAt(new BlockPos(b.bounds().maxX(), b.origin().getY(), b.bounds().maxZ()))) continue;
             if (find(level, b) != null) continue;
             var spot = spot(level, b);

@@ -94,4 +94,16 @@ class KingdomGrowthTest {
         assertTrue(ring.get(south)[1] > 35, "The first gate faces south (+Z)");
         assertThrows(IllegalArgumentException.class, () -> new dev.livingkingdoms.rpg.domain.WallDesign(5, false, false));
     }
+
+    @Test void chapterProgressAcceptsCountsAndClaimsInOrder() {
+        var p = dev.livingkingdoms.rpg.domain.ChapterProgress.EMPTY;
+        assertEquals(0, p.next(12));
+        p = p.accept(0).kill().kill();
+        assertEquals(2, p.kills());
+        p = p.claim(0);
+        assertTrue(p.claimed(0) && p.accepted() == -1 && p.kills() == 0);
+        assertEquals(1, p.next(12));
+        assertEquals(p, p.kill(), "Kills only count with an accepted mission");
+        assertEquals(12, dev.livingkingdoms.rpg.domain.KingdomMission.values().length);
+    }
 }

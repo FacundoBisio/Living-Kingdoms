@@ -40,6 +40,8 @@ public final class RpgSavedData extends SavedData {
     private final Map<UUID, java.util.Set<dev.livingkingdoms.rpg.domain.Technique>> techniques = new LinkedHashMap<>();
     private final Map<UUID, dev.livingkingdoms.rpg.domain.Fortification> walls = new LinkedHashMap<>();
     private final Map<UUID, dev.livingkingdoms.rpg.domain.WallDesign> designs = new LinkedHashMap<>();
+    private final java.util.Set<UUID> lodges = new java.util.LinkedHashSet<>();
+    private final Map<UUID, dev.livingkingdoms.rpg.domain.ChapterProgress> chapters = new LinkedHashMap<>();
 
     public int decor(UUID settlement) { return decor.getOrDefault(settlement, 0); }
     public void markDecor(UUID settlement, int bits) {
@@ -62,6 +64,14 @@ public final class RpgSavedData extends SavedData {
         if (design.equals(designs.get(settlement))) return;
         if (!designs.containsKey(settlement) && designs.size() >= MAX_KINGDOMS) return;
         designs.put(settlement, design); setDirty();
+    }
+    public boolean lodge(UUID settlement) { return lodges.contains(settlement); }
+    public void markLodge(UUID settlement) { if (lodges.size() < MAX_KINGDOMS && lodges.add(settlement)) setDirty(); }
+    public dev.livingkingdoms.rpg.domain.ChapterProgress chapter(UUID player) { return chapters.getOrDefault(player, dev.livingkingdoms.rpg.domain.ChapterProgress.EMPTY); }
+    public void putChapter(UUID player, dev.livingkingdoms.rpg.domain.ChapterProgress progress) {
+        if (progress.equals(chapters.get(player))) return;
+        if (!chapters.containsKey(player) && chapters.size() >= MAX_KINGDOMS * 8) return;
+        chapters.put(player, progress); setDirty();
     }
     public java.util.List<UUID> walledSettlements() { return java.util.List.copyOf(walls.keySet()); }
     public boolean putWall(UUID settlement, dev.livingkingdoms.rpg.domain.Fortification wall) {
@@ -209,6 +219,16 @@ public final class RpgSavedData extends SavedData {
                 // 0.36 layout fields are optional: older files keep the default two gates, no towers.
                 if (e.contains("gates")) data.designs.put(e.getUUID("settlement"), new dev.livingkingdoms.rpg.domain.WallDesign(e.getInt("gates"), e.getBoolean("towers"), e.getBoolean("gatehouses")));
             }
+            // 0.37 optional lists (absent in older files).
+            for (var raw : tag.getList("lodges", Tag.TAG_COMPOUND)) {
+                var e = (CompoundTag) raw;
+                if (e.hasUUID("settlement")) data.lodges.add(e.getUUID("settlement"));
+            }
+            for (var raw : tag.getList("chapters", Tag.TAG_COMPOUND)) {
+                var e = (CompoundTag) raw;
+                if (!e.hasUUID("player")) throw new IllegalArgumentException("Invalid chapter owner");
+                data.chapters.put(e.getUUID("player"), new dev.livingkingdoms.rpg.domain.ChapterProgress(e.getInt("accepted"), e.getLong("claimed"), e.getInt("kills")));
+            }
         }
         if (data.kingdomXp.size() > MAX_KINGDOMS || data.boards.size() > MAX_PLAYERS || data.bonds.size() > MAX_BONDS
                 || data.expeditions.size() > MAX_EXPEDITIONS) throw new IllegalArgumentException("RPG data exceeds caps");
@@ -256,6 +276,12 @@ public final class RpgSavedData extends SavedData {
             if (d != null) { e.putInt("gates", d.gates()); e.putBoolean("towers", d.towers()); e.putBoolean("gatehouses", d.gatehouses()); }
             wallList.add(e); });
         tag.put("walls", wallList);
+        var lodgeList = new ListTag();
+        for (var id : lodges) { var e = new CompoundTag(); e.putUUID("settlement", id); lodgeList.add(e); }
+        tag.put("lodges", lodgeList);
+        var chapterList = new ListTag();
+        chapters.forEach((id, c) -> { var e = new CompoundTag(); e.putUUID("player", id); e.putInt("accepted", c.accepted()); e.putLong("claimed", c.claimed()); e.putInt("kills", c.kills()); chapterList.add(e); });
+        tag.put("chapters", chapterList);
         return tag;
     }
 

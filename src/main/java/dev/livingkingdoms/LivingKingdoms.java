@@ -58,6 +58,7 @@ public final class LivingKingdoms {
         NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.tick.ServerTickEvent.Post.class, dev.livingkingdoms.rpg.RpgPerf.timed("alarm", dev.livingkingdoms.rpg.AlarmService::onServerTick));
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.rpg.AlarmService::onRightClickBlock);
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.npc.MayorResidence::onServerTick);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.rpg.ChapterService::onDeath);
         NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.tick.ServerTickEvent.Post.class, dev.livingkingdoms.rpg.RpgPerf.timed("warehouses", dev.livingkingdoms.economy.WarehouseService::onServerTick));
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.rpg.ArcherWork::onImpact);
         NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, false, dev.livingkingdoms.rpg.ContractService::onKill);

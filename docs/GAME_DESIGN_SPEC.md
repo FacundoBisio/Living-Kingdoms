@@ -267,6 +267,17 @@ Long loop (hours): refine a weapon to +5, win the Warlord trial, develop the Tow
   re-dresses towers and gatehouses. Layout is stored with the wall (older files default to two gates).
 - **Mayor:** sits about two thirds into the Town Hall, off the door line, facing the door.
 
+### 4.26 Founders' Lodge and Chapter II (0.37)
+- **Founders' Lodge:** when the Town Hall finishes, the founding camp is rebuilt in place as a roofed 9×9 timber
+  hall (hearth, chimney, guest beds, ledger). The marker lodestone and the quest board keep their positions, so
+  layout and claims do not change. It works as a small inn: +1 tavern level and hiring from its ledger. Existing
+  worlds convert when the camp's heart is ensured (talking to the Mayor) or with `/kingdom lodge`.
+- **Chapters:** a fourth board tab with 12 main missions in order (clear outskirts, Hall level 2, palisade,
+  tavern, 8 residents, hunt, towers, stone walls, three upgrades, become a Town, gatehouses, fortress). One is
+  accepted at a time; progress is read from real state (kills are counted inside your own kingdom); rewards are
+  emeralds, kingdom XP, a kingdom chest and Royal Whetstones. Progress is stored per player.
+- **Second floors:** designed, not applied. See `docs/designs/second-floors.md`.
+
 ## 5. Roadmap (next steps, in priority order)
 
 Done in 0.22: kingdom rank with HUD bar, daily/weekly contracts with streak, rarity loot chests.
@@ -290,9 +301,9 @@ structures and vanilla-texture geometry.
 |---|---|---|---|
 | 0.34 | Owner playtest + single-player polish pass end to end (found → City with walls) | Every system works together | Checklist passes on a real client; `/kingdom perf` stays under 1 ms/tick with 30 residents |
 | ~~0.35~~ done | **Building heart blocks**: one admin block inside every building showing level, workers and orders (tower: patrol or archers on top; market: stall setup) | Every building is interactive | Placed by the template, survives rebuilds |
-| ~~0.35~~ done (materials; extra floors and camp → Town Hall still open) | **Building upgrades with visual tiers** | Visible progress | Upgrade = new template stage, same footprint rules |
+| ~~0.35~~ done (materials; camp → Founders' Lodge in 0.37; second floors designed, next) | **Building upgrades with visual tiers** | Visible progress | Upgrade = new template stage, same footprint rules |
 | ~~0.35~~ done | **Tavern** (immigrants arrive over time; hire for emeralds) and a functional **Warehouse** (real chests feeding Kingdom Storage) | Population growth and logistics | Immigration cadence visible in the UI |
-| 0.36 | More accepted main missions (hunts, upgrades), wall gatehouse and trap set-pieces | Clear goals | Quest checklists from real state |
+| ~~0.36/0.37~~ done (traps open) | More accepted main missions (hunts, upgrades), wall gatehouse and trap set-pieces | Clear goals | Quest checklists from real state |
 | 0.36 | Resident happiness and 3 traits (hard-working, lazy, brave) affecting work and small talk | Residents feel like people | One bar, three traits, bounded effects; shown in the life sheet |
 | 0.35 | Expeditions that discover ruins: a map item leads to a real dungeon with a boss and a trophy | Exploration pays more than mining | Structure placed once, cleaned up, trophy only from the boss |
 | 0.36 | Production chains (bakery: wheat → bread; carpentry: logs → furniture that raises happiness) | Every building matters | Uses Kingdom Storage, no free items |

@@ -83,6 +83,11 @@ public final class RpgCommands {
                     context.getSource().sendSuccess(() -> Component.translatable("command.livingkingdoms.ledgers.done", placed), false);
                     return placed;
                 }))
+                .then(Commands.literal("lodge").requires(source -> source.hasPermission(2)).executes(context -> {
+                    var player = context.getSource().getPlayerOrException();
+                    var settlement = here(player);
+                    return settlement != null && dev.livingkingdoms.economy.FoundersLodge.convert(player.serverLevel(), settlement) ? 1 : 0;
+                }))
                 .then(Commands.literal("map").executes(context -> dev.livingkingdoms.ui.KingdomMapService.open(context.getSource().getPlayerOrException()) ? 1 : 0))
                 .then(Commands.literal("wall").requires(source -> source.hasPermission(2)).executes(context -> {
                     // Debug: raise the next wall tier for free and finish it at once.

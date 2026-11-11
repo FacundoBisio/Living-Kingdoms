@@ -601,6 +601,7 @@ public final class VillageUiService {
         CompoundTag tag = base(player, session, settlement, "board");
         tag.put("challenges", dev.livingkingdoms.rpg.ChallengeService.status(player, settlement));
         tag.put("contracts", dev.livingkingdoms.rpg.ContractService.snapshot(player));
+        tag.put("chapters", dev.livingkingdoms.rpg.ChapterService.snapshot(player));
         if (rejected) tag.putString("notice", "ui.livingkingdoms.action_rejected");
         ListTag entries = new ListTag();
         QuestSavedData data = QuestSavedData.get(player.server);

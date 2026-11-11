@@ -268,7 +268,11 @@ public final class ConstructionService {
         dev.livingkingdoms.profession.ProfessionService.ensure(level,settlements.get(settlement.id()).orElseThrow());
         // The moment a founding camp becomes a real settlement, one resident takes up the Town Hall guard post.
         if(settlement.lifecycle()==SettlementLifecycle.FOUNDING && settlements.get(settlement.id()).orElseThrow().lifecycle()==SettlementLifecycle.ESTABLISHED)
+        {
             dev.livingkingdoms.profession.ProfessionService.ensureStartingGuard(level,settlements.get(settlement.id()).orElseThrow());
+            // The camp becomes the roofed Founders' Lodge as soon as the Town Hall makes this a kingdom.
+            dev.livingkingdoms.economy.FoundersLodge.convert(level,settlements.get(settlement.id()).orElseThrow());
+        }
         dev.livingkingdoms.quest.persistence.QuestSavedData.get(server).resolveDevelopment(settlement.id(),now);
         dev.livingkingdoms.economy.BuildingHearts.ensure(level,settlements.get(settlement.id()).orElseThrow());
         for(ServerPlayer player:level.players()) if(canContribute(player,settlement)) {

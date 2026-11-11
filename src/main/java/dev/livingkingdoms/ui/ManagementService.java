@@ -76,6 +76,10 @@ public final class ManagementService {
             if(level<3) for(var entry:BuildingDevelopment.upgradeCost(level).entrySet()) {var cost=new CompoundTag();cost.putString("resource",entry.getKey().key());cost.putInt("amount",entry.getValue());cost.putInt("available",account.balance(entry.getKey()));costs.add(cost);}
             row.put("costs",costs);row.putString("building_kind",building.kind().name().toLowerCase(Locale.ROOT));
             if(building.kind()==dev.livingkingdoms.structure.BuildingKind.TAVERN) row.putInt("hire_price",dev.livingkingdoms.economy.TavernService.price(level));
+            if(building.kind()==dev.livingkingdoms.structure.BuildingKind.FOUNDING_CAMP && dev.livingkingdoms.economy.FoundersLodge.converted(player.server,session.kingdom)) {
+                row.putString("name","lodge.livingkingdoms.name");row.putString("benefit","lodge.livingkingdoms.benefit");
+                row.putString("building_kind","tavern");row.putInt("hire_price",dev.livingkingdoms.economy.TavernService.price(1));
+            }
             rows.add(row);ids.add(building.id());
         }
         for(var profile:jobs.professions(session.kingdom)) if(profile.active() && profile.type()==ProfessionType.GUARD) {

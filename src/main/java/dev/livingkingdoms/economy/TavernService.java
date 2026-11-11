@@ -24,6 +24,8 @@ public final class TavernService {
         int total = 0;
         for (var b : ProfessionSavedData.get(server).buildings(settlement))
             if (b.active() && b.kind() == BuildingKind.TAVERN) total += BuildingDevelopment.level(server, settlement, b.id());
+        // The Founders' Lodge doubles as a small inn.
+        if (FoundersLodge.converted(server, settlement)) total += 1;
         return total;
     }
     /** Multiplier on the regular immigration chance: ×1 without a tavern, ×2 / ×2.5 / ×3 with one. */
@@ -35,7 +37,7 @@ public final class TavernService {
 
     public static boolean hire(ServerPlayer player, UUID settlementId, UUID building) {
         var settlement = SettlementSavedData.get(player.server).get(settlementId).orElse(null);
-        var tavern = ProfessionSavedData.get(player.server).building(building).filter(b -> b.active() && b.kind() == BuildingKind.TAVERN && b.settlementId().equals(settlementId)).orElse(null);
+        var tavern = ProfessionSavedData.get(player.server).building(building).filter(b -> b.active() && (b.kind() == BuildingKind.TAVERN || b.kind() == BuildingKind.FOUNDING_CAMP && FoundersLodge.converted(player.server, settlementId)) && b.settlementId().equals(settlementId)).orElse(null);
         if (settlement == null || tavern == null || !KingdomEconomy.authorized(player, settlementId)) return false;
         int price = price(BuildingDevelopment.level(player.server, settlementId, building));
         if (!player.getAbilities().instabuild && player.getInventory().countItem(Items.EMERALD) < price) {

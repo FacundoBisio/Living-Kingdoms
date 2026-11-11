@@ -239,8 +239,15 @@ public final class VillageScreen extends KingdomScreen {
     }
 
     private void initBoard() {
-        int tabWidth = (panelWidth-16)/3;
+        int tabWidth = (panelWidth-16)/(board()?4:3);
         String[] labels = {"main", "requests", "active"};
+        if (board()) {
+            // Kingdom chapters (main missions to accept) open in their own screen.
+            var chapters=data.getCompound("chapters");
+            var chapter=button("chapters",tr("chapters"),left+8+3*tabWidth,top+32,tabWidth-2,()->minecraft.setScreen(new ChapterScreen(this,data.getCompound("chapters"))));
+            chapter.active=!data.getBoolean("remote"); if(chapters.getBoolean("available") && chapters.getInt("accepted")!=chapters.getInt("next")) chapter.primary();
+            chapter.setTooltip(Tooltip.create(tr("chapters_help")));
+        }
         for (int i=0;i<(board()?3:0);i++) {
             final int tab=i;
             VillageButton button=button(tr(labels[i]),left+8+i*tabWidth,top+32,tabWidth-2,() -> {section=tab;offset=0;selected=null;detailScroll=0;rebuildWidgets();});
