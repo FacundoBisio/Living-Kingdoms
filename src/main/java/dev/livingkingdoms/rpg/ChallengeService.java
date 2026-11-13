@@ -274,6 +274,13 @@ public final class ChallengeService {
                 ? Component.translatable("challenge.livingkingdoms.bar.boss", Component.translatable("challenge.livingkingdoms.boss." + run.tier.id()))
                 : Component.translatable("challenge.livingkingdoms.bar.wave", Component.translatable("challenge.livingkingdoms.tier." + run.tier.id()),
                         run.wave + 1, run.tier.waves(), run.alive.size() + run.pending);
+        // Distance to the arena limit and time left, from the run's stored centre/deadline and its owner only (no scans).
+        var owner = owner(level.getServer(), run);
+        if (owner != null) {
+            int distance = (int) Math.sqrt(owner.blockPosition().distSqr(run.center)), seconds = (int) Math.max(0, (run.deadline - now(level)) / 20);
+            name = name.copy().append(Component.translatable("challenge.livingkingdoms.bar.range", distance, ARENA_RADIUS, String.format("%d:%02d", seconds / 60, seconds % 60))
+                    .withStyle(distance >= ARENA_RADIUS - 8 ? net.minecraft.ChatFormatting.RED : net.minecraft.ChatFormatting.GRAY));
+        }
         run.bar.setName(name);
         if (run.boss) {
             float hp = 0, max = 0;

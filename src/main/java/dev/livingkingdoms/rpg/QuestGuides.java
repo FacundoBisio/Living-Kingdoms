@@ -23,6 +23,21 @@ public final class QuestGuides {
                 .or(() -> projects.stream().filter(e -> e.project().state() != ConstructionState.COMPLETED)
                         .min(Comparator.comparingLong(e -> e.project().createdAt())))
                 .map(ConstructionSavedData.Entry::project).orElse(null);
+        return steps(project, true);
+    }
+
+    /** Next-step kinds shared by the HUD site row; derived from the same state as the checklist. */
+    public enum Next { REASON, NEEDS, BUILDER, BUILDING, NONE }
+
+    public static Next next(boolean blocked, boolean funded, boolean builderRequired, boolean hasBuilder, boolean building) {
+        if (blocked) return Next.REASON;
+        if (!funded) return Next.NEEDS;
+        if (builderRequired && !hasBuilder) return Next.BUILDER;
+        return building ? Next.BUILDING : Next.NONE;
+    }
+
+    /** Plan, supply, builder, wait (+ the quest-only "return" step); a null project means nothing is planned yet. */
+    public static ListTag steps(dev.livingkingdoms.construction.domain.ConstructionProject project, boolean withReturn) {
         boolean planned = project != null;
         boolean funded = planned && project.funded();
         boolean builder = planned && (!project.builderRequired() || project.builderId() != null || project.state() == ConstructionState.COMPLETED);
@@ -32,7 +47,7 @@ public final class QuestGuides {
         steps.add(step("supply", funded));
         if (!planned || project.builderRequired()) steps.add(step("builder", builder));
         steps.add(step("wait", done));
-        steps.add(step("return", false));
+        if (withReturn) steps.add(step("return", false));
         return steps;
     }
 

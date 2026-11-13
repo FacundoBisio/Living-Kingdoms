@@ -17,6 +17,7 @@ public final class ConstructionSavedData extends SavedData {
     public static final String DATA_NAME = "livingkingdoms_construction";
     private static final Map<SettlementLayout,Boolean> validatedPlans = new IdentityHashMap<>();
     private static final Deque<SettlementLayout> validationOrder = new ArrayDeque<>();
+    public static synchronized void clear() { validatedPlans.clear(); validationOrder.clear(); }
     /** Immutable blueprints need their full transformed-cell audit once, not every credited work interval. */
     private static synchronized void validatePlan(SettlementLayout plan) {
         if(validatedPlans.containsKey(plan)) return;

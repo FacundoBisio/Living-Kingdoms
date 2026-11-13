@@ -24,7 +24,8 @@ import java.util.UUID;
  * ({@code <world>/data/livingkingdoms_rpg.dat}); older mod versions ignore it. Server thread only, capped.
  * Schema 2 (0.24) adds citizen bonds, active expeditions and undelivered expedition loot; schema 1 files load
  * with those empty and are rewritten as schema 2. Schema 3 (0.30) adds applied town decoration tiers, learned
- * player techniques and kingdom walls; older files load with those empty.
+ * player techniques and kingdom walls; older files load with those empty. 0.38 adds an optional {@code oldRadius} int
+ * to a wall compound (old ring still being demolished) without a schema bump: older files lack it, older mods ignore it.
  */
 public final class RpgSavedData extends SavedData {
     public static final String DATA_NAME = "livingkingdoms_rpg";
@@ -40,6 +41,8 @@ public final class RpgSavedData extends SavedData {
     private final Map<UUID, java.util.Set<dev.livingkingdoms.rpg.domain.Technique>> techniques = new LinkedHashMap<>();
     private final Map<UUID, dev.livingkingdoms.rpg.domain.Fortification> walls = new LinkedHashMap<>();
     private final Map<UUID, dev.livingkingdoms.rpg.domain.WallDesign> designs = new LinkedHashMap<>();
+    /** Old wall radius still being demolished after a move (keys are a subset of {@link #walls}). */
+    private final Map<UUID, Integer> relocations = new LinkedHashMap<>();
     private final java.util.Set<UUID> lodges = new java.util.LinkedHashSet<>();
     private final Map<UUID, dev.livingkingdoms.rpg.domain.ChapterProgress> chapters = new LinkedHashMap<>();
 
@@ -74,11 +77,25 @@ public final class RpgSavedData extends SavedData {
         chapters.put(player, progress); setDirty();
     }
     public java.util.List<UUID> walledSettlements() { return java.util.List.copyOf(walls.keySet()); }
+    /**
+     * Moving a standing wall (tier > 0) to a new radius records the old radius for demolition, unless one is already
+     * pending (the first old ring is the one still standing). Every path that puts a tier gets this, admin ones included.
+     */
     public boolean putWall(UUID settlement, dev.livingkingdoms.rpg.domain.Fortification wall) {
         if (!walls.containsKey(settlement) && walls.size() >= MAX_KINGDOMS) return false;
-        if (wall.equals(walls.get(settlement))) return true;
+        var previous = walls.get(settlement);
+        if (wall.equals(previous)) return true;
+        if (previous != null && previous.tier() > 0 && previous.radius() != wall.radius()) relocations.putIfAbsent(settlement, previous.radius());
         walls.put(settlement, wall); setDirty(); return true;
     }
+    /** Radius of an old ring still being demolished after the wall moved, if any. */
+    public java.util.Optional<Integer> oldRadius(UUID settlement) { return java.util.Optional.ofNullable(relocations.get(settlement)); }
+    public java.util.List<UUID> relocating() { return java.util.List.copyOf(relocations.keySet()); }
+    public void putOldRadius(UUID settlement, int radius) {
+        if (!walls.containsKey(settlement) || Integer.valueOf(radius).equals(relocations.get(settlement))) return;
+        relocations.put(settlement, radius); setDirty();
+    }
+    public void clearOldRadius(UUID settlement) { if (relocations.remove(settlement) != null) setDirty(); }
 
     public dev.livingkingdoms.rpg.domain.Bond bond(UUID citizen) { return bonds.getOrDefault(Objects.requireNonNull(citizen), dev.livingkingdoms.rpg.domain.Bond.empty()); }
     public boolean putBond(UUID citizen, dev.livingkingdoms.rpg.domain.Bond bond) {
@@ -218,6 +235,8 @@ public final class RpgSavedData extends SavedData {
                 if (data.walls.put(e.getUUID("settlement"), wall) != null) throw new IllegalArgumentException("Duplicate wall");
                 // 0.36 layout fields are optional: older files keep the default two gates, no towers.
                 if (e.contains("gates")) data.designs.put(e.getUUID("settlement"), new dev.livingkingdoms.rpg.domain.WallDesign(e.getInt("gates"), e.getBoolean("towers"), e.getBoolean("gatehouses")));
+                // 0.38 optional: old ring still being demolished; an invalid value only loses the demolition, never the world.
+                if (e.contains("oldRadius", Tag.TAG_INT) && e.getInt("oldRadius") >= 8 && e.getInt("oldRadius") <= 256) data.relocations.put(e.getUUID("settlement"), e.getInt("oldRadius"));
             }
             // 0.37 optional lists (absent in older files).
             for (var raw : tag.getList("lodges", Tag.TAG_COMPOUND)) {
@@ -274,6 +293,8 @@ public final class RpgSavedData extends SavedData {
             e.putInt("built", w.built()); e.putBoolean("complete", w.complete());
             var d = designs.get(id);
             if (d != null) { e.putInt("gates", d.gates()); e.putBoolean("towers", d.towers()); e.putBoolean("gatehouses", d.gatehouses()); }
+            var old = relocations.get(id);
+            if (old != null) e.putInt("oldRadius", old);
             wallList.add(e); });
         tag.put("walls", wallList);
         var lodgeList = new ListTag();

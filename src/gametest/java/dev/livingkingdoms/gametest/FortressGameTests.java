@@ -88,6 +88,11 @@ public final class FortressGameTests {
         int pieces = 0;
         for (int y = t.y() - 6; y <= t.y() + 10; y++) if (WallService.wallBlock(level.getBlockState(new BlockPos(gateCol.getX(), y, gateCol.getZ())))) pieces++;
         h.assertTrue(pieces == 1, "The south gate is an opening under a single lintel: " + pieces);
+        int ground = h.absolutePos(new BlockPos(452048, 1, 452048)).getY();
+        boolean open = true;
+        for (int dy = 0; dy <= 2; dy++) open &= level.getBlockState(new BlockPos(gateCol.getX(), ground + dy, gateCol.getZ())).isAir();
+        h.assertTrue(open && WallService.wallBlock(level.getBlockState(new BlockPos(gateCol.getX(), ground + 3, gateCol.getZ()))),
+                "The south gate lintel sits exactly at ground+3 over a three-high opening (open=" + open + ")");
         var player = f.player();
         for (int i = 0; i < 4; i++) { player.getInventory().setItem(0, new ItemStack(StockResource.STONE.item(), 64)); KingdomEconomy.deposit(player, s.id(), StockResource.STONE, 64); }
         for (int i = 0; i < 2; i++) { player.getInventory().setItem(0, new ItemStack(StockResource.WOOD.item(), 64)); KingdomEconomy.deposit(player, s.id(), StockResource.WOOD, 64); }

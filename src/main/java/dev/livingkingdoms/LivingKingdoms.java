@@ -67,7 +67,10 @@ public final class LivingKingdoms {
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.server.ServerStoppingEvent event) -> {
             dev.livingkingdoms.rpg.ChallengeService.shutdown(event.getServer()); dev.livingkingdoms.rpg.RallyService.clear();
             dev.livingkingdoms.rpg.EventService.clear(); dev.livingkingdoms.rpg.WallService.clear(); dev.livingkingdoms.npc.MayorResidence.clear();
-            dev.livingkingdoms.rpg.AlarmService.clear(); dev.livingkingdoms.rpg.ArcherWork.clear(); });
+            dev.livingkingdoms.rpg.AlarmService.clear(); dev.livingkingdoms.rpg.ArcherWork.clear();
+            dev.livingkingdoms.construction.ConstructionService.clear(); dev.livingkingdoms.construction.ConstructionStages.clear();
+            dev.livingkingdoms.construction.persistence.ConstructionSavedData.clear(); dev.livingkingdoms.economy.BuildingHearts.clear();
+            dev.livingkingdoms.rpg.RpgPerf.reset(); });
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.npc.MayorPresentation::onJoin);
         container.registerConfig(ModConfig.Type.SERVER, KingdomConfig.SPEC);
         NeoForge.EVENT_BUS.addListener(SettlementCommands::register);

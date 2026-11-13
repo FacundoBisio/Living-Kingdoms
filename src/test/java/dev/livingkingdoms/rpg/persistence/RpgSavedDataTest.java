@@ -134,6 +134,30 @@ class RpgSavedDataTest {
         assertTrue(reopened.techniques(UUID.randomUUID()).isEmpty() && reopened.decor(UUID.randomUUID()) == 0);
     }
 
+    @Test void oldRadiusSurvivesSaveAndLoad() {
+        var storage = storage();
+        var data = RpgSavedData.getOrCreate(storage, directory);
+        UUID moved = UUID.randomUUID(), still = UUID.randomUUID();
+        assertTrue(data.putWall(moved, new dev.livingkingdoms.rpg.domain.Fortification(3, 29, 0, true)));
+        assertTrue(data.putWall(still, new dev.livingkingdoms.rpg.domain.Fortification(1, 20, 4, false)));
+        assertTrue(data.putWall(moved, new dev.livingkingdoms.rpg.domain.Fortification(3, 45, 0, false)));
+        assertEquals(java.util.Optional.of(29), data.oldRadius(moved), "Changing a standing wall's radius records the ring to demolish");
+        assertTrue(data.putWall(moved, new dev.livingkingdoms.rpg.domain.Fortification(3, 61, 0, false)));
+        assertEquals(java.util.Optional.of(29), data.oldRadius(moved), "A pending demolition is never overwritten");
+        storage.save();
+        IOUtilities.waitUntilIOWorkerComplete();
+        var reopened = RpgSavedData.getOrCreate(storage(), directory);
+        assertEquals(java.util.Optional.of(29), reopened.oldRadius(moved));
+        assertTrue(reopened.oldRadius(still).isEmpty(), "A wall compound without the key loads with nothing to demolish");
+        reopened.clearOldRadius(moved);
+        assertTrue(reopened.oldRadius(moved).isEmpty() && reopened.isDirty());
+        var tag = reopened.save(new CompoundTag(), null);
+        var walls = tag.getList("walls", 10);
+        for (int i = 0; i < walls.size(); i++) { assertFalse(walls.getCompound(i).contains("oldRadius")); walls.getCompound(i).putInt("oldRadius", 4); }
+        var loaded = RpgSavedData.load(tag, null);
+        assertTrue(loaded.oldRadius(moved).isEmpty() && loaded.wall(moved).isPresent(), "An out-of-range old radius is ignored, not fatal");
+    }
+
     @Test void schemaTwoMigratesWithoutDecorTechniquesOrWalls() {
         var tag = new RpgSavedData().save(new CompoundTag(), null);
         tag.putInt("schema_version", 2);

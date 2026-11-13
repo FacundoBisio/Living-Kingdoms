@@ -68,6 +68,8 @@ public final class DefenseGameTests {
     @GameTest(template="empty",timeoutTicks=600)
     public static void playerDamageAndNativeGuardFinishEnableOneBoardClaimAndAdvancement(GameTestHelper h) {
         var f=fixture(h,292048,true); var guard=guard(h,f); var party=party(h,f,PartyType.PILLAGER_PATROL,1,false,true);
+        // This test is about credit, not combat odds: the raider must not win the duel or shoot a neighbouring fixture's player.
+        guard.setInvulnerable(true); party.mobs().getFirst().setTarget(guard);
         DefenseService.detectMember(h.getLevel(),party.mobs().getFirst()); var quest=accept(h,f,f.player());
         party.mobs().getFirst().hurt(f.player().damageSources().playerAttack(f.player()),4);
         h.succeedWhen(() -> {

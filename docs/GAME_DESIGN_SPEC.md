@@ -278,6 +278,25 @@ Long loop (hours): refine a weapon to +5, win the Warlord trial, develop the Tow
   emeralds, kingdom XP, a kingdom chest and Royal Whetstones. Progress is stored per player.
 - **Second floors:** designed, not applied. See `docs/designs/second-floors.md`.
 
+### 4.27 Hardening and "always see the next step" (0.38)
+- **Walls on real terrain:** columns stand on the ground through plants, logs (felled, refunded as Wood) and up
+  to 8 blocks of water; gates face the cardinal directions and towers slide clear of them; the ring never waits
+  for an unloaded chunk (a repair sweep finishes skipped columns without charging twice, and restores breaches
+  after a restart, one Wood/Stone per block). Tower and gatehouse orders that cannot be built are refused free.
+- **Moving the wall:** after a territory expansion the next order moves the ring to the new border, demolishes
+  the old ring gradually and refunds 50%. Planned plots stay off the wall footprint and gate corridors.
+- **Finding and reading walls:** a *Walls* button on the Mayor's main page; the tab shows cost, column progress,
+  the tier ladder and "how it works" in the body; *Show on the ground* previews ring, gates and towers for 30 s.
+- **Construction next step:** the site view has the plan → supply → Builder → wait checklist; the HUD row names
+  the one next step (missing materials, assign a Builder, or the real stall reason); a stall is announced once
+  per reason in chat.
+- **Missions and trials:** the HUD shows an arrow and distance to the tracked mission (chapter mission as
+  fallback; only missions that send coordinates); the trial bar shows range against the 48-block limit and time
+  left; the Trials button always opens the picker and each locked tier names the quest that unlocks it.
+- **Guide:** a "How do I…?" screen (`?` on the Mayor page and the journal) with four short guides.
+- **Founders' Lodge:** residents and players are moved to verified ground and stored items are dropped outside
+  before the template is placed. Bed positions are identical in the camp and lodge templates.
+
 ## 5. Roadmap (next steps, in priority order)
 
 Done in 0.22: kingdom rank with HUD bar, daily/weekly contracts with streak, rarity loot chests.
@@ -287,6 +306,9 @@ Done in 0.31: resident life sheet with small talk, Away tab, playtest fixes (hou
 Done in 0.33 (includes the 0.32 polish pass): market stalls with classic and rare daily trades, new market
 building, kingdom stages (Hamlet → Village → Town → City) that upgrade every home, kingdom map (M), archers walk
 to their posts, `/kingdom perf`.
+
+Done in 0.38: wall hardening on real terrain, wall relocation, visible next step for construction, mission
+bearing, trial range/timer, in-game guide (see 4.27). Manual checklist: `docs/playtest-v038-checklist.md`.
 
 **Process rule (from the 0.30–0.31 playtests):** ship smaller versions and let the owner play each one before the
 next. Every playtest so far found blocking bugs that unit tests and GameTests could not see. A full GameTest run

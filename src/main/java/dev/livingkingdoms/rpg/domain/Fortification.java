@@ -30,4 +30,8 @@ public record Fortification(int tier, int radius, int built, boolean complete) {
     }
     public Fortification progress(int columns) { return new Fortification(tier, radius, built + Math.max(0, columns), complete); }
     public Fortification finished() { return new Fortification(tier, radius, built, true); }
+    /** Progress shown to players: 100 once finished, otherwise built/total rounded down and clamped to 0..100. */
+    public static int percent(int built, int total, boolean complete) {
+        return complete ? 100 : total <= 0 ? 0 : Math.clamp(built * 100L / total, 0, 100);
+    }
 }

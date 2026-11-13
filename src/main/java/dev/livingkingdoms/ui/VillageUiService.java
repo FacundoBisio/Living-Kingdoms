@@ -486,6 +486,7 @@ public final class VillageUiService {
                 }
             }
             view.putLong("duration",p.durationTicks());
+            if(p.state()!=dev.livingkingdoms.construction.domain.ConstructionState.COMPLETED) view.put("steps",dev.livingkingdoms.rpg.QuestGuides.steps(p,false));
             view.putBoolean("waiting_site",dev.livingkingdoms.construction.persistence.ConstructionSavedData.get(player.server).waitingForClearSite(p.id()));
             dev.livingkingdoms.construction.ConstructionService.reason(p.id()).ifPresent(r -> {
                 view.putString("reason",r.key()); var args=new ListTag(); r.args().forEach(a -> args.add(net.minecraft.nbt.StringTag.valueOf(a))); view.put("reason_args",args); });

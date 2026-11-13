@@ -265,8 +265,9 @@ public final class VillageScreen extends KingdomScreen {
             contracts.setTooltip(Tooltip.create(tr(contracts.active?"contracts.help":"contracts.locked")));
             var challenges=button("challenges",tr("challenges"),left+listWidth-8-challengeWidth,top+55,challengeWidth,
                     ()->minecraft.setScreen(new ChallengeScreen(this,data.getCompound("challenges"))));
-            challenges.active=!pending && !data.getBoolean("remote") && data.getCompound("challenges").getBoolean("unlocked");
-            challenges.setTooltip(Tooltip.create(tr(challenges.active?"challenges.help":"challenges.locked")));
+            // Locked trials still open the picker: each tier shows the quest it needs instead of hiding it in a tooltip.
+            challenges.active=!pending && !data.getBoolean("remote");
+            challenges.setTooltip(Tooltip.create(tr(data.getCompound("challenges").getBoolean("unlocked")?"challenges.help":"challenges.locked")));
         }
         var quests=visibleQuests();
         if (selected == null || quests.stream().noneMatch(q -> q.getUUID("id").equals(selected))) selected=quests.isEmpty()?null:
@@ -295,8 +296,10 @@ public final class VillageScreen extends KingdomScreen {
         if(board()) {
             button(tr("construction"),left+14+navWidth*3,layout.footerTop(),navWidth,
                     ()->send(UiPayloads.Action.CONSTRUCTION,null)).glyph("C").active=!pending && !data.getBoolean("remote");
-            button(tr("immigration"),left+16+navWidth*4,layout.footerTop(),navWidth,
-                    ()->send(UiPayloads.Action.IMMIGRATION,null)).glyph("I").active=!pending && !data.getBoolean("remote");
+            // The read-only journal cannot open Immigration, so its slot holds the guide.
+            if(data.getBoolean("remote")) guideButton(left+16+navWidth*4,layout.footerTop());
+            else button(tr("immigration"),left+16+navWidth*4,layout.footerTop(),navWidth,
+                    ()->send(UiPayloads.Action.IMMIGRATION,null)).glyph("I").active=!pending;
         }
         CompoundTag q=selectedQuest();
         int x=left+listWidth+8, available=panelWidth-listWidth-20;
@@ -461,6 +464,11 @@ public final class VillageScreen extends KingdomScreen {
         });next.glyph(">");next.active=!pending;next.setTooltip(Tooltip.create(tr("picker_page",(professions?professionPage:buildingPage)+1,pages)));
     }
 
+    private void guideButton(int x,int y) {
+        var guide=button("guide",Component.translatable("guide.livingkingdoms.title"),x,y,20,()->minecraft.setScreen(new GuideScreen(this)));
+        guide.glyph("?");
+    }
+
     private void initDialogue() {
         int x=layout.detailX(),w=Math.min(128,(layout.detailWidth()-4)/2),y=dialogueActionsTop();
         button(tr("talk"),x,y,w,()->send(UiPayloads.Action.TALK,null)).active=!pending;
@@ -469,8 +477,14 @@ public final class VillageScreen extends KingdomScreen {
         button(tr("construction"),x+w+4,y+24,w,()->send(UiPayloads.Action.CONSTRUCTION,null)).active=!pending && !data.getBoolean("readonly");
         button(tr("immigration"),x,y+48,w,()->send(UiPayloads.Action.IMMIGRATION,null)).active=!pending && !data.getBoolean("readonly");
         button(tr("citizens"),x+w+4,y+48,w,()->send(UiPayloads.Action.CITIZENS,null)).active=!pending && !data.getBoolean("readonly");
-        button(tr("refresh"),x,y+72,w,()->send(UiPayloads.Action.REFRESH,null)).active=!pending;
-        button(tr("leave"),x+w+4,y+72,w,this::onClose);
+        // The grid is full: Walls takes the Refresh slot; Refresh ("R") and "?" share the Leave slot.
+        boolean established=data.getString("lifecycle").equals("ESTABLISHED");
+        var walls=button("manage_walls",Component.translatable("management.livingkingdoms.walls"),x,y+72,w,()->send(UiPayloads.Action.MANAGE_WALLS,null));
+        walls.active=!pending && established && data.getBoolean("can_help") && !data.getBoolean("readonly");
+        walls.setTooltip(Tooltip.create(Component.translatable(established?"management.livingkingdoms.walls_help":"ui.livingkingdoms.walls_locked")));
+        button(tr("leave"),x+w+4,y+72,w-48,this::onClose);
+        button(tr("refresh"),x+2*w-40,y+72,20,()->send(UiPayloads.Action.REFRESH,null)).glyph("R").active=!pending;
+        guideButton(x+2*w-16,y+72);
         if(!data.getBoolean("info")) {
             int headingHeight=VillageTextFlow.height(textCache.wrap(font.getSplitter(),speaker(),layout.detailWidth()-24).size());
             int bodyTop=top+37+headingHeight;
@@ -663,11 +677,7 @@ public final class VillageScreen extends KingdomScreen {
             if(q.getList("requirements",10).isEmpty())
                 y=paragraph(g,Component.translatable(q.getString("objective"),Component.translatable(q.getString("target"))),x,y,w,INK);
             if(q.contains("target_x")) y=paragraph(g,Component.translatable("quest.livingkingdoms.party_location",q.getInt("target_x"),q.getInt("target_z")),x,y,w,MUTED);
-            var steps=q.getList("steps",10);boolean nextMarked=false;
-            for(int i=0;i<steps.size();i++) {
-                var step=steps.getCompound(i);boolean done=step.getBoolean("done");boolean next=!done && !nextMarked;nextMarked|=next;
-                y=paragraph(g,Component.literal(done?"\u2714 ":next?"\u25B6 ":"\u25CB ").append(Component.translatable(step.getString("key"))),x+4,y,w-4,done?SUCCESS:next?INK:MUTED);
-            }
+            y=checklist(g,q.getList("steps",10),x,y,w);
             var items=q.getList("requirements",10);
             for(int i=0;i<items.size();i++) {
                 var item=items.getCompound(i); ItemStack stack=icon(item.getString("item"));
@@ -743,6 +753,7 @@ public final class VillageScreen extends KingdomScreen {
             y=paragraph(g,questTitle(p).copy().withStyle(net.minecraft.ChatFormatting.BOLD),x,y,w,INK);
             y=paragraph(g,state(p),x,y,w,p.getString("state").equals("COMPLETED")?SUCCESS:INK);
             for(Component detail:constructionDetails(p)) y=paragraph(g,detail,x,y,w,INK);
+            y=checklist(g,p.getList("steps",10),x,y,w);
             double progress=p.getDouble("progress");
             if(p.getString("state").equals("BUILDING") && !p.getBoolean("builder_required")) progress=Math.min(1,progress+(double)constructionTicks/Math.max(20,p.getLong("duration")));
             y=paragraph(g,tr("construction_progress",(int)(progress*100)),x,y,w,INK);
@@ -759,6 +770,7 @@ public final class VillageScreen extends KingdomScreen {
             y=paragraph(g,Component.translatable("construction.livingkingdoms.plot",p.getInt("x"),p.getInt("y"),p.getInt("z")),x,y,w,MUTED);
             var costs=p.getList("requirements",10);
             y=sectionHeader(g,tr("construction_materials"),x,y,w);
+            for(int i=0;i<costs.size();i++) if(costs.getCompound(i).getString("item").equals("stone")) { y=paragraph(g,tr("construction_stone_hint"),x,y,w,MUTED); break; }
             for(int i=0;i<costs.size();i++) {
                 var cost=costs.getCompound(i); var stack=icon(cost.getString("item"));
                 y=itemRow(g,stack,tr("progress",cost.getInt("count"),cost.getInt("required")).append(" ").append(stack.getHoverName()),x,y,w);
@@ -769,6 +781,16 @@ public final class VillageScreen extends KingdomScreen {
         }
         y=paragraph(g,tr("construction_shared"),x,y,w,MUTED);
         detailHeight=y-start; g.disableScissor(); detailScroll=Math.clamp(detailScroll,0,maxDetailScroll());
+    }
+
+    /** Derived checklist: done steps, the one next step, then the pending ones. */
+    private int checklist(GuiGraphics g,net.minecraft.nbt.ListTag steps,int x,int y,int w) {
+        boolean nextMarked=false;
+        for(int i=0;i<steps.size();i++) {
+            var step=steps.getCompound(i);boolean done=step.getBoolean("done");boolean next=!done && !nextMarked;nextMarked|=next;
+            y=paragraph(g,Component.literal(done?"\u2714 ":next?"\u25B6 ":"\u25CB ").append(Component.translatable(step.getString("key"))),x+4,y,w-4,done?SUCCESS:next?INK:MUTED);
+        }
+        return y;
     }
 
     private int itemRow(GuiGraphics g,ItemStack stack,Component label,int x,int y,int w) {

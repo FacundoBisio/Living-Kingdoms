@@ -59,7 +59,7 @@ public final class ManagementScreen extends KingdomScreen {
         button("refresh",Component.translatable("ui.livingkingdoms.refresh"),layout.left()+52,layout.footerTop(),layout.listWidth()-58,()->send(ManagementPayloads.Action.REFRESH)).glyph("R").active=!pending;
         var row=selectedRow();preparePages(row);
         int w=(layout.detailWidth()-12)/4,x=layout.detailX();
-        if(mode==3) { wallButtons(x,w); return; }
+        if(mode==3) { wallButtons(x,w); pageButtons(); return; }
         var action=button("primary",tr(mode==1?"equip":"upgrade"),x,layout.footerTop(),w,()->send(mode==1?ManagementPayloads.Action.EQUIP:ManagementPayloads.Action.UPGRADE));
         action.active=!pending && row!=null && mode!=2 && row.getBoolean(mode==1?"equip":"upgrade");
         var repair=button("repair",tr(mode==1?"repair_held":"repair"),x+w+4,layout.footerTop(),w,()->send(mode==1?ManagementPayloads.Action.REPAIR_HELD:ManagementPayloads.Action.REPAIR));
@@ -77,6 +77,9 @@ public final class ManagementScreen extends KingdomScreen {
             var hire=button("special",tr("hire",row.getInt("hire_price")),x+(w+4)*2,layout.footerTop(),w,()->send(ManagementPayloads.Action.HIRE));
             hire.active=!pending; hire.primary(); hire.setTooltip(Tooltip.create(tr("hire_help",row.getInt("hire_price"))));
         }
+        pageButtons();
+    }
+    private void pageButtons() {
         button("page_previous",Component.translatable("ui.livingkingdoms.previous"),layout.left()+layout.width()-54,layout.contentBottom()-20,20,()->{page--;rebuildWidgets();}).glyph("<").active=page>0;
         button("page_next",Component.translatable("ui.livingkingdoms.next"),layout.left()+layout.width()-30,layout.contentBottom()-20,20,()->{page++;rebuildWidgets();}).glyph(">").active=page+1<pages.size();
     }
@@ -84,8 +87,9 @@ public final class ManagementScreen extends KingdomScreen {
     /** Walls tab: raise/upgrade the ring, choose 1–4 gates, corner towers and gatehouses. */
     private void wallButtons(int x,int w) {
         var wall=data.getCompound("wall");int tier=wall.getInt("tier");
-        var fortify=button("fortify",tr(tier>=3?"fortify_max":"fortify",Component.translatable("wall.livingkingdoms.tier."+Math.min(3,tier+1))),x,layout.footerTop(),w,()->send(ManagementPayloads.Action.FORTIFY));
-        fortify.active=!pending && !wall.contains("blocked") && tier<3; if(fortify.active) fortify.primary();
+        boolean move=wall.getBoolean("move"); // a tier-3 wall left inside a grown border is moved by the same order
+        var fortify=button("fortify",tr(tier>=3?move?"fortify_move":"fortify_max":"fortify",Component.translatable("wall.livingkingdoms.tier."+Math.min(3,tier+1))),x,layout.footerTop(),w,()->send(ManagementPayloads.Action.FORTIFY));
+        fortify.active=!pending && !wall.contains("blocked") && (tier<3 || move); if(fortify.active) fortify.primary();
         fortify.setTooltip(Tooltip.create(costTip(tr("fortify_help"),wall.getList("costs",10),wall.getString("blocked"))));
         var gates=button("wall_gates",tr("wall_gates",wall.getInt("gates")),x+w+4,layout.footerTop(),w,()->send(ManagementPayloads.Action.WALL_GATES));
         gates.active=!pending && !wall.contains("blocked_gates"); gates.setTooltip(Tooltip.create(costTip(tr("wall_gates_help"),new ListTag(),wall.getString("blocked_gates"))));
@@ -93,6 +97,10 @@ public final class ManagementScreen extends KingdomScreen {
         towers.active=!pending && !wall.contains("blocked_towers"); towers.setTooltip(Tooltip.create(costTip(tr("wall_towers_help"),wall.getList("tower_costs",10),wall.getString("blocked_towers"))));
         var gatehouse=button("wall_gatehouses",tr(wall.getBoolean("gatehouses")?"wall_gatehouses_done":"wall_gatehouses"),x+(w+4)*3,layout.footerTop(),w,()->send(ManagementPayloads.Action.WALL_GATEHOUSES));
         gatehouse.active=!pending && !wall.contains("blocked_gatehouses"); gatehouse.setTooltip(Tooltip.create(costTip(tr("wall_gatehouses_help"),wall.getList("gatehouse_costs",10),wall.getString("blocked_gatehouses"))));
+        // The list column is empty on this tab. Showing closes the screen so the player can look, like the construction preview.
+        var preview=button("walls_preview",tr(WallPreviewOverlay.active()?"walls_preview_hide":"walls_preview"),layout.left()+8,layout.contentTop(),layout.listWidth()-14,()->{
+            if(WallPreviewOverlay.active()) {WallPreviewOverlay.clear();rebuildWidgets();} else if(WallPreviewOverlay.show(data.getCompound("wall"))) onClose();});
+        preview.active=wall.contains("cx");preview.setTooltip(Tooltip.create(tr("walls_preview_help")));
     }
     private Component costTip(Component head,ListTag costs,String blocked) {
         var tip=Component.empty().append(head);
@@ -108,13 +116,25 @@ public final class ManagementScreen extends KingdomScreen {
             wrapped.addAll(font.split(Component.literal(data.getString("kingdom_name")).withStyle(net.minecraft.ChatFormatting.BOLD),width));
             if(data.contains("notice")) wrapped.addAll(font.split(Component.translatable(data.getString("notice")),width));
             if(mode==3) {
-                var wall=data.getCompound("wall");int tier=wall.getInt("tier");
+                var wall=data.getCompound("wall");int tier=wall.getInt("tier"),built=wall.getInt("built"),total=wall.getInt("total");
                 wrapped.addAll(font.split(tr("walls_title").withStyle(net.minecraft.ChatFormatting.BOLD),width));
+                // Older servers send no column counts: fall back to the plain "being raised".
                 wrapped.addAll(font.split(tier==0?tr("walls_none"):tr("walls_state",Component.translatable("wall.livingkingdoms.tier."+tier),
-                        tr(wall.getBoolean("complete")?"walls_complete":"walls_rising")),width));
+                        wall.getBoolean("complete")?tr("walls_complete"):wall.contains("total")?tr("walls_progress",built,total,dev.livingkingdoms.rpg.domain.Fortification.percent(built,total,false)):tr("walls_rising")),width));
+                if(wall.getBoolean("old_ring")) wrapped.addAll(font.split(tr("walls_old_ring"),width));
                 wrapped.addAll(font.split(tr("walls_layout",wall.getInt("gates"),tr(wall.getBoolean("towers")?"yes":"no"),tr(wall.getBoolean("gatehouses")?"yes":"no")),width));
                 if(wall.getInt("breaches")>0) wrapped.addAll(font.split(tr("fortify_breaches",wall.getInt("breaches")),width));
+                var costs=wall.getList("costs",10);
+                if(!costs.isEmpty()) {var list=Component.empty();
+                    for(int i=0;i<costs.size();i++) {var c=costs.getCompound(i);if(i>0) list.append(", ");
+                        list.append(tr("walls_cost_item",c.getInt("amount"),Component.translatable(c.getString("resource")))
+                                .withStyle(c.getInt("available")>=c.getInt("amount")?net.minecraft.ChatFormatting.DARK_GREEN:net.minecraft.ChatFormatting.DARK_RED));}
+                    wrapped.addAll(font.split(tier>=3?tr("walls_next_move",list):tr("walls_next",Component.translatable("wall.livingkingdoms.tier."+(tier+1)),list),width));}
+                if(wall.contains("blocked")) wrapped.addAll(font.split(Component.translatable(wall.getString("blocked")),width));
+                wrapped.addAll(font.split(tr("walls_how"),width));
                 wrapped.addAll(font.split(tr("walls_help"),width));
+                for(int t=1;t<=3;t++) {var step=tr("walls_ladder",t==tier?"»":"·",Component.translatable("wall.livingkingdoms.tier."+t),tr("walls_material."+t));
+                    wrapped.addAll(font.split(t==tier?step.withStyle(net.minecraft.ChatFormatting.BOLD):step,width));}
             } else if(row==null) wrapped.addAll(font.split(tr("empty"),width));
             else if(mode==2) {
                 wrapped.addAll(font.split(KingdomAlerts.describe(row.getString("kind"),row.getString("subject")),width));

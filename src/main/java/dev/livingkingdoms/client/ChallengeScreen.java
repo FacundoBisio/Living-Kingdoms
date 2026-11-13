@@ -76,11 +76,16 @@ final class ChallengeScreen extends KingdomScreen {
             int textWidth = panelWidth - 140;
             var summary = Component.translatable(tier.getBoolean("boss") ? "ui.livingkingdoms.challenges.summary_boss" : "ui.livingkingdoms.challenges.summary",
                     tier.getInt("waves"), tier.getInt("enemies"), tier.getInt("minutes"));
-            g.drawString(font, font.plainSubstrByWidth(summary.getString(), textWidth), left + 36, y + 16, VillageTheme.MUTED, false);
+            int line = y + 16;
+            if (unlocked) { g.drawString(font, font.plainSubstrByWidth(summary.getString(), textWidth), left + 36, line, VillageTheme.MUTED, false); line += 11; }
+            // A locked tier says what unlocks it where the summary would be (up to two wrapped lines).
+            else for (var part : font.split(Component.translatable("ui.livingkingdoms.challenges.requires", Component.translatable(tier.getString("requires"))), textWidth).stream().limit(2).toList()) {
+                g.drawString(font, part, left + 36, line, VillageTheme.ERROR, false); line += 11;
+            }
             var rewards = Component.translatable("ui.livingkingdoms.challenges.rewards", tier.getInt("emeralds"), tier.getInt("whetstones"), tier.getInt("tomes"));
             if (!tier.getString("reward").equals("none"))
                 rewards = rewards.append(" + ").append(Component.translatable("item.livingkingdoms." + (tier.getString("reward").equals("champion_axe") ? "champion_axe" : "warlord_blade")));
-            g.drawString(font, font.plainSubstrByWidth(rewards.getString(), textWidth), left + 36, y + 27, unlocked ? VillageTheme.SUCCESS : VillageTheme.MUTED, false);
+            if (line + 9 <= y + rowHeight - 4) g.drawString(font, font.plainSubstrByWidth(rewards.getString(), textWidth), left + 36, line, unlocked ? VillageTheme.SUCCESS : VillageTheme.MUTED, false);
         }
         super.render(g, mouseX, mouseY, delta);
     }

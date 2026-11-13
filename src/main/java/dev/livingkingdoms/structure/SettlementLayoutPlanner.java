@@ -16,6 +16,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Predicate;
 
 import static dev.livingkingdoms.structure.GenerationDiagnostics.Rejection.*;
 
@@ -81,7 +82,7 @@ public final class SettlementLayoutPlanner {
             for (BuildingKind kind : initial) {
                 var addition = searchAddition(level, terrain, territory, catalog.get(kind),
                         buildings.stream().map(SettlementLayout.Building::bounds).toList(), ports, pathBlocks,
-                        relaxed, diagnostics);
+                        relaxed, bounds -> false, diagnostics);
                 diagnostics.validPlots(buildings.size() - 1);
                 if (addition.isEmpty()) throw new SettlementTerrain.Rejected(INSUFFICIENT_PLOTS);
                 SettlementLayout piece = addition.orElseThrow();
@@ -92,7 +93,7 @@ public final class SettlementLayoutPlanner {
             diagnostics.validPlots(initial.size());
             // Skyline accent is optional; the four functional plots remain the minimum village.
             var tower = searchAddition(level, terrain, territory, catalog.get(BuildingKind.WATCHTOWER),
-                    buildings.stream().map(SettlementLayout.Building::bounds).toList(), ports, pathBlocks, relaxed, diagnostics);
+                    buildings.stream().map(SettlementLayout.Building::bounds).toList(), ports, pathBlocks, relaxed, bounds -> false, diagnostics);
             if (tower.isPresent()) {
                 buildings.addAll(tower.get().buildings());
                 tower.get().before().forEach(before::putIfAbsent);
@@ -149,12 +150,19 @@ public final class SettlementLayoutPlanner {
                 || plazaPorts.isEmpty() || plazaPorts.stream().anyMatch(port -> !territory.contains(territory.dimension(), port.getX(), port.getZ())))
             throw new IllegalArgumentException("Invalid expansion context");
         return searchAddition(level, new SettlementTerrain(level), territory, catalog.get(kind), List.copyOf(occupied),
-                List.copyOf(plazaPorts), existingPaths, false, diagnostics);
+                List.copyOf(plazaPorts), existingPaths, false, walled(level, territory), diagnostics);
+    }
+
+    /** New plots keep off the kingdom wall (footprint, margin, gate corridors); nothing is reserved without a wall. */
+    private static Predicate<PlotBounds> walled(ServerLevel level, Territory territory) {
+        var owner = SettlementSavedData.get(level.getServer()).at(territory.dimension(), territory.x(), territory.z())
+                .filter(settlement -> settlement.territory().equals(territory)).orElse(null);
+        return owner == null ? bounds -> false : bounds -> dev.livingkingdoms.rpg.WallFootprint.reserved(level.getServer(), owner, bounds);
     }
 
     private Optional<SettlementLayout> searchAddition(ServerLevel level, SettlementTerrain terrain, Territory territory,
             BuildingTemplate module, List<PlotBounds> occupied, List<BlockPos> ports, Map<BlockPos, BlockState> existingPaths,
-            boolean relaxed, GenerationDiagnostics diagnostics) {
+            boolean relaxed, Predicate<PlotBounds> walled, GenerationDiagnostics diagnostics) {
         int searchRadius = Math.min(SettlementGenerationConfig.PLOT_SEARCH_RADIUS.get(), territory.radius());
         int spacing = SettlementGenerationConfig.SPACING.get();
         // Golden-angle sampling creates deterministic, non-grid layouts with modest position variation.
@@ -171,7 +179,8 @@ public final class SettlementLayoutPlanner {
             PlotBounds bounds = bounds(minimum, size);
             try {
                 if (occupied.stream().anyMatch(other -> bounds.conflicts(other, spacing))
-                        || existingPaths.keySet().stream().anyMatch(pos -> bounds.contains(pos.getX(), pos.getZ())))
+                        || existingPaths.keySet().stream().anyMatch(pos -> bounds.contains(pos.getX(), pos.getZ()))
+                        || walled.test(bounds))
                     throw new SettlementTerrain.Rejected(OBSTACLE);
                 Map<BlockPos, BlockState> before = new LinkedHashMap<>();
                 var building = plot(level, terrain, territory, module, minimum, rotation,
@@ -204,7 +213,8 @@ public final class SettlementLayoutPlanner {
         var module = catalog.get(kind);
         var footprint = bounds(minimum, module.rotatedSize(rotation));
         if (occupied.stream().anyMatch(other -> footprint.conflicts(other, SettlementGenerationConfig.SPACING.get()))
-                || existingPaths.keySet().stream().anyMatch(pos -> footprint.contains(pos.getX(), pos.getZ()))) return Optional.empty();
+                || existingPaths.keySet().stream().anyMatch(pos -> footprint.contains(pos.getX(), pos.getZ()))
+                || walled(level, territory).test(footprint)) return Optional.empty();
         var surveyed = planPlot(level, territory, module, minimum, rotation,
                 SettlementGenerationConfig.tolerance(kind, false), diagnostics);
         if (surveyed.isEmpty()) return Optional.empty();

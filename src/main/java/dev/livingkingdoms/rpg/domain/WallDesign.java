@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * How a kingdom's wall ring is laid out: 1–4 main gates evenly spaced from the south, optional corner towers
+ * How a kingdom's wall ring is laid out: 1–4 main gates facing cardinal directions (south first), optional corner towers
  * (four, on the diagonals) and optional gatehouses that turn every gate into a fortified entrance.
  */
 public record WallDesign(int gates, boolean towers, boolean gatehouses) {
@@ -17,11 +17,15 @@ public record WallDesign(int gates, boolean towers, boolean gatehouses) {
     public WallDesign withTowers() { return new WallDesign(gates, true, gatehouses); }
     public WallDesign withGatehouses() { return new WallDesign(gates, towers, true); }
 
-    /** Gate angles in radians (Minecraft: +Z is south = π/2), evenly spaced starting south. */
+    /** Gate angles in radians (Minecraft: +Z is south = π/2, east = 0), always facing cardinal directions. */
     public List<Double> gateAngles() {
-        var out = new ArrayList<Double>();
-        for (int k = 0; k < gates; k++) out.add(Math.PI / 2 + 2 * Math.PI * k / gates);
-        return out;
+        double s = Math.PI / 2, n = 3 * Math.PI / 2, e = 0, w = Math.PI;
+        return switch (gates) {
+            case 1 -> List.of(s);
+            case 2 -> List.of(s, n);
+            case 3 -> List.of(s, e, w);
+            default -> List.of(s, w, n, e);
+        };
     }
     /** Tower angles: the four diagonals. */
     public static List<Double> towerAngles() {

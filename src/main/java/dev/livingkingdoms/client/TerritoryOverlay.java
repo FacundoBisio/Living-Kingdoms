@@ -35,8 +35,9 @@ public final class TerritoryOverlay {
         territory=null; remainingTicks=0; viewX=Integer.MIN_VALUE; viewZ=Integer.MIN_VALUE;
         chunks=List.of(); circle=List.of(); visibleCircle=List.of();
     }
-    public static void onLogout(ClientPlayerNetworkEvent.LoggingOut event) { clear(); }
+    public static void onLogout(ClientPlayerNetworkEvent.LoggingOut event) { clear(); WallPreviewOverlay.clear(); }
     public static void onTick(ClientTickEvent.Post event) {
+        WallPreviewOverlay.onTick();
         if(territory==null) return;
         var client=Minecraft.getInstance();
         if(client.player==null || client.level==null || !territory.dimension().equals(client.level.dimension().location().toString())) { clear(); return; }
@@ -53,6 +54,7 @@ public final class TerritoryOverlay {
                 && Math.max(edge.z1(),edge.z2())>=minZ && Math.min(edge.z1(),edge.z2())<=maxZ).toList();
     }
     public static void render(RenderLevelStageEvent event) {
+        WallPreviewOverlay.render(event);
         if(event.getStage()!=RenderLevelStageEvent.Stage.AFTER_ENTITIES || territory==null) return;
         var client=Minecraft.getInstance();
         if(client.player==null || client.level==null || client.options.hideGui || !territory.dimension().equals(client.level.dimension().location().toString())) return;

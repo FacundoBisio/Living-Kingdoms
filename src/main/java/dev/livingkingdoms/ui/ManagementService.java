@@ -95,13 +95,21 @@ public final class ManagementService {
         tag.putBoolean("expand",BuildingDevelopment.canExpand(player.server,realm));
         var wall=new CompoundTag();int wallTier=dev.livingkingdoms.rpg.WallService.tier(player.server,realm.id());wall.putInt("tier",wallTier);
         var blocked=dev.livingkingdoms.rpg.WallService.blocked(player.server,realm);blocked.ifPresent(reason->wall.putString("blocked",reason));
-        if(wallTier<dev.livingkingdoms.rpg.domain.Fortification.MAX_TIER) {var wallCosts=new ListTag();
+        boolean move=dev.livingkingdoms.rpg.WallService.misplaced(player.server,realm);if(move) wall.putBoolean("move",true);
+        if(wallTier<dev.livingkingdoms.rpg.domain.Fortification.MAX_TIER || move) {var wallCosts=new ListTag();
             for(var entry:dev.livingkingdoms.rpg.WallService.nextCost(player.server,realm).entrySet()) {var cost=new CompoundTag();cost.putString("resource",entry.getKey().key());cost.putInt("amount",entry.getValue());cost.putInt("available",account.balance(entry.getKey()));wallCosts.add(cost);}
             wall.put("costs",wallCosts);}
         wall.putInt("breaches",dev.livingkingdoms.rpg.WallService.breaches(realm.id()));
         var design=dev.livingkingdoms.rpg.persistence.RpgSavedData.get(player.server).design(realm.id());
         wall.putInt("gates",design.gates());wall.putBoolean("towers",design.towers());wall.putBoolean("gatehouses",design.gatehouses());
-        dev.livingkingdoms.rpg.persistence.RpgSavedData.get(player.server).wall(realm.id()).ifPresent(w->{wall.putBoolean("complete",w.complete());wall.putInt("radius",w.radius());});
+        // Progress and ring data for the tab body and the client-side ground preview (centre = territory centre).
+        var rpg=dev.livingkingdoms.rpg.persistence.RpgSavedData.get(player.server);var standing=rpg.wall(realm.id()).filter(w->w.tier()>0);
+        int nextRadius=dev.livingkingdoms.rpg.WallService.radiusFor(realm);wall.putInt("radius",nextRadius);
+        int total=dev.livingkingdoms.rpg.domain.WallGeometry.of(standing.map(dev.livingkingdoms.rpg.domain.Fortification::radius).orElse(nextRadius),design).size();wall.putInt("total",total);
+        wall.putInt("built",standing.map(w->w.complete()?total:Math.min(w.built(),total)).orElse(0));
+        standing.ifPresent(w->{wall.putBoolean("complete",w.complete());wall.putInt("ringRadius",w.radius());});
+        if(rpg.oldRadius(realm.id()).isPresent()) wall.putBoolean("old_ring",true);
+        var t=realm.territory();wall.putString("dimension",t.dimension());wall.putInt("cx",t.x());wall.putInt("cy",t.y());wall.putInt("cz",t.z());
         for(var order:new String[]{"gates","towers","gatehouses"}) dev.livingkingdoms.rpg.WallService.designBlocked(player.server,realm.id(),order).ifPresent(r->wall.putString("blocked_"+order,r));
         wall.put("tower_costs",costList(dev.livingkingdoms.rpg.WallService.towerCost(),account));
         wall.put("gatehouse_costs",costList(dev.livingkingdoms.rpg.WallService.gatehouseCost(design.gates()),account));

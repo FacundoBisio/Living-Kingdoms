@@ -146,6 +146,8 @@ public final class KingdomMapScreen extends KingdomScreen {
         y += 6;
         if (away > 0) { g.drawString(font, Component.translatable("map.livingkingdoms.away", away), sideX, y, VillageTheme.INK, false); y += 11; }
         if (data.contains("wall_tier")) { g.drawString(font, Component.translatable("map.livingkingdoms.wall", Component.translatable("wall.livingkingdoms.tier." + data.getInt("wall_tier"))), sideX, y, VillageTheme.INK, false); y += 11; }
+        // The map has no Mayor session, so it cannot open the walls tab itself: point the player at the real path.
+        if (data.contains("wall_tier")) for (var line : font.split(Component.translatable("map.livingkingdoms.wall_hint"), Math.max(40, left + panelW - 12 - sideX))) { g.drawString(font, line, sideX, y, VillageTheme.MUTED, false); y += 10; }
         if (!hover.isEmpty()) {
             List<FormattedCharSequence> lines = new ArrayList<>();
             for (var line : hover) lines.add(line.getVisualOrderText());

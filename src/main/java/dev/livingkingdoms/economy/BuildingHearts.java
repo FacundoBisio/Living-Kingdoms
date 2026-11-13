@@ -25,6 +25,7 @@ import java.util.*;
 public final class BuildingHearts {
     private static final Map<UUID, Long> CHECKED = new HashMap<>();
     private BuildingHearts() {}
+    public static void clear() { CHECKED.clear(); }
 
     public static void use(ServerPlayer player, BlockPos pos) {
         var settlement = SettlementSavedData.get(player.server).alliedAt(player.level().dimension().location().toString(), pos.getX(), pos.getZ()).orElse(null);

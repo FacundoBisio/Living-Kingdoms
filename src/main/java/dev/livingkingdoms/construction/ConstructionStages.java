@@ -26,6 +26,7 @@ public final class ConstructionStages {
     private static final int CACHE_LIMIT = 32;
     private static final Map<UUID, Cached> CACHE = new LinkedHashMap<>();
     private ConstructionStages() {}
+    public static void clear() { CACHE.clear(); }
 
     public enum Result { APPLIED, UNLOADED, BLOCKED }
     private record Cached(SettlementLayout plan, Blueprint blueprint) {}

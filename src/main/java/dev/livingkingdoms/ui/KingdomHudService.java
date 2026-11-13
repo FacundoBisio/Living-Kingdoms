@@ -54,17 +54,33 @@ public final class KingdomHudService {
                             if(ready>0) settlement.putInt("contracts_ready",ready);
                         });
                         dev.livingkingdoms.construction.ConstructionService.current(player.server,s.id()).ifPresent(entry -> {
-                            var origin=entry.plan().buildings().getFirst().origin();
-                            if(origin.distSqr(player.blockPosition())<=24*24 && entry.project().state()==dev.livingkingdoms.construction.domain.ConstructionState.BUILDING) {
-                                var site=new CompoundTag(); site.putString("building",entry.project().building().name().toLowerCase(java.util.Locale.ROOT));
-                                site.putInt("percent",(int)Math.round(entry.project().progress(player.server.overworld().getGameTime())*100));
-                                site.putInt("helpers",dev.livingkingdoms.construction.ConstructionService.assistants(entry.project().id())+(entry.project().builderId()!=null?1:0));
-                                site.putBoolean("blocked",dev.livingkingdoms.construction.ConstructionService.reason(entry.project().id()).isPresent());
-                                settlement.put("site",site);
+                            var origin=entry.plan().buildings().getFirst().origin(); var p=entry.project();
+                            if(origin.distSqr(player.blockPosition())>24*24 || p.state()==dev.livingkingdoms.construction.domain.ConstructionState.COMPLETED) return;
+                            var reason=dev.livingkingdoms.construction.ConstructionService.reason(p.id());
+                            boolean building=p.state()==dev.livingkingdoms.construction.domain.ConstructionState.BUILDING;
+                            var next=dev.livingkingdoms.rpg.QuestGuides.next(reason.isPresent(),p.funded(),p.builderRequired(),p.builderId()!=null,building);
+                            if(next==dev.livingkingdoms.rpg.QuestGuides.Next.NONE) return;
+                            var site=new CompoundTag(); site.putString("building",p.building().name().toLowerCase(java.util.Locale.ROOT));
+                            site.putInt("percent",(int)Math.round(p.progress(player.server.overworld().getGameTime())*100));
+                            site.putInt("helpers",dev.livingkingdoms.construction.ConstructionService.assistants(p.id())+(p.builderId()!=null?1:0));
+                            site.putBoolean("blocked",reason.isPresent());
+                            site.putString("next",next.name().toLowerCase(java.util.Locale.ROOT));
+                            reason.ifPresent(r -> { site.putString("reason",r.key()); var args=new net.minecraft.nbt.ListTag(); r.args().forEach(a -> args.add(net.minecraft.nbt.StringTag.valueOf(a))); site.put("reason_args",args); });
+                            if(next==dev.livingkingdoms.rpg.QuestGuides.Next.NEEDS) {
+                                var missing=new net.minecraft.nbt.ListTag();
+                                for(var kind:dev.livingkingdoms.quest.expansion.domain.ResourceKind.values()) if(p.missing(kind)>0 && missing.size()<3) {
+                                    var m=new CompoundTag(); m.putString("item",dev.livingkingdoms.economy.StockResource.of(kind).name().toLowerCase(java.util.Locale.ROOT)); m.putInt("count",p.missing(kind)); missing.add(m);
+                                }
+                                site.put("missing",missing);
                             }
+                            settlement.put("site",site);
                         });
-                        dev.livingkingdoms.rpg.persistence.RpgSavedData.get(player.server).wall(s.id()).filter(w -> !w.complete()).ifPresent(w ->
-                                settlement.putInt("wall_building",w.tier()));
+                        var rpg=dev.livingkingdoms.rpg.persistence.RpgSavedData.get(player.server);
+                        rpg.wall(s.id()).filter(w -> !w.complete()).ifPresent(w -> {
+                            settlement.putInt("wall_building",w.tier());
+                            settlement.putInt("wall_percent",dev.livingkingdoms.rpg.domain.Fortification.percent(w.built(),
+                                    dev.livingkingdoms.rpg.domain.WallGeometry.of(w.radius(),rpg.design(s.id())).size(),false));
+                        });
                         long now=player.server.overworld().getGameTime();
                         dev.livingkingdoms.rpg.persistence.RpgSavedData.get(player.server).expeditions().stream().filter(x -> x.settlement().equals(s.id()))
                                 .min(java.util.Comparator.comparingLong(x -> x.remaining(now))).ifPresent(x -> {
@@ -75,6 +91,18 @@ public final class KingdomHudService {
                         long alarm=dev.livingkingdoms.rpg.AlarmService.remaining(player.server,s.id());if(alarm>0) settlement.putInt("alarm",(int)(alarm/20));
                     }
                     tag.put("settlement",settlement);
+                    // Nothing tracked: surface the player's current Chapter II mission (one saved-data read, progress only when accepted).
+                    if(!settlement.getBoolean("hostile") && quests.tracked(player.getUUID()).isEmpty()
+                            && s.lifecycle()==dev.livingkingdoms.settlement.domain.SettlementLifecycle.ESTABLISHED && dev.livingkingdoms.onboarding.KingdomOnboardingService.canHelp(player,s)) {
+                        var missions=dev.livingkingdoms.rpg.domain.KingdomMission.values();
+                        var chapter=dev.livingkingdoms.rpg.persistence.RpgSavedData.get(player.server).chapter(player.getUUID());
+                        int index=chapter.accepted()>=0?chapter.accepted():chapter.next(missions.length);
+                        if(index<missions.length) {
+                            var c=new CompoundTag(); c.putString("id",missions[index].id()); c.putInt("target",missions[index].target()); c.putBoolean("accepted",chapter.accepted()==index);
+                            if(chapter.accepted()==index) c.putInt("progress",Math.min(missions[index].target(),dev.livingkingdoms.rpg.ChapterService.progress(player,s,missions[index],chapter)));
+                            tag.put("chapter",c);
+                        }
+                    }
                 });
         quests.tracked(player.getUUID()).ifPresent(q -> tag.put("quest",VillageUiService.questView(player,q)));
         if(!tag.isEmpty()) tag.putString("dimension",player.level().dimension().location().toString());

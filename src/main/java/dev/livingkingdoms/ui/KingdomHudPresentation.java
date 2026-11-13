@@ -18,6 +18,11 @@ public final class KingdomHudPresentation {
     private KingdomHudPresentation() {}
 
     public static Panels describe(CompoundTag data, boolean expanded, boolean showKingdom, boolean showQuest) {
+        return describe(data, expanded, showKingdom, showQuest, null);
+    }
+
+    /** {@code bearing} is computed on the client from the player's own position (null when unknown). */
+    public static Panels describe(CompoundTag data, boolean expanded, boolean showKingdom, boolean showQuest, Component bearing) {
         var kingdom = new ArrayList<Row>(); var quest = new ArrayList<Row>();
         if (showKingdom && data.contains("settlement", 10)) {
             var local = data.getCompound("settlement");
@@ -42,13 +47,12 @@ public final class KingdomHudPresentation {
                     }
                 }
                 if (local.contains("site", 10)) {
-                    var site = local.getCompound("site");
-                    kingdom.add(new Row(Icon.PROGRESS, tr(site.getBoolean("blocked") ? "site_blocked" : "site",
-                            Component.translatable("construction.livingkingdoms.building." + site.getString("building")),
-                            Math.clamp(site.getInt("percent"), 0, 100), site.getInt("helpers")), site.getBoolean("blocked") ? Tone.WARNING : Tone.NORMAL));
+                    kingdom.add(siteRow(local.getCompound("site")));
                 }
                 if (local.getInt("contracts_ready") > 0) kingdom.add(new Row(Icon.CHECK, tr("contracts_ready", local.getInt("contracts_ready")), Tone.SUCCESS));
-                if (local.contains("wall_building")) kingdom.add(new Row(Icon.SHIELD, tr("wall_building"), Tone.MUTED));
+                // Older servers send no percent: keep the plain line.
+                if (local.contains("wall_building")) kingdom.add(new Row(Icon.SHIELD, local.contains("wall_percent")
+                        ? tr("wall_building_percent", Math.clamp(local.getInt("wall_percent"), 0, 100)) : tr("wall_building"), Tone.MUTED));
                 if (local.getInt("expeditions") > 0) {
                     long next = Math.max(0, local.getLong("expedition_next"));
                     kingdom.add(new Row(Icon.LOCATION, tr("expeditions", local.getInt("expeditions"), String.format(java.util.Locale.ROOT, "%d:%02d", next / 60, next % 60)), Tone.NORMAL));
@@ -70,6 +74,7 @@ public final class KingdomHudPresentation {
                     : Component.translatable("quest.livingkingdoms." + template + ".title");
             quest.add(new Row(Icon.QUEST, title.copy().withStyle(ChatFormatting.BOLD), Tone.TITLE));
             quest.add(new Row(Icon.PROGRESS, objective(tracked), Tone.NORMAL));
+            if (bearing != null && tracked.contains("target_x")) quest.add(new Row(Icon.LOCATION, bearing, Tone.NORMAL));
             var requirements = tracked.getList("requirements", 10);
             for (int i = 0; i < Math.min(4, requirements.size()); i++) {
                 var item = requirements.getCompound(i); int total = Math.clamp(item.getInt("required"), 1, 100_000);
@@ -90,7 +95,42 @@ public final class KingdomHudPresentation {
             if (expanded && tracked.contains("target_x")) quest.add(new Row(Icon.LOCATION,
                     Component.translatable("quest.livingkingdoms.party_location", tracked.getInt("target_x"), tracked.getInt("target_z")), Tone.MUTED));
         }
+        else if (showQuest && data.contains("chapter", 10)) chapter(quest, data.getCompound("chapter"));
         return new Panels(kingdom, quest);
+    }
+    /** The ONE next step of the nearby project; older servers send only the "blocked" flag. */
+    private static Row siteRow(CompoundTag site) {
+        boolean blocked = site.getBoolean("blocked");
+        String next = site.getString("next");
+        if (next.equals("reason") && site.getString("reason").matches("construction\\.livingkingdoms\\.reason\\.[a-z_]{1,16}")) {
+            var args = site.getList("reason_args", 8);
+            return new Row(Icon.PROGRESS, Component.translatable(site.getString("reason"), args.size() > 0 ? clip(args.getString(0)) : "", args.size() > 1 ? clip(args.getString(1)) : ""), Tone.WARNING);
+        }
+        if (next.equals("needs") && !site.getList("missing", 10).isEmpty()) {
+            var list = site.getList("missing", 10); Component joined = Component.empty();
+            for (int i = 0; i < Math.min(2, list.size()); i++) {
+                var item = list.getCompound(i); String id = item.getString("item");
+                joined = joined.copy().append(i == 0 ? "" : ", ").append(Math.clamp(item.getInt("count"), 0, 100_000) + " ")
+                        .append(id.matches("[a-z_]{1,16}") ? Component.translatable("economy.livingkingdoms.resource." + id) : Component.literal("?"));
+            }
+            if (list.size() > 2) joined = joined.copy().append("\u2026");
+            return new Row(Icon.PROGRESS, tr("site_needs", joined), Tone.WARNING);
+        }
+        if (next.equals("builder")) return new Row(Icon.PROGRESS, tr("site_builder"), Tone.WARNING);
+        return new Row(Icon.PROGRESS, tr(blocked ? "site_blocked" : "site",
+                Component.translatable("construction.livingkingdoms.building." + site.getString("building")),
+                Math.clamp(site.getInt("percent"), 0, 100), site.getInt("helpers")), blocked ? Tone.WARNING : Tone.NORMAL);
+    }
+    private static String clip(String text) { return text.length() > 40 ? text.substring(0, 40) : text; }
+    /** Shown only when nothing is tracked, with a prefix so it is not mistaken for a tracked quest. */
+    private static void chapter(List<Row> rows, CompoundTag chapter) {
+        String id = chapter.getString("id");
+        if (!id.matches("[a-z_]{1,24}")) return;
+        rows.add(new Row(Icon.QUEST, tr("chapter", Component.translatable("chapter.livingkingdoms." + id + ".title")).copy().withStyle(ChatFormatting.BOLD), Tone.TITLE));
+        int target = Math.clamp(chapter.getInt("target"), 1, 100_000);
+        if (!chapter.getBoolean("accepted")) rows.add(new Row(Icon.PROGRESS, tr("chapter_accept"), Tone.NORMAL));
+        else rows.add(new Row(Icon.PROGRESS, tr("chapter_goal", Component.translatable("chapter.livingkingdoms." + id + ".goal", target),
+                Math.clamp(chapter.getInt("progress"), 0, target), target), Tone.NORMAL));
     }
     private static Component objective(CompoundTag quest) {
         String key = switch (quest.getString("template")) {

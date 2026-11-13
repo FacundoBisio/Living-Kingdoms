@@ -33,9 +33,13 @@ public final class ConstructionService {
     /** Transient, bounded diagnostics: foreign blocks to clear and the last visible blocking reason per project. */
     private static final Map<UUID,List<BlockPos>> OBSTACLES=new LinkedHashMap<>();
     private static final Map<UUID,Reason> REASONS=new LinkedHashMap<>();
+    /** Transient, bounded: the last stall reason key already announced per project, so a retry loop alerts once. */
+    private static final Map<UUID,String> ALERTED=new LinkedHashMap<>();
     /** Helper Builders per project: citizen -> last game time they helped. */
     private static final Map<UUID,Map<UUID,Long>> ASSISTANTS=new LinkedHashMap<>();
     public static final int MAX_ASSISTANTS=2;
+    /** Server stop: drops every per-project transient map; all of it is re-derived from saved receipts. */
+    public static void clear() { SITE_RETRY.clear(); CHUNKS.clear(); WORK_POINTS.clear(); OBSTACLES.clear(); REASONS.clear(); ALERTED.clear(); ASSISTANTS.clear(); SAFE_POINTS.clear(); }
     public record Reason(String key,List<String> args) {}
     private record LoadedPlan(SettlementLayout plan,Set<Long> chunks) {}
     private record WorkPoint(SettlementLayout plan,BlockPos feet) {}
@@ -259,7 +263,7 @@ public final class ConstructionService {
             if(entry.project().state()==ConstructionState.BUILDING) storage.replace(entry.project(),entry.project().fail());
             LogUtils.getLogger().warn("Construction {} blocked; blueprint and supplied resources retained: {}",projectId,failure.toString()); return false;
         }
-        SITE_RETRY.remove(projectId); REASONS.remove(projectId); OBSTACLES.remove(projectId); ASSISTANTS.remove(projectId);
+        SITE_RETRY.remove(projectId); REASONS.remove(projectId); ALERTED.remove(projectId); OBSTACLES.remove(projectId); ASSISTANTS.remove(projectId);
         if(!debug) dev.livingkingdoms.chronicle.ChronicleService.buildingCompleted(server,settlement.id(),projectId,entry.project().building());
         if(!debug) dev.livingkingdoms.rpg.KingdomProgressService.awardKingdom(server,settlement.id(),dev.livingkingdoms.rpg.domain.KingdomRank.CONSTRUCTION_XP,actor);
         try { ensureNext(level,settlement.id(),actor); }
@@ -438,12 +442,17 @@ public final class ConstructionService {
     static boolean clearObstacles(ServerLevel level,ConstructionSavedData.Entry entry,Villager builder) {
         var list=OBSTACLES.get(entry.project().id()); if(list==null || list.isEmpty()) return false;
         int budget=builder!=null && builder.getMainHandItem().is(net.minecraft.tags.ItemTags.PICKAXES)?3:1; boolean worked=false;
-        var iterator=list.iterator();
+        var iterator=list.iterator(); var settlement=SettlementSavedData.get(level.getServer()).get(entry.project().settlementId()).orElse(null);
+        if(stuck(entry.project().id())) REASONS.remove(entry.project().id()); // re-derived below if the block is still there
         while(iterator.hasNext() && budget>0) {
             var pos=iterator.next();
             if(!level.hasChunkAt(pos)) continue;
             var state=level.getBlockState(pos);
             if(ConstructionStages.tolerable(state)) { iterator.remove(); continue; }
+            // The kingdom wall is never an obstacle Builders may tear down: report it and leave it standing.
+            if(settlement!=null && dev.livingkingdoms.rpg.WallFootprint.owned(level,settlement,pos)) {
+                reason(entry.project().id(),"wall",pos,state.getBlock().getName().getString()); continue;
+            }
             if(level.getBlockEntity(pos)!=null || state.getDestroySpeed(level,pos)<0) {
                 reason(entry.project().id(),"protected",pos,state.getBlock().getName().getString()); continue;
             }
@@ -456,8 +465,8 @@ public final class ConstructionService {
             if(expected!=null) level.setBlock(pos,expected,net.minecraft.world.level.block.Block.UPDATE_ALL);
             iterator.remove(); budget--; worked=true;
         }
-        if(list.isEmpty()) { OBSTACLES.remove(entry.project().id()); REASONS.remove(entry.project().id()); SITE_RETRY.remove(entry.project().id()); }
-        else highlight(level,list);
+        if(list.isEmpty()) { OBSTACLES.remove(entry.project().id()); REASONS.remove(entry.project().id()); ALERTED.remove(entry.project().id()); SITE_RETRY.remove(entry.project().id()); }
+        else { highlight(level,list); alertBlocked(level.getServer(),entry.project().settlementId(),entry.project().id()); }
         return worked;
     }
     private static void highlight(ServerLevel level,List<BlockPos> positions) {
@@ -533,6 +542,7 @@ public final class ConstructionService {
         if(!REASONS.containsKey(project) && REASONS.size()>=256) REASONS.remove(REASONS.keySet().iterator().next());
         REASONS.put(project,new Reason("construction.livingkingdoms.reason."+key,List.of(subject,pos.getX()+" "+pos.getY()+" "+pos.getZ())));
     }
+    private static boolean stuck(UUID project) { var r=REASONS.get(project); return r!=null && (r.key().endsWith(".wall") || r.key().endsWith(".protected")); }
     public static Optional<Reason> reason(UUID project) { return Optional.ofNullable(REASONS.get(project)); }
     public static List<BlockPos> obstacles(UUID project) { return List.copyOf(OBSTACLES.getOrDefault(project,List.of())); }
     private static boolean workerEligible(MinecraftServer server,ConstructionSavedData.Entry entry) {
@@ -580,7 +590,7 @@ public final class ConstructionService {
                 next=next.awardStageXp(stage); reward+=BuilderConfig.XP_PER_STAGE.get();
             }
             if(!ConstructionSavedData.get(server).replace(entry.project(),next)) return false;
-            transaction.commit(); if(reward>0) reward(server,next.builderId(),reward); SITE_RETRY.remove(next.id()); REASONS.remove(next.id()); return true;
+            transaction.commit(); if(reward>0) reward(server,next.builderId(),reward); SITE_RETRY.remove(next.id()); REASONS.remove(next.id()); ALERTED.remove(next.id()); return true;
         }
     }
     private static void reward(MinecraftServer server,UUID citizen,int xp) {
@@ -588,13 +598,29 @@ public final class ConstructionService {
         var jobs=ProfessionSavedData.get(server); jobs.profession(citizen).ifPresent(p -> jobs.builderExperience(p,xp,BuilderConfig.LEVEL_CAP.get(),BuilderConfig.XP_STEP.get()));
     }
     private static void blocked(MinecraftServer server,ConstructionSavedData.Entry entry,ConstructionStages.Transaction transaction) {
+        blockedInner(server,entry,transaction); alertBlocked(server,entry.project().settlementId(),entry.project().id());
+    }
+    /** True only the first time this project reports this reason (a project that recovers and stalls again alerts again). */
+    public static boolean firstAlert(UUID project,String reasonKey) {
+        if(reasonKey.equals(ALERTED.get(project))) return false;
+        if(!ALERTED.containsKey(project) && ALERTED.size()>=256) ALERTED.remove(ALERTED.keySet().iterator().next());
+        ALERTED.put(project,reasonKey); return true;
+    }
+    private static void alertBlocked(MinecraftServer server,UUID settlement,UUID project) {
+        var r=REASONS.get(project); if(r==null || !firstAlert(project,r.key())) return;
+        var text=Component.translatable("construction.livingkingdoms.alert",Component.translatable(r.key(),r.args().get(0),r.args().get(1)));
+        for(var player:server.getPlayerList().getPlayers())
+            if(dev.livingkingdoms.onboarding.persistence.KingdomOnboardingSavedData.get(server).stage(player.getUUID(),settlement)==dev.livingkingdoms.onboarding.domain.OnboardingStage.JOINED) player.sendSystemMessage(text);
+    }
+    private static void blockedInner(MinecraftServer server,ConstructionSavedData.Entry entry,ConstructionStages.Transaction transaction) {
         var p=entry.project(); var storage=ConstructionSavedData.get(server);
         if(transaction.result()==ConstructionStages.Result.UNLOADED) return;
         if(!transaction.obstacles().isEmpty()) {
             if(!OBSTACLES.containsKey(p.id()) && OBSTACLES.size()>=256) OBSTACLES.remove(OBSTACLES.keySet().iterator().next());
             OBSTACLES.put(p.id(),new ArrayList<>(transaction.obstacles()));
             var first=transaction.obstacles().getFirst(); var level=level(server,entry);
-            reason(p.id(),"obstacle",first,level==null?"?":level.getBlockState(first).getBlock().getName().getString());
+            // Keep a wall/protected reason from clearObstacles: "Builders are clearing it" would be a lie there.
+            if(!stuck(p.id())) reason(p.id(),"obstacle",first,level==null?"?":level.getBlockState(first).getBlock().getName().getString());
             if(p.builderRequired()) { if(SITE_RETRY.size()>=1024) SITE_RETRY.remove(SITE_RETRY.keySet().iterator().next()); SITE_RETRY.put(p.id(),now(server)+20); }
             else { if(p.awaitingChunks()) storage.replace(p,p.resume()); storage.scheduleSiteRetry(p.id(),now(server)); }
             return;

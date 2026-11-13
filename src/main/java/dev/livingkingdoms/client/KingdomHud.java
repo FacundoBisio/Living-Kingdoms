@@ -1,6 +1,7 @@
 package dev.livingkingdoms.client;
 
 import dev.livingkingdoms.config.ClientHudConfig;
+import dev.livingkingdoms.ui.Bearing;
 import dev.livingkingdoms.ui.DialoguePages;
 import dev.livingkingdoms.ui.KingdomHudLayout;
 import dev.livingkingdoms.ui.KingdomHudPresentation;
@@ -28,6 +29,7 @@ public final class KingdomHud {
     private static boolean dirty=true,expanded,showKingdom,showQuest;
     private static int bossBarBottom,cachedBoss=-1,cachedW=-1,cachedH=-1,cachedX,cachedY,cachedWidth;
     private static long visibleTicks;
+    private static String cachedBearing="";
     private static Language language;
     private KingdomHud() {}
 
@@ -58,13 +60,15 @@ public final class KingdomHud {
                 || client.gui.getDebugOverlay().showDebugScreen() || !ClientHudConfig.HUD_ENABLED.get()) return;
         int x=ClientHudConfig.X.get(),y=ClientHudConfig.Y.get(),width=ClientHudConfig.WIDTH.get();
         boolean wide=ClientHudConfig.EXPANDED.get(),local=ClientHudConfig.SHOW_KINGDOM.get(),tracked=ClientHudConfig.SHOW_QUEST.get();
+        String bearing=bearing(client);
+        if(!bearing.equals(cachedBearing)) { cachedBearing=bearing; dirty=true; }
         if(dirty || cachedW!=graphics.guiWidth() || cachedH!=graphics.guiHeight() || cachedBoss!=bossBarBottom
                 || cachedX!=x || cachedY!=y || cachedWidth!=width || expanded!=wide || showKingdom!=local || showQuest!=tracked
                 || language!=Language.getInstance()) {
             cachedW=graphics.guiWidth(); cachedH=graphics.guiHeight(); cachedBoss=bossBarBottom;
             cachedX=x; cachedY=y; cachedWidth=width; expanded=wide; showKingdom=local; showQuest=tracked;
             language=Language.getInstance(); dirty=false;
-            var panels=KingdomHudPresentation.describe(data,wide,local,tracked);
+            var panels=KingdomHudPresentation.describe(data,wide,local,tracked,bearing.isEmpty()?null:Component.literal(bearing));
             int actualWidth=Math.min(Math.max(160,width),Math.max(80,cachedW-12));
             var localLines=wrap(panels.kingdom(),actualWidth-28);
             var questLines=wrap(panels.quest(),actualWidth-28);
@@ -72,6 +76,14 @@ public final class KingdomHud {
             kingdom=card(layout.kingdom(),localLines); quest=card(layout.quest(),questLines);
         }
         draw(graphics,kingdom); draw(graphics,quest);
+    }
+    /** Arrow + metres to the tracked target, from the player's own position and yaw; the string only changes a few times a second. */
+    private static String bearing(Minecraft client) {
+        var quest=data.getCompound("quest");
+        if(!quest.contains("target_x") || client.player==null) return "";
+        double dx=quest.getInt("target_x")+0.5-client.player.getX(),dz=quest.getInt("target_z")+0.5-client.player.getZ();
+        if(Bearing.here(dx,dz)) return Language.getInstance().getOrDefault("hud.livingkingdoms.here");
+        return Bearing.arrow(dx,dz,client.player.getYRot())+" "+Bearing.metres(dx,dz)+" m";
     }
     private static List<Line> wrap(List<KingdomHudPresentation.Row> rows,int width) {
         var result=new ArrayList<Line>(); var font=Minecraft.getInstance().font;

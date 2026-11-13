@@ -160,6 +160,59 @@ Format: **What happened** → **Rule** → **Check**.
 41. **The Mayor's seat was three blocks from the doorstep**, i.e. inside the doorway, blocking everyone (0.36).
     → Seats and posts are measured from the building's depth, never a fixed step from the entrance.
 
+42. **Diagonal towers landed on 3-gate gatehouses** (gates at 210°/330° sit 15° from the diagonals) for radii 8–16 (0.38).
+    → Gates face cardinal directions; towers slide along the ring until their 3×3 footprint clears every gatehouse.
+
+43. **Wall ground detection stopped at the first air**, so on a main gate it read our own lintel as ground and every
+    rebuild, gate cycle or tier upgrade stacked a new lintel three blocks higher (0.38).
+    → One shared ground function descends through air, plants, logs and our own pieces: same Y before and after building.
+
+44. **Wall ownership was decided by material alone**, so sieges, breaches and repairs could break or overwrite a
+    player's stone-brick house or spruce-fence lamp post next to the ring (0.38).
+    → A block is ours only if it is wall material AND its XZ offset lies on the wall footprint.
+
+45. **Wall tests ran on a flat grass fixture**, which hid every terrain bug (plants, trunks, water, slopes, lintel
+    drift) until playtest (0.38).
+    → GameTests for world-writing features place real terrain on the affected cells and rerun the operation twice.
+46. **The plot planner and Builders never asked about the wall**, so new houses were planned over the ring or a gate
+    and obstacle clearing silently dug permanent holes in it (0.38).
+    → Systems that write the same world space query one shared read-only footprint (`WallFootprint`) before writing.
+
+47. **Wall progress waited for the next column's chunk to load**, so a large ring with a low simulation distance stayed
+    "building" forever and blocked every other wall order (0.38).
+    → Never gate progress on chunk loading: skip the unloaded piece, finish, and let a bounded sweep fill it in later.
+
+48. **Wall breaches lived only in a static map**, so after a restart or crash broken pieces were never repaired (0.38).
+    → Transient bookkeeping is only a fast path; whatever must survive a restart is re-derived by diffing the world.
+
+49. **Tower and gatehouse orders charged first and built second**, so unloaded chunks or buildings on the footprint
+    took the full price for nothing and marked the design done (0.38).
+    → Check that the work can actually be done (chunks loaded, room to build) before paying; refusing is free, refunds are not.
+
+50. **Static per-world maps survived leaving a world**, so re-entering the same world in one session reused stale obstacles, cursors and caches (0.38).
+    → Register every static transient collection for cleanup on ServerStoppingEvent in the same change that introduces it.
+
+51. **The Founders' Lodge conversion teleported residents to a fixed point and ignored players**, so they could end up inside a block, in water or inside the new walls (0.38).
+    → Relocation always goes through a bounded standable-spot search (two free blocks, sturdy dry floor, loaded chunk, outside other plots); a fixed offset is only the last resort.
+
+52. **The wall radius was derived from the territory once and stored, but never refreshed when the territory grew**, so the next upgrade raised a second ring and a tier-3 wall could never follow the border (0.38).
+    → When a persisted value is derived from another, every change of the source must re-derive it or record the stale value to undo (here: the old ring is kept as `oldRadius` and demolished gradually).
+
+53. **Walls were only reachable through Mayor → Construction → Walls, and the chapter text pointed to "Management → Walls", a path that does not exist**, so players could not find them (0.38).
+    → Every in-text path names buttons that exist, built from the button's own locale key where possible; a feature needs an entry on the Mayor's main page, and the in-game "How do I…?" guide (`GuideScreen`) lists the paths and live key bindings.
+
+54. **The Walls tab hid its cost in a tooltip, never said how far along the ring was, and had no page buttons**, so long text was cut and players could not tell what an order did (0.38).
+    → Costs, progress and "how it works" live in the visible body; a tab that returns early from `init()` must still add the shared page buttons; a ground preview shows where a ring goes before paying.
+
+55. **Construction showed "blocked!" without saying why, the checklist lived only inside one quest, and the HUD never pointed at a mission target**, so owners called building and missions "not intuitive" (0.38).
+    → Every long-running objective shows its ONE next step (missing materials, assign a Builder, the real stall reason) derived on the server from the same state as its checklist; stalls announce once per reason (transient, de-duplicated); distances and arrows are computed on the client from the player's own position.
+
+56. **The repair sweep charged per block for columns the tier price had already paid** (skipped during the build because their chunk was not loaded), and the Trials button hid its lock reason in a tooltip on a disabled button (0.38).
+    → When a paid job defers part of its work, remember what was deferred so the catch-up path is free; a disabled button never carries the only explanation: open the screen and show the requirement in the body.
+
+57. **A GameTest let a live raider fight a live guard and asserted the guard survived**, so it failed whenever the raider won, and its arrows could reach a neighbouring fixture (0.38).
+    → A test that needs real AI pins the outcome it is not testing (invulnerable ally, fixed target) and puts liveness and distance in its failure message.
+
 ## Adding an entry
 
 Append to the right section with the next number. Keep it to three lines. If the rule changes how features are
