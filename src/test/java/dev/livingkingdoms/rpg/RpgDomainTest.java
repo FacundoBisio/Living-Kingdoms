@@ -4,6 +4,7 @@ import dev.livingkingdoms.construction.ConstructionService;
 import dev.livingkingdoms.quest.expansion.domain.QuestCategory;
 import dev.livingkingdoms.quest.expansion.domain.QuestDifficulty;
 import dev.livingkingdoms.quest.expansion.domain.QuestTemplate;
+import dev.livingkingdoms.rpg.domain.ChallengeModifier;
 import dev.livingkingdoms.rpg.domain.ChallengeTier;
 import dev.livingkingdoms.rpg.domain.QuestBonus;
 import dev.livingkingdoms.rpg.domain.RallyPolicy;
@@ -57,6 +58,22 @@ class RpgDomainTest {
         assertEquals(0, easy.tomes()); assertEquals(1, hard.tomes());
         assertTrue(QuestBonus.of(QuestTemplate.BANDIT_REQUEST, QuestDifficulty.VERY_EASY).whetstones() >= 1, "Combat always pays a whetstone");
         assertThrows(IllegalArgumentException.class, () -> new QuestBonus(-1, 0, 0));
+    }
+
+    @Test void challengeModifiersAreBoundedAndPayPerHandicap() {
+        assertTrue(ChallengeModifier.valid(0) && ChallengeModifier.of(0).isEmpty());
+        int two = ChallengeModifier.HORDE.bit() | ChallengeModifier.TIGHT.bit();
+        assertEquals(java.util.Set.of(ChallengeModifier.HORDE, ChallengeModifier.TIGHT), ChallengeModifier.of(two));
+        assertEquals(1, ChallengeModifier.extraWhetstones(ChallengeModifier.NO_HEALING.bit()));
+        assertEquals(0, ChallengeModifier.extraTomes(ChallengeModifier.NO_HEALING.bit()));
+        assertEquals(2, ChallengeModifier.extraWhetstones(two));
+        assertEquals(1, ChallengeModifier.extraTomes(two));
+        int all = 0;
+        for (var modifier : ChallengeModifier.values()) all |= modifier.bit();
+        assertFalse(ChallengeModifier.valid(all), "More than the allowed count is refused");
+        assertFalse(ChallengeModifier.valid(1 << ChallengeModifier.values().length), "Unknown bits are refused");
+        assertFalse(ChallengeModifier.valid(-1));
+        assertThrows(IllegalArgumentException.class, () -> ChallengeModifier.of(-1));
     }
 
     @Test void challengeTiersEscalate() {

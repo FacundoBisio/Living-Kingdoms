@@ -213,6 +213,9 @@ Format: **What happened** → **Rule** → **Check**.
 57. **A GameTest let a live raider fight a live guard and asserted the guard survived**, so it failed whenever the raider won, and its arrows could reach a neighbouring fixture (0.38).
     → A test that needs real AI pins the outcome it is not testing (invulnerable ally, fixed target) and puts liveness and distance in its failure message.
 
+58. **HUD site-row GameTests read the row from wherever the fixture left the player**, and failed in roughly one run of three with an empty row; the row only shows within 24 blocks of the plot (cause suspected, not reproduced in isolation) (0.39).
+    → A test of a proximity-gated view places the player at the thing it reads, and prints the whole snapshot when the assertion fails.
+
 ## Adding an entry
 
 Append to the right section with the next number. Keep it to three lines. If the rule changes how features are

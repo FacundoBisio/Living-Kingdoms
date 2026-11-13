@@ -18,12 +18,17 @@ import java.util.Locale;
 @GameTestHolder(KingdomGameTests.MOD_ID)
 @PrefixGameTestTemplate(false)
 public final class NextStepGameTests {
+    /** The site row only shows within 24 blocks of the plot, and the planner may put the plot farther from the centre. */
+    private static net.minecraft.nbt.CompoundTag hudAtSite(net.minecraft.server.level.ServerPlayer player,dev.livingkingdoms.construction.persistence.ConstructionSavedData.Entry entry) {
+        var origin=entry.plan().buildings().getFirst().origin(); player.setPos(origin.getX()+.5,origin.getY()+1,origin.getZ()-.5);
+        return KingdomHudService.snapshot(player);
+    }
     @GameTest(template="empty",timeoutTicks=600)
     public static void hudSiteRowNamesMissingMaterialsThenDropsThem(GameTestHelper h) {
         var f=ConstructionGameTests.found(h,1140000); var server=h.getLevel().getServer();
         var entry=ConstructionService.current(server,f.settlement().id()).orElseThrow(); var p=entry.project();
-        var site=KingdomHudService.snapshot(f.player()).getCompound("settlement").getCompound("site");
-        h.assertTrue(site.getString("next").equals("needs"),"An unfunded project reports the needs step, got "+site);
+        var hud=hudAtSite(f.player(),entry); var site=hud.getCompound("settlement").getCompound("site");
+        h.assertTrue(site.getString("next").equals("needs"),"An unfunded project reports the needs step, got "+site+" (alive "+f.player().isAlive()+", hud "+hud+")");
         var missing=site.getList("missing",10); int expected=0;
         for(var kind:ResourceKind.values()) if(p.missing(kind)>0 && expected<3) {
             var m=missing.getCompound(expected++);
@@ -37,7 +42,7 @@ public final class NextStepGameTests {
         }
         h.assertTrue(ConstructionService.deposit(player,f.settlement().id(),p.id()),"Project funded");
         var funded=ConstructionService.current(server,f.settlement().id()).orElseThrow().project();
-        var after=KingdomHudService.snapshot(player).getCompound("settlement");
+        var after=hudAtSite(player,entry).getCompound("settlement");
         var next=QuestGuides.next(false,funded.funded(),funded.builderRequired(),funded.builderId()!=null,funded.state()==dev.livingkingdoms.construction.domain.ConstructionState.BUILDING);
         h.assertTrue(funded.funded() && !after.getCompound("site").getString("next").equals("needs")
                 && (next==QuestGuides.Next.NONE ? !after.contains("site") : after.getCompound("site").getString("next").equals(next.name().toLowerCase(Locale.ROOT))),
@@ -60,7 +65,7 @@ public final class NextStepGameTests {
         String key=ConstructionService.reason(p.id()).orElseThrow().key();
         h.assertTrue(!ConstructionService.firstAlert(p.id(),key),"The stall was already announced once; further retries do not repeat it");
         h.assertTrue(ConstructionService.firstAlert(p.id(),"construction.livingkingdoms.reason.player"),"A different reason is a new announcement");
-        var hud=KingdomHudService.snapshot(player); var site=hud.getCompound("settlement").getCompound("site");
+        var hud=hudAtSite(player,entry); var site=hud.getCompound("settlement").getCompound("site");
         h.assertTrue(site.getString("next").equals("reason") && site.getString("reason").equals(key),"HUD shows the real stall reason: "+site
                 +" (alive "+player.isAlive()+", site distance "+Math.sqrt(entry.plan().buildings().getFirst().origin().distSqr(player.blockPosition()))+", hud "+hud+")");
         h.getLevel().setBlock(obstacle,entry.plan().before().get(obstacle),18);

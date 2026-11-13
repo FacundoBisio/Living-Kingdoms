@@ -8,6 +8,7 @@ import dev.livingkingdoms.item.KingdomItems;
 import dev.livingkingdoms.onboarding.KingdomOnboardingService;
 import dev.livingkingdoms.quest.expansion.domain.QuestTemplate;
 import dev.livingkingdoms.quest.persistence.QuestSavedData;
+import dev.livingkingdoms.rpg.domain.ChallengeModifier;
 import dev.livingkingdoms.rpg.domain.ChallengeTier;
 import dev.livingkingdoms.settlement.domain.Settlement;
 import dev.livingkingdoms.settlement.persistence.SettlementSavedData;
@@ -65,8 +66,10 @@ public final class ChallengeService {
         final BlockPos center; final long deadline; final ServerBossEvent bar;
         final java.lang.ref.WeakReference<ServerPlayer> handle;
         final Set<UUID> alive = new LinkedHashSet<>(); int wave = -1, waveSize, pending, spawnedInWave; boolean boss;
-        BlockPos gate;
-        Run(ServerPlayer owner, UUID settlement, ChallengeTier tier, String dimension, BlockPos center, long deadline) {
+        BlockPos gate; final int modifiers; final int radius;
+        boolean has(ChallengeModifier modifier) { return (modifiers & modifier.bit()) != 0; }
+        Run(ServerPlayer owner, UUID settlement, ChallengeTier tier, int modifiers, String dimension, BlockPos center, long deadline) {
+            this.modifiers = modifiers; this.radius = has(ChallengeModifier.TIGHT) ? ChallengeModifier.TIGHT_RADIUS : ARENA_RADIUS;
             this.player = owner.getUUID(); this.handle = new java.lang.ref.WeakReference<>(owner); this.settlement = settlement; this.tier = tier; this.dimension = dimension;
             this.center = center; this.deadline = deadline;
             this.bar = new ServerBossEvent(Component.empty(), BossEvent.BossBarColor.RED, BossEvent.BossBarOverlay.NOTCHED_10);
@@ -101,9 +104,11 @@ public final class ChallengeService {
         return QuestSavedData.get(player.server).completedMain(player.getUUID(), settlement.id()).contains(required(tier));
     }
 
-    public static boolean start(ServerPlayer player, ChallengeTier tier, boolean debug) {
+    public static boolean start(ServerPlayer player, ChallengeTier tier, boolean debug) { return start(player, tier, 0, debug); }
+    /** {@code modifiers} comes from the client: an unknown bit or more than the allowed count is refused outright. */
+    public static boolean start(ServerPlayer player, ChallengeTier tier, int modifiers, boolean debug) {
         Objects.requireNonNull(tier, "tier");
-        if (!player.server.isSameThread() || !player.isAlive() || player.isSpectator()) return false;
+        if (!player.server.isSameThread() || !player.isAlive() || player.isSpectator() || !ChallengeModifier.valid(modifiers)) return false;
         var level = player.serverLevel(); String dimension = level.dimension().location().toString();
         var settlement = SettlementSavedData.get(player.server).alliedAt(dimension, player.getBlockX(), player.getBlockZ()).orElse(null);
         if (settlement == null || !KingdomOnboardingService.canHelp(player, settlement)) return refuse(player, "outside");
@@ -112,12 +117,18 @@ public final class ChallengeService {
         if (!debug && COOLDOWNS.getOrDefault(player.getUUID(), 0L) > now(level)) return refuse(player, "cooldown");
         if (DefenseService.status(player.server, settlement.id()) == SettlementSafety.THREATENED) return refuse(player, "threatened");
         if (RUNS.size() >= MAX_RUNS) return refuse(player, "busy");
-        var run = new Run(player, settlement.id(), tier, dimension, player.blockPosition(), now(level) + tier.timeLimitTicks());
+        var run = new Run(player, settlement.id(), tier, modifiers, dimension, player.blockPosition(), now(level) + tier.timeLimitTicks());
         RUNS.put(player.getUUID(), run);
         run.bar.addPlayer(player);
         level.playSound(null, player.blockPosition(), SoundEvents.RAID_HORN.value(), SoundSource.HOSTILE, 1.5F, 1.0F);
         player.sendSystemMessage(Component.translatable("challenge.livingkingdoms.started", Component.translatable("challenge.livingkingdoms.tier." + tier.id()))
                 .withStyle(ChatFormatting.GOLD));
+        if (modifiers != 0) {
+            var names = Component.empty();
+            for (var modifier : ChallengeModifier.of(modifiers))
+                names.append(names.getSiblings().isEmpty() ? "" : ", ").append(Component.translatable("challenge.livingkingdoms.modifier." + modifier.id()));
+            player.sendSystemMessage(Component.translatable("challenge.livingkingdoms.modifiers", names).withStyle(ChatFormatting.RED));
+        }
         nextWave(level, player, run);
         return true;
     }
@@ -143,7 +154,7 @@ public final class ChallengeService {
         if (player == null || !player.isAlive()) { end(server, run, false, "fallen"); return; }
         var level = player.serverLevel();
         if (!level.dimension().location().toString().equals(run.dimension)
-                || player.blockPosition().distSqr(run.center) > (double) ARENA_RADIUS * ARENA_RADIUS) { end(server, run, false, "fled"); return; }
+                || player.blockPosition().distSqr(run.center) > (double) run.radius * run.radius) { end(server, run, false, "fled"); return; }
         if (now(level) > run.deadline) { end(server, run, false, "timeout"); return; }
         run.alive.removeIf(id -> !(level.getEntity(id) instanceof Mob mob) || !mob.isAlive());
         for (var id : run.alive) if (level.getEntity(id) instanceof Mob mob && mob.getTarget() != player) mob.setTarget(player);
@@ -162,7 +173,7 @@ public final class ChallengeService {
 
     private static void nextWave(ServerLevel level, ServerPlayer player, Run run) {
         run.wave++;
-        run.pending = run.tier.enemies(run.wave); run.spawnedInWave = 0;
+        run.pending = run.tier.enemies(run.wave) * (run.has(ChallengeModifier.HORDE) ? 2 : 1); run.spawnedInWave = 0;
         run.waveSize = Math.max(1, run.pending);
         double angle = level.getRandom().nextDouble() * Math.PI * 2;
         run.gate = run.center.offset((int) Math.round(Math.cos(angle) * 20), 0, (int) Math.round(Math.sin(angle) * 20));
@@ -278,8 +289,8 @@ public final class ChallengeService {
         var owner = owner(level.getServer(), run);
         if (owner != null) {
             int distance = (int) Math.sqrt(owner.blockPosition().distSqr(run.center)), seconds = (int) Math.max(0, (run.deadline - now(level)) / 20);
-            name = name.copy().append(Component.translatable("challenge.livingkingdoms.bar.range", distance, ARENA_RADIUS, String.format("%d:%02d", seconds / 60, seconds % 60))
-                    .withStyle(distance >= ARENA_RADIUS - 8 ? net.minecraft.ChatFormatting.RED : net.minecraft.ChatFormatting.GRAY));
+            name = name.copy().append(Component.translatable("challenge.livingkingdoms.bar.range", distance, run.radius, String.format("%d:%02d", seconds / 60, seconds % 60))
+                    .withStyle(distance >= run.radius - 8 ? net.minecraft.ChatFormatting.RED : net.minecraft.ChatFormatting.GRAY));
         }
         run.bar.setName(name);
         if (run.boss) {
@@ -306,8 +317,8 @@ public final class ChallengeService {
         }
         var items = new ArrayList<ItemStack>();
         items.add(new ItemStack(Items.EMERALD, run.tier.emeralds()));
-        items.add(new ItemStack(KingdomItems.ROYAL_WHETSTONE.get(), run.tier.whetstones()));
-        for (int i = 0; i < run.tier.tomes(); i++) items.add(KingdomTomes.roll(player.serverLevel(), player.getRandom()));
+        items.add(new ItemStack(KingdomItems.ROYAL_WHETSTONE.get(), run.tier.whetstones() + ChallengeModifier.extraWhetstones(run.modifiers)));
+        for (int i = 0; i < run.tier.tomes() + ChallengeModifier.extraTomes(run.modifiers); i++) items.add(KingdomTomes.roll(player.serverLevel(), player.getRandom()));
         var trophy = trophy(player.serverLevel(), run.tier.reward());
         if (!trophy.isEmpty()) items.add(trophy);
         var minimum = switch (run.tier) { case SKIRMISH -> dev.livingkingdoms.rpg.domain.LootRarity.COMMON;
@@ -356,6 +367,13 @@ public final class ChallengeService {
         if (!data.hasUUID(RUN_TAG)) return;
         UUID id = data.getUUID(RUN_TAG);
         if (RUNS.values().stream().noneMatch(run -> run.id.equals(id))) event.setCanceled(true);
+    }
+
+    /** "No healing" modifier: one map lookup per heal of a player, nothing for anyone outside a trial. */
+    public static void onHeal(net.neoforged.neoforge.event.entity.living.LivingHealEvent event) {
+        if (RUNS.isEmpty() || !(event.getEntity() instanceof ServerPlayer player)) return;
+        var run = RUNS.get(player.getUUID());
+        if (run != null && run.has(ChallengeModifier.NO_HEALING)) event.setCanceled(true);
     }
 
     public static void onPlayerDeath(LivingDeathEvent event) {

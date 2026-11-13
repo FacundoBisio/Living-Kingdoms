@@ -63,6 +63,7 @@ public final class LivingKingdoms {
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.rpg.ArcherWork::onImpact);
         NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, false, dev.livingkingdoms.rpg.ContractService::onKill);
         NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.rpg.ChallengeService::onLogout);
+        NeoForge.EVENT_BUS.addListener(dev.livingkingdoms.rpg.ChallengeService::onHeal);
         NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, false, dev.livingkingdoms.rpg.ChallengeService::onPlayerDeath);
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.server.ServerStoppingEvent event) -> {
             dev.livingkingdoms.rpg.ChallengeService.shutdown(event.getServer()); dev.livingkingdoms.rpg.RallyService.clear();

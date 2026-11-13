@@ -7,6 +7,7 @@ import dev.livingkingdoms.rpg.ChallengeService;
 import dev.livingkingdoms.rpg.RallyService;
 import dev.livingkingdoms.rpg.RefinementService;
 import dev.livingkingdoms.rpg.RewardCeremony;
+import dev.livingkingdoms.rpg.domain.ChallengeModifier;
 import dev.livingkingdoms.rpg.domain.ChallengeTier;
 import dev.livingkingdoms.rpg.domain.QuestBonus;
 import net.minecraft.core.component.DataComponents;
@@ -93,6 +94,37 @@ public final class RpgGameTests {
             h.assertTrue(player.getInventory().countItem(KingdomItems.ROYAL_WHETSTONE.get()) == ChallengeTier.SKIRMISH.whetstones(), "Victory whetstones paid once");
             h.assertTrue(player.getInventory().countItem(Items.EMERALD) == ChallengeTier.SKIRMISH.emeralds(), "Victory emeralds paid once");
             h.assertTrue(!ChallengeService.start(player, ChallengeTier.SKIRMISH, false), "Cooldown/lock prevents an immediate repeat");
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 1500)
+    public static void trialModifiersAreValidatedAppliedAndPaid(GameTestHelper h) {
+        var f = ConstructionGameTests.found(h, 199216);
+        var player = f.player(); player.getInventory().clearContent(); player.getAbilities().invulnerable = true;
+        var box = new AABB(player.blockPosition()).inflate(40);
+        int all = 0;
+        for (var modifier : ChallengeModifier.values()) all |= modifier.bit();
+        h.assertTrue(!ChallengeService.start(player, ChallengeTier.SKIRMISH, all, true), "Three modifiers at once are refused");
+        h.assertTrue(!ChallengeService.start(player, ChallengeTier.SKIRMISH, 1 << ChallengeModifier.values().length, true), "A forged modifier bit is refused");
+        h.assertTrue(!ChallengeService.running(player.getUUID()), "No run after a refused mask");
+        h.assertTrue(ChallengeService.start(player, ChallengeTier.SKIRMISH, ChallengeModifier.NO_HEALING.bit(), true), "No-healing trial starts");
+        player.setHealth(10F); player.heal(4F);
+        h.assertTrue(player.getHealth() == 10F, "Healing is blocked during a no-healing trial: " + player.getHealth());
+        ChallengeService.abandon(player);
+        player.heal(4F);
+        h.assertTrue(player.getHealth() == 14F, "Healing works again once the trial ends: " + player.getHealth());
+        int mask = ChallengeModifier.HORDE.bit() | ChallengeModifier.TIGHT.bit();
+        h.assertTrue(ChallengeService.start(player, ChallengeTier.SKIRMISH, mask, true), "Horde + tight trial starts");
+        var seen = new java.util.HashSet<java.util.UUID>();
+        h.onEachTick(() -> {
+            if (h.getTick() % 20 != 0) return;
+            for (var mob : h.getLevel().getEntitiesOfClass(Mob.class, box, m -> m.getPersistentData().hasUUID(ChallengeService.RUN_TAG))) { seen.add(mob.getUUID()); mob.kill(); }
+        });
+        h.succeedWhen(() -> {
+            h.assertTrue(!ChallengeService.running(player.getUUID()), "Run finished");
+            h.assertTrue(seen.size() > ChallengeTier.SKIRMISH.totalEnemies(), "The horde brought more than a normal trial: " + seen.size());
+            h.assertTrue(player.getInventory().countItem(KingdomItems.ROYAL_WHETSTONE.get()) == ChallengeTier.SKIRMISH.whetstones() + 2,
+                    "Two modifiers add two whetstones: " + player.getInventory().countItem(KingdomItems.ROYAL_WHETSTONE.get()));
         });
     }
 

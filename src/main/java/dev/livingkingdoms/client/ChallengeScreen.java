@@ -1,6 +1,7 @@
 package dev.livingkingdoms.client;
 
 import dev.livingkingdoms.rpg.RpgPayloads;
+import dev.livingkingdoms.rpg.domain.ChallengeModifier;
 import dev.livingkingdoms.rpg.domain.ChallengeTier;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Tooltip;
@@ -19,6 +20,9 @@ final class ChallengeScreen extends KingdomScreen {
     private final VillageScreen parent;
     private final CompoundTag data;
     private int left, top, panelWidth, panelHeight;
+
+    /** Bit mask of the handicaps picked for the next trial (client choice; the server validates it on start). */
+    private int modifiers;
 
     ChallengeScreen(VillageScreen parent, CompoundTag data) {
         super(Component.translatable("ui.livingkingdoms.challenges"));
@@ -46,10 +50,21 @@ final class ChallengeScreen extends KingdomScreen {
         }
         addRenderableWidget(new VillageButton("challenge_back", Component.translatable("ui.livingkingdoms.back"),
                 left + 10, top + panelHeight - 26, 80, () -> minecraft.setScreen(parent)));
+        // Modifier toggles fill the footer; the reward line of every tier shows what they add.
+        var all = ChallengeModifier.values(); int toggleWidth = (panelWidth - 106 - 4 * (all.length - 1)) / all.length;
+        for (int i = 0; i < all.length; i++) {
+            var modifier = all[i]; boolean on = (modifiers & modifier.bit()) != 0;
+            var toggle = addRenderableWidget(new VillageButton("challenge_modifier_" + modifier.id(), Component.translatable("challenge.livingkingdoms.modifier." + modifier.id()),
+                    left + 96 + i * (toggleWidth + 4), top + panelHeight - 26, toggleWidth, () -> { modifiers ^= modifier.bit(); rebuildWidgets(); }));
+            toggle.selected(on);
+            toggle.active = !blocked && (on || Integer.bitCount(modifiers) < ChallengeModifier.MAX_ACTIVE);
+            toggle.setTooltip(Tooltip.create(Component.translatable("ui.livingkingdoms.challenges.modifier." + modifier.id())
+                    .append("\n").append(Component.translatable("ui.livingkingdoms.challenges.modifier.limit"))));
+        }
     }
 
     private void begin(ChallengeTier tier) {
-        PacketDistributor.sendToServer(new RpgPayloads.ChallengeStart(tier));
+        PacketDistributor.sendToServer(new RpgPayloads.ChallengeStart(tier, modifiers));
         parent.onClose();
     }
 
@@ -82,7 +97,8 @@ final class ChallengeScreen extends KingdomScreen {
             else for (var part : font.split(Component.translatable("ui.livingkingdoms.challenges.requires", Component.translatable(tier.getString("requires"))), textWidth).stream().limit(2).toList()) {
                 g.drawString(font, part, left + 36, line, VillageTheme.ERROR, false); line += 11;
             }
-            var rewards = Component.translatable("ui.livingkingdoms.challenges.rewards", tier.getInt("emeralds"), tier.getInt("whetstones"), tier.getInt("tomes"));
+            var rewards = Component.translatable("ui.livingkingdoms.challenges.rewards", tier.getInt("emeralds"),
+                    tier.getInt("whetstones") + ChallengeModifier.extraWhetstones(modifiers), tier.getInt("tomes") + ChallengeModifier.extraTomes(modifiers));
             if (!tier.getString("reward").equals("none"))
                 rewards = rewards.append(" + ").append(Component.translatable("item.livingkingdoms." + (tier.getString("reward").equals("champion_axe") ? "champion_axe" : "warlord_blade")));
             if (line + 9 <= y + rowHeight - 4) g.drawString(font, font.plainSubstrByWidth(rewards.getString(), textWidth), left + 36, line, unlocked ? VillageTheme.SUCCESS : VillageTheme.MUTED, false);

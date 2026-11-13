@@ -297,6 +297,15 @@ Long loop (hours): refine a weapon to +5, win the Warlord trial, develop the Tow
 - **Founders' Lodge:** residents and players are moved to verified ground and stored items are dropped outside
   before the template is placed. Bed positions are identical in the camp and lodge templates.
 
+### 4.28 Trial modifiers (0.39)
+- The trial picker has three toggles in its footer: **Double horde** (every wave brings twice as many enemies),
+  **No healing** (no regeneration, food or potions while the trial runs) and **Radius 32** (arena limit 32
+  instead of 48). Up to two can be active.
+- Each active modifier adds one Royal Whetstone; two together also add a tome. The reward line of every tier
+  updates as toggles change, and the chosen modifiers are announced in chat when the trial starts.
+- The choice travels as a bit mask in the start payload (registrar version bumped) and is validated on the
+  server; it lives only in the transient run, never in SavedData. Unknown bits or more than two are refused.
+
 ## 5. Roadmap (next steps, in priority order)
 
 Done in 0.22: kingdom rank with HUD bar, daily/weekly contracts with streak, rarity loot chests.
@@ -307,6 +316,7 @@ Done in 0.33 (includes the 0.32 polish pass): market stalls with classic and rar
 building, kingdom stages (Hamlet → Village → Town → City) that upgrade every home, kingdom map (M), archers walk
 to their posts, `/kingdom perf`.
 
+Done in 0.39: trial modifiers (see 4.28).
 Done in 0.38: wall hardening on real terrain, wall relocation, visible next step for construction, mission
 bearing, trial range/timer, in-game guide (see 4.27). Manual checklist: `docs/playtest-v038-checklist.md`.
 
