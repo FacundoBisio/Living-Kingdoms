@@ -819,6 +819,7 @@ public final class VillageScreen extends KingdomScreen {
             y=paragraph(g,Component.translatable(notice),x,y,w,notice.endsWith(".rejected")?ERROR:SUCCESS);
         }
         y=paragraph(g,tr("population",data.getInt("population")),x,y,w,INK);
+        y=happiness(g,x,y,w);
         y=paragraph(g,tr("housing",data.getInt("housing_occupied"),data.getInt("housing_total")),x,y,w,INK);
         y=paragraph(g,tr("housing_free",data.getInt("housing_free")),x,y,w,MUTED);
         if(!data.getBoolean("immigration_accept")) y=paragraph(g,immigrationRequirement(),x,y,w,ERROR);
@@ -974,8 +975,19 @@ public final class VillageScreen extends KingdomScreen {
         }
     }
 
+    /** Kingdom mood with its reason and what it does to work speed (absent for kingdoms without a mood). */
+    private int happiness(GuiGraphics g,int x,int y,int w) {
+        if(!data.contains("happiness_band")) return y;
+        String band=data.getString("happiness_band"),issue=data.getString("happiness_issue");
+        var line=Component.translatable("hud.livingkingdoms.happiness",data.getInt("happiness"),Component.translatable("hud.livingkingdoms.happiness."+band));
+        if(!issue.equals("none")) line.append(" · ").append(Component.translatable("hud.livingkingdoms.happiness.issue."+issue));
+        line.append(". ").append(Component.translatable("hud.livingkingdoms.happiness.effect."+band));
+        return paragraph(g,line,x,y,w,band.equals("unhappy")?ERROR:band.equals("happy")?SUCCESS:INK);
+    }
+
     private int renderSettlementMetrics(GuiGraphics g,int x,int y,int w) {
         y=paragraph(g,tr("population",data.getInt("population")),x,y,w,INK);
+        y=happiness(g,x,y,w);
         y=paragraph(g,tr("housing",data.getInt("housing_occupied"),data.getInt("housing_total")),x,y,w,INK);
         y=paragraph(g,tr("housing_free",data.getInt("housing_free")),x,y,w,MUTED);
         y=paragraph(g,tr("immigration_pending",data.getInt("immigration_pending")),x,y,w,MUTED);

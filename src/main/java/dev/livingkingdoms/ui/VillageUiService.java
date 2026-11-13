@@ -102,7 +102,7 @@ public final class VillageUiService {
         var session = new Session(UUID.randomUUID(), settlement.id(), player.level().dimension().location().toString(), null, null, now(player), null, false, false, true, true);
         var job = dev.livingkingdoms.profession.persistence.ProfessionSavedData.get(player.server).profession(citizen.id())
                 .filter(p -> p.active()).map(p -> p.type()).orElse(dev.livingkingdoms.profession.domain.ProfessionType.UNASSIGNED);
-        var talk = dev.livingkingdoms.rpg.ResidentChatter.line(player.serverLevel(), settlement.id(), job, player.getGameProfile().getName(), VillageNames.display(settlement), player.getRandom());
+        var talk = dev.livingkingdoms.rpg.ResidentChatter.line(player.serverLevel(), settlement.id(), job, dev.livingkingdoms.rpg.domain.Trait.of(citizen.id()), player.getGameProfile().getName(), VillageNames.display(settlement), player.getRandom());
         QuestJournalService.dismiss(player); SESSIONS.put(player, session);
         sendCitizens(player, session, settlement, null, citizen.id(), talk);
         return true;
@@ -414,6 +414,8 @@ public final class VillageUiService {
         tag.putBoolean("construction",true);
         tag.putBoolean("can_help", KingdomOnboardingService.canHelp(player, settlement));
         tag.putInt("population",CitizenService.population(player.server,settlement));
+        var mood=dev.livingkingdoms.rpg.MoodService.happiness(player.server,settlement.id());
+        if(mood!=dev.livingkingdoms.rpg.domain.Happiness.NEUTRAL) { tag.putInt("happiness",mood.value()); tag.putString("happiness_band",mood.band().id()); tag.putString("happiness_issue",mood.issue().id()); }
         tag.putInt("housing_total",housing.total()); tag.putInt("housing_occupied",housing.occupied()); tag.putInt("housing_free",housing.free());
         tag.putInt("immigration_pending",candidates.size());
         tag.putInt("security",dev.livingkingdoms.profession.SecurityService.score(player.server,settlement.id()));
@@ -571,6 +573,7 @@ public final class VillageUiService {
                         && dev.livingkingdoms.profession.ProfessionService.canAssignOperational(player.serverLevel(),citizen,p,buildings,jobs,type));
             var rpg=dev.livingkingdoms.rpg.persistence.RpgSavedData.get(player.server); var bond=rpg.bond(citizen.id());
             v.putInt("bond",bond.value()); v.putString("bond_level",bond.level().id());
+            v.putString("trait",dev.livingkingdoms.rpg.domain.Trait.of(citizen.id()).id());
             var type=p.active()?p.type():dev.livingkingdoms.profession.domain.ProfessionType.UNASSIGNED;
             int step=switch(type) { case GUARD -> dev.livingkingdoms.config.GuardConfig.XP_STEP.get(); case BUILDER -> dev.livingkingdoms.config.BuilderConfig.XP_STEP.get(); default -> dev.livingkingdoms.config.ProfessionConfig.XP_STEP.get(); };
             int cap=switch(type) { case GUARD -> dev.livingkingdoms.config.GuardConfig.LEVEL_CAP.get(); case BUILDER -> dev.livingkingdoms.config.BuilderConfig.LEVEL_CAP.get(); default -> dev.livingkingdoms.config.ProfessionConfig.LEVEL_CAP.get(); };

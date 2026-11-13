@@ -31,7 +31,8 @@ public final class CitizenRoutine {
     public static boolean shelter(Villager worker,Citizen citizen,Profession profession,long now) {
         if(!(worker.level() instanceof ServerLevel level) || citizen.role()==CitizenRole.MAYOR) return false;
         if(dev.livingkingdoms.rpg.RallyService.steer(worker,citizen)) return true;
-        boolean threat=threatened(worker,citizen);
+        // A brave resident works through alarms and threat alerts; an enemy next to them still sends them home.
+        boolean threat=dev.livingkingdoms.rpg.domain.Trait.of(citizen.id())==dev.livingkingdoms.rpg.domain.Trait.BRAVE?BuilderWork.inDanger(worker):threatened(worker,citizen);
         boolean working=profession!=null && profession.type()==ProfessionType.BUILDER?Math.floorMod(level.getDayTime(),24000)<12000:workingHours(level);
         if(!threat && working) {if(worker.isSleeping()) worker.stopSleeping();return false;}
         if(worker.isNoAi() || worker.isPassenger() || worker.isLeashed() || worker.isTrading()) return false;

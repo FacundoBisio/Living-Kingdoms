@@ -61,6 +61,13 @@ public final class KingdomHudPresentation {
                 if (local.getInt("alarm") > 0) kingdom.add(new Row(Icon.SHIELD, tr("alarm", local.getInt("alarm") / 60, String.format(java.util.Locale.ROOT, "%02d", local.getInt("alarm") % 60)), Tone.WARNING));
                 kingdom.add(new Row(Icon.REPUTATION, tr("reputation_value", local.getInt("reputation")), Tone.NORMAL));
                 kingdom.add(new Row(Icon.PEOPLE, expanded ? tr("population", local.getInt("population"), local.getInt("housing")) : tr("population_value", local.getInt("population")), Tone.NORMAL));
+                if (local.contains("happiness_band")) {
+                    String band = local.getString("happiness_band"), issue = local.getString("happiness_issue");
+                    var mood = tr("happiness", local.getInt("happiness"), tr("happiness." + band)).copy();
+                    // The reason is always shown while unhappy: it is the next step.
+                    if (!issue.equals("none") && (expanded || band.equals("unhappy"))) mood.append(" · ").append(tr("happiness.issue." + issue));
+                    kingdom.add(new Row(Icon.PEOPLE, mood, band.equals("unhappy") ? Tone.WARNING : band.equals("happy") ? Tone.SUCCESS : Tone.NORMAL));
+                }
                 if (local.getString("safety").equals("threatened")) kingdom.add(new Row(Icon.SHIELD, tr("threatened"), Tone.WARNING));
                 else if (expanded) kingdom.add(new Row(Icon.SHIELD, tr("safe"), Tone.MUTED));
                 if (expanded) kingdom.add(new Row(Icon.REPUTATION, tr("reputation", local.getInt("level"), local.getInt("progress"), local.getInt("next")), Tone.MUTED));

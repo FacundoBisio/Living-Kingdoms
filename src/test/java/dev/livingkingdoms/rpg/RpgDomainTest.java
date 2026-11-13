@@ -6,6 +6,8 @@ import dev.livingkingdoms.quest.expansion.domain.QuestDifficulty;
 import dev.livingkingdoms.quest.expansion.domain.QuestTemplate;
 import dev.livingkingdoms.rpg.domain.ChallengeModifier;
 import dev.livingkingdoms.rpg.domain.ChallengeTier;
+import dev.livingkingdoms.rpg.domain.Happiness;
+import dev.livingkingdoms.rpg.domain.Trait;
 import dev.livingkingdoms.rpg.domain.QuestBonus;
 import dev.livingkingdoms.rpg.domain.RallyPolicy;
 import dev.livingkingdoms.rpg.domain.RefinementRules;
@@ -58,6 +60,40 @@ class RpgDomainTest {
         assertEquals(0, easy.tomes()); assertEquals(1, hard.tomes());
         assertTrue(QuestBonus.of(QuestTemplate.BANDIT_REQUEST, QuestDifficulty.VERY_EASY).whetstones() >= 1, "Combat always pays a whetstone");
         assertThrows(IllegalArgumentException.class, () -> new QuestBonus(-1, 0, 0));
+    }
+
+    @Test void happinessIsBoundedAndNamesTheWorstIssue() {
+        var fresh = Happiness.of(3, 4, true, 0, 1);
+        assertEquals(Happiness.Band.CONTENT, fresh.band(), "A fed, housed hamlet is content, not yet happy");
+        assertEquals(Happiness.Issue.NO_TAVERN, fresh.issue());
+        var thriving = Happiness.of(10, 12, true, 3, 20);
+        assertEquals(100, thriving.value());
+        assertEquals(Happiness.Band.HAPPY, thriving.band());
+        assertEquals(Happiness.Issue.NONE, thriving.issue());
+        var starving = Happiness.of(10, 2, false, 0, 0);
+        assertEquals(0, starving.value());
+        assertEquals(Happiness.Band.UNHAPPY, starving.band());
+        assertEquals(Happiness.Issue.NO_FOOD, starving.issue(), "Food outranks beds");
+        assertEquals(Happiness.Issue.NO_BEDS, Happiness.of(10, 2, true, 3, 5).issue());
+        assertEquals(Happiness.Issue.NONE, Happiness.of(5, 4, true, 1, 5).issue(), "The Mayor needs no house bed");
+        assertTrue(Happiness.of(4, 4, false, 0, 1).value() < Happiness.of(4, 4, true, 0, 1).value());
+        assertThrows(IllegalArgumentException.class, () -> Happiness.of(-1, 0, true, 0, 0));
+    }
+
+    @Test void traitsAreStableSpreadAndBounded() {
+        var seen = java.util.EnumSet.noneOf(Trait.class);
+        for (int i = 0; i < 64; i++) {
+            var id = new java.util.UUID(i * 7919L, i * 104729L + 3);
+            assertEquals(Trait.of(id), Trait.of(new java.util.UUID(id.getMostSignificantBits(), id.getLeastSignificantBits())));
+            seen.add(Trait.of(id));
+        }
+        assertEquals(java.util.EnumSet.allOf(Trait.class), seen, "Every trait appears among residents");
+        for (var band : Happiness.Band.values()) for (var trait : Trait.values()) {
+            double work = Trait.work(band, trait);
+            assertTrue(work >= Trait.MIN_WORK && work <= Trait.MAX_WORK, band + "/" + trait + " = " + work);
+        }
+        assertTrue(Trait.work(Happiness.Band.HAPPY, Trait.HARD_WORKING) > Trait.work(Happiness.Band.CONTENT, Trait.BRAVE));
+        assertTrue(Trait.work(Happiness.Band.UNHAPPY, Trait.LAZY) < Trait.work(Happiness.Band.CONTENT, Trait.BRAVE));
     }
 
     @Test void challengeModifiersAreBoundedAndPayPerHandicap() {

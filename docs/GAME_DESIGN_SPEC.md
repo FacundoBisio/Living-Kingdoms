@@ -306,6 +306,21 @@ Long loop (hours): refine a weapon to +5, win the Warlord trial, develop the Tow
 - The choice travels as a bit mask in the start payload (registrar version bumped) and is validated on the
   server; it lives only in the transient run, never in SavedData. Unknown bits or more than two are refused.
 
+### 4.29 Kingdom happiness and resident traits (0.40)
+- **Happiness (0-100)** of an established player kingdom, derived on demand and never stored: base 40; food in
+  storage +15 / none -25; beds for everyone (the Mayor needs none) +15 / not enough -15; taverns +5 per level
+  (max +15); kingdom rank +1 per level (max +15). Bands: unhappy below 40, happy from 75.
+- **Effect:** a happy kingdom works 10% faster, an unhappy one 10% slower (farm and workshop cooldowns, builder
+  work units). Residents already eat from Kingdom Storage (`KingdomEconomy.consume`), so "fed" is simply food in
+  stock; no new consumption and no new building.
+- **Always the next step:** the HUD row and the Mayor's info show the value, the band and the one thing to fix
+  (no food, not enough beds, build a tavern). The reason is always visible while unhappy.
+- **Traits:** every resident has one fixed trait derived from their id (not stored): Hard-working (+10% work),
+  Lazy (-10%), Brave (keeps working through alarms and threat alerts, still runs from an enemy next to them).
+  Shown on the resident sheet; each trait adds two small-talk lines. Mood x trait is bounded to 0.8-1.2.
+- Transient only: one cached mood per kingdom (10 s, max 64), cleared on server stop. NPC kingdoms and
+  founding camps are neutral.
+
 ## 5. Roadmap (next steps, in priority order)
 
 Done in 0.22: kingdom rank with HUD bar, daily/weekly contracts with streak, rarity loot chests.
@@ -316,6 +331,7 @@ Done in 0.33 (includes the 0.32 polish pass): market stalls with classic and rar
 building, kingdom stages (Hamlet → Village → Town → City) that upgrade every home, kingdom map (M), archers walk
 to their posts, `/kingdom perf`.
 
+Done in 0.40: kingdom happiness and three resident traits (see 4.29).
 Done in 0.39: trial modifiers (see 4.28).
 Done in 0.38: wall hardening on real terrain, wall relocation, visible next step for construction, mission
 bearing, trial range/timer, in-game guide (see 4.27). Manual checklist: `docs/playtest-v038-checklist.md`.
@@ -336,7 +352,7 @@ structures and vanilla-texture geometry.
 | ~~0.35~~ done (materials; camp → Founders' Lodge in 0.37; second floors designed, next) | **Building upgrades with visual tiers** | Visible progress | Upgrade = new template stage, same footprint rules |
 | ~~0.35~~ done | **Tavern** (immigrants arrive over time; hire for emeralds) and a functional **Warehouse** (real chests feeding Kingdom Storage) | Population growth and logistics | Immigration cadence visible in the UI |
 | ~~0.36/0.37~~ done (traps open) | More accepted main missions (hunts, upgrades), wall gatehouse and trap set-pieces | Clear goals | Quest checklists from real state |
-| 0.36 | Resident happiness and 3 traits (hard-working, lazy, brave) affecting work and small talk | Residents feel like people | One bar, three traits, bounded effects; shown in the life sheet |
+| ~~0.36~~ done in 0.40 (kingdom-wide bar, traits per resident) | Resident happiness and 3 traits (hard-working, lazy, brave) affecting work and small talk | Residents feel like people | One bar, three traits, bounded effects; shown in the life sheet |
 | 0.35 | Expeditions that discover ruins: a map item leads to a real dungeon with a boss and a trophy | Exploration pays more than mining | Structure placed once, cleaned up, trophy only from the boss |
 | 0.36 | Production chains (bakery: wheat → bread; carpentry: logs → furniture that raises happiness) | Every building matters | Uses Kingdom Storage, no free items |
 | 0.36 | Diplomacy with NPC kingdoms: envoys with requests, trade treaties, caravans between kingdoms | The world is alive | Reputation per kingdom, reversible, no forced war |

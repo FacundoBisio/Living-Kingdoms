@@ -92,6 +92,7 @@ public final class EconomicWork {
         var transfer=KingdomEconomy.plan(level.getServer(),p.settlementId(),recipe.inputs(),recipe.outputs(),true);
         if(transfer.isEmpty()) {jobs.replace(p,p.work(WorkState.MISSING_INPUTS,now+100,0,0));return false;}
         int cooldown=EconomicRecipe.cooldown(EconomyConfig.PRODUCTION_INTERVAL.get(),p.level().value(),BuildingDevelopment.level(level.getServer(),p.settlementId(),workplace.id()));
+        cooldown=(int)Math.max(1,Math.round(cooldown/dev.livingkingdoms.rpg.MoodService.workMultiplier(level.getServer(),p.settlementId(),citizen.id())));
         var scheduled=p.work(WorkState.WORKING,now+cooldown,0,0);
         if(!KingdomEconomy.valid(level.getServer(),transfer.get()) || !jobs.replace(p,scheduled)) return false;
         if(!KingdomEconomy.commit(level.getServer(),transfer.get())) throw new IllegalStateException("Production changed within server-thread batch");

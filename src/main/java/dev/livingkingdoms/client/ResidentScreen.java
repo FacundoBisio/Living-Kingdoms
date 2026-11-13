@@ -118,6 +118,7 @@ public final class ResidentScreen extends KingdomScreen {
             int level = Math.max(1, p.getInt("profession_level")), cap = Math.max(1, p.getInt("level_cap"));
             g.drawString(font, Component.translatable("profession.livingkingdoms." + profession).append(" · ").append(tr("level", level, cap)), x, y, VillageTheme.INK, false);
             y += 11;
+            if (p.contains("trait")) for (var l : font.split(tr("trait." + p.getString("trait")), w)) { g.drawString(font, l, x, y, VillageTheme.AVAILABLE, false); y += 10; }
             if (!profession.equals("unassigned") && !profession.equals("mayor")) {
                 long floor = p.getLong("xp_floor"), next = Math.max(floor + 1, p.getLong("xp_next")), xp = p.getLong("xp");
                 g.fill(x, y, x + w, y + 5, VillageTheme.INSET);

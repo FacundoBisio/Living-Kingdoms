@@ -15,10 +15,10 @@ import java.util.UUID;
  * ({@code %1$s} player name, {@code %2$s} kingdom name) so every line exists in each supported language.
  */
 public final class ResidentChatter {
-    public static final int PROFESSION_LINES = 5, ODD_LINES = 12, SITUATION_LINES = 3;
+    public static final int PROFESSION_LINES = 5, ODD_LINES = 12, SITUATION_LINES = 3, TRAIT_LINES = 2;
     private ResidentChatter() {}
 
-    public static CompoundTag line(ServerLevel level, UUID settlement, ProfessionType profession, String player, String kingdom, RandomSource random) {
+    public static CompoundTag line(ServerLevel level, UUID settlement, ProfessionType profession, dev.livingkingdoms.rpg.domain.Trait trait, String player, String kingdom, RandomSource random) {
         String key;
         long time = Math.floorMod(level.getDayTime(), 24000);
         if (DefenseService.status(level.getServer(), settlement) == SettlementSafety.THREATENED || AlarmService.active(level.getServer(), settlement))
@@ -26,6 +26,7 @@ public final class ResidentChatter {
         else if (EventService.festival(level.getServer(), settlement) && random.nextInt(2) == 0) key = "festival." + random.nextInt(SITUATION_LINES);
         else if (level.isRaining() && random.nextInt(3) == 0) key = "rain." + random.nextInt(SITUATION_LINES);
         else if (time >= 13000 && time < 23000 && random.nextInt(3) == 0) key = "night." + random.nextInt(SITUATION_LINES);
+        else if (random.nextInt(4) == 0) key = "trait." + trait.id() + "." + random.nextInt(TRAIT_LINES);
         else if (random.nextInt(2) == 0) key = job(profession) + "." + random.nextInt(PROFESSION_LINES);
         else key = "odd." + random.nextInt(ODD_LINES);
         var tag = new CompoundTag();

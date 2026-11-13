@@ -45,6 +45,8 @@ public final class KingdomHudService {
                         settlement.putInt("rank",dev.livingkingdoms.rpg.domain.KingdomRank.level(xp));
                         settlement.putLong("rank_progress",dev.livingkingdoms.rpg.domain.KingdomRank.progress(xp));
                         settlement.putLong("rank_span",dev.livingkingdoms.rpg.domain.KingdomRank.span(xp));
+                        var mood=dev.livingkingdoms.rpg.MoodService.happiness(player.server,s.id());
+                        if(mood!=dev.livingkingdoms.rpg.domain.Happiness.NEUTRAL) { settlement.putInt("happiness",mood.value()); settlement.putString("happiness_band",mood.band().id()); settlement.putString("happiness_issue",mood.issue().id()); }
                         // Dynamic context rows: events, claimable contracts and the construction you stand next to.
                         var event=dev.livingkingdoms.rpg.EventService.hud(player,s.id());
                         if(!event.isEmpty()) settlement.put("event",event);

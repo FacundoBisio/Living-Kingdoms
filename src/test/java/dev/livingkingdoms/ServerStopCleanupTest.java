@@ -10,7 +10,7 @@ class ServerStopCleanupTest {
     private static final List<String> OWNERS = List.of(
         "dev.livingkingdoms.construction.ConstructionService", "dev.livingkingdoms.construction.ConstructionStages",
         "dev.livingkingdoms.construction.persistence.ConstructionSavedData", "dev.livingkingdoms.economy.BuildingHearts",
-        "dev.livingkingdoms.rpg.RpgPerf");
+        "dev.livingkingdoms.rpg.RpgPerf", "dev.livingkingdoms.rpg.MoodService");
 
     @Test
     void ownersExposeStaticCleanup() throws Exception {

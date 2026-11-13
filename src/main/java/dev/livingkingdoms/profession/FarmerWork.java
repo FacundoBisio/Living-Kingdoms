@@ -66,6 +66,7 @@ public final class FarmerWork {
         if(CitizenRoutine.shelter(v,citizen,p,now)) return false;
         if(now<p.nextWorkAt()) return false;
         int cooldown=FarmerProgression.cooldown(ProfessionConfig.WORK_COOLDOWN.get(),p.level().value(),ProfessionConfig.LEVEL_CAP.get());
+        cooldown=(int)Math.max(1,Math.round(cooldown/dev.livingkingdoms.rpg.MoodService.workMultiplier(level.getServer(),citizen.settlementId(),citizen.id())));
         long next=now+cooldown;
         if(v.isNoAi() || v.isPassenger() || v.isLeashed() || v.isTrading()) { v.getNavigation().stop(); data.replace(p,p.work(WorkState.IDLE,next,p.cropCursor(),0)); return false; }
         long daytime=Math.floorMod(level.getDayTime(),24000);

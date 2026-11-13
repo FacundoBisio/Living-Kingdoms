@@ -56,6 +56,37 @@ public final class CitizenLifeGameTests {
     }
 
     @GameTest(template = "empty", timeoutTicks = 300)
+    public static void kingdomMoodFollowsFoodAndResidentsShowTheirTrait(GameTestHelper h) {
+        var f = ConstructionGameTests.found(h, 224096);
+        var server = h.getLevel().getServer(); var id = f.settlement().id(); var jobs = ProfessionSavedData.get(server);
+        h.assertTrue(dev.livingkingdoms.rpg.MoodService.happiness(server, id) == dev.livingkingdoms.rpg.domain.Happiness.NEUTRAL, "A founding camp has no mood yet");
+        establish(h, f);
+        jobs.ensureFood(id, ProfessionService.food(server, id).capacity());
+        var food = ProfessionService.food(server, id);
+        if (food.stock() > 0) h.assertTrue(jobs.exchangeFood(id, food, food.stock(), 0), "Storage emptied");
+        dev.livingkingdoms.rpg.MoodService.clear();
+        var hungry = dev.livingkingdoms.rpg.MoodService.happiness(server, id);
+        h.assertTrue(hungry.issue() == dev.livingkingdoms.rpg.domain.Happiness.Issue.NO_FOOD, "An empty larder is the issue: " + hungry);
+        f.player().setPos(f.settlement().territory().x() + .5, f.player().getY(), f.settlement().territory().z() + 2.5);
+        var hud = dev.livingkingdoms.ui.KingdomHudService.snapshot(f.player()).getCompound("settlement");
+        h.assertTrue(hud.getInt("happiness") == hungry.value() && hud.getString("happiness_issue").equals("no_food"), "HUD carries mood and reason: " + hud);
+        h.assertTrue(jobs.addFood(id, 1) == 1, "One unit of food delivered");
+        dev.livingkingdoms.rpg.MoodService.clear();
+        var fed = dev.livingkingdoms.rpg.MoodService.happiness(server, id);
+        h.assertTrue(fed.value() > hungry.value() && fed.issue() != dev.livingkingdoms.rpg.domain.Happiness.Issue.NO_FOOD, "Food raises the mood: " + hungry + " -> " + fed);
+        var citizen = CitizenSavedData.get(server).citizens(id).stream().filter(c -> c.role() != CitizenRole.MAYOR).findFirst().orElseThrow();
+        var villager = (Villager) h.getLevel().getEntity(citizen.entityId());
+        f.player().setPos(villager.getX() + 1, villager.getY(), villager.getZ());
+        f.player().snapshots.clear();
+        h.assertTrue(VillageUiService.openResident(f.player(), villager, citizen), "Resident sheet opens");
+        var rows = f.player().snapshots.getLast().getList("citizens", 10);
+        var row = rows.stream().map(t -> (net.minecraft.nbt.CompoundTag) t).filter(t -> t.getUUID("id").equals(citizen.id())).findFirst().orElseThrow();
+        h.assertTrue(row.getString("trait").equals(dev.livingkingdoms.rpg.domain.Trait.of(citizen.id()).id()), "The sheet shows the resident's fixed trait: " + row.getString("trait"));
+        h.assertTrue(net.minecraft.locale.Language.getInstance().has("resident.livingkingdoms.trait." + row.getString("trait")), "Trait text exists");
+        h.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 300)
     public static void talkingToAResidentOpensTheirSheetWithSmallTalk(GameTestHelper h) {
         var f = ConstructionGameTests.found(h, 222048);
         establish(h, f);
